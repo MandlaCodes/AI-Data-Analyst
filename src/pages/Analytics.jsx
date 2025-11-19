@@ -67,8 +67,8 @@ export default function Analytics() {
 
   // Fetch connected apps
   useEffect(() => {
-    axios
-      .get(`http://127.0.0.1:8000/connected-apps?user_id=${userId}`)
+    axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/connected-apps?user_id=${userId}`)
+
       .then((res) => {
         const data = res.data || {};
         if (Array.isArray(data.apps)) {
@@ -85,8 +85,8 @@ export default function Analytics() {
   useEffect(() => {
     if (selectedApp === "google_sheets") {
       setLoadingSheets(true);
-      axios
-        .get(`http://127.0.0.1:8000/sheets-list/${userId}`)
+      axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets-list/${userId}`)
+
         .then((res) => setSheets(res.data?.spreadsheets || []))
         .catch(() => setSheets([]))
         .finally(() => setLoadingSheets(false));
@@ -102,7 +102,8 @@ export default function Analytics() {
     setLoadingSheetValues(true);
     setProgress(20);
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/sheets/${userId}/${selectedSheet.id}`);
+      const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets/${userId}/${selectedSheet.id}`)
+      ;
       const values = res.data.values || [];
       setSheetData(values);
 
@@ -213,7 +214,8 @@ export default function Analytics() {
 
   const generateAIInsights = async () => {
     try {
-      const res = await axios.post("http://127.0.0.1:8000/analyze-dataset", {
+      const res = await axios.post("https://ai-data-analyst-backend-1nuw.onrender.com/analyze-dataset", {
+
         user_id: userId,
         app: selectedApp || "google_sheets",
         dataset: sheetData,

@@ -15,10 +15,11 @@ export default function Integrations() {
   const [search, setSearch] = useState("");
   const userId = "123"; // Your logged-in user ID
 
+  const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
   // Load connected apps from backend
   useEffect(() => {
     axios
-      .get(`http://127.0.0.1:8000/connected-apps?user_id=${userId}`)
+    .get(`${BACKEND}/connected-apps?user_id=${userId}`)
       .then((res) => {
         const statuses = res.data; // e.g., { google_sheets: true }
         setApps((prev) =>
@@ -34,12 +35,12 @@ export default function Integrations() {
 
   // Start OAuth flow
   const connectIntegration = (app) => {
-    window.location.href = `http://127.0.0.1:8000/auth/${app.key}?user_id=${userId}`;
+    window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
   };
 
   // Disconnect
   const disconnect = async (appKey) => {
-    await axios.post(`http://127.0.0.1:8000/disconnect`, { user_id: userId, app: appKey });
+    await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
     setApps((prev) =>
       prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
     );
