@@ -1,25 +1,46 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect, useState } from "react";
+import Landing from "./pages/Landing";
+import Onboarding from "./pages/Onboarding";
+import Dashboard from "./pages/Dashboard";
 
-function App() {
+export default function App() {
+  const [page, setPage] = useState("landing");
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("adt_profile");
+    if (saved) {
+      setProfile(JSON.parse(saved));
+      setPage("dashboard");
+    }
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      {page === "landing" && (
+        <Landing onGetStarted={() => setPage("onboarding")} />
+      )}
+
+      {page === "onboarding" && (
+        <Onboarding
+          onComplete={(p) => {
+            setProfile(p);
+            setPage("dashboard");
+          }}
+        />
+      )}
+
+      {page === "dashboard" && (
+        <Dashboard
+          profile={profile}
+          onLogout={() => {
+            localStorage.removeItem("adt_profile");
+            setProfile(null);
+            setPage("landing");
+          }}
+        />
+      )}
+    </>
   );
 }
 
-export default App;
