@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircleIcon, XCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
-import { useLocation } from "react-router-dom";
 
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
@@ -14,19 +13,16 @@ const availableApps = [
 export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
-  const location = useLocation();
-
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  // Replace this with real logged-in user ID from your auth system
+  // Replace with actual logged-in user ID
   const [userId, setUserId] = useState("123"); 
 
   // Fetch connected apps from backend
   const fetchConnectedApps = async (uid = userId) => {
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${uid}`);
-      const statuses = res.data; // e.g., { google_sheets: true }
-
+      const statuses = res.data;
       setApps((prev) =>
         prev.map((app) => ({
           ...app,
@@ -39,45 +35,34 @@ export default function Integrations() {
     }
   };
 
-  // On component mount, fetch connected apps
   useEffect(() => {
     fetchConnectedApps();
   }, [userId]);
 
-  // Handle OAuth return from Google
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const justConnected = searchParams.get("connected") === "true";
-    const appType = searchParams.get("type");
-    const oauthUserId = searchParams.get("user_id");
-
-    if (justConnected && appType && oauthUserId) {
-      // Update userId if it came from OAuth
-      setUserId(oauthUserId);
-
-      // Update the specific app immediately
-      setApps((prev) =>
-        prev.map((app) =>
-          app.key === appType
-            ? { ...app, connected: true, lastSync: new Date().toLocaleString() }
-            : app
-        )
-      );
-
-      // Optionally, refetch all connected apps from backend
-      fetchConnectedApps(oauthUserId);
-
-      // Clean URL so query params don't persist
-      window.history.replaceState({}, document.title, "/integrations");
-    }
-  }, [location.search]);
-
-  // Start OAuth flow
+  // OAuth popup flow
   const connectIntegration = (app) => {
-    window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+
+    const popup = window.open(
+      `${BACKEND}/auth/${app.key}?user_id=${userId}`,
+      "oauth",
+      `width=${width},height=${height},top=${top},left=${left}`
+    );
+
+    const handleMessage = (e) => {
+      if (e.data === "oauth-success") {
+        fetchConnectedApps(); // update UI immediately
+        popup?.close();
+        window.removeEventListener("message", handleMessage);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
   };
 
-  // Disconnect an app
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
     setApps((prev) =>
