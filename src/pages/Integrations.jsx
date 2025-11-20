@@ -15,7 +15,9 @@ export default function Integrations({ userEmail }) {
   const [search, setSearch] = useState("");
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
-  const userId = userEmail; // dynamically use logged-in email
+
+  // If userEmail not passed as prop, try localStorage/session
+  const userId = userEmail || localStorage.getItem("userEmail");
 
   const fetchConnectedApps = async () => {
     if (!userId) return;
@@ -31,7 +33,7 @@ export default function Integrations({ userEmail }) {
         }))
       );
     } catch (err) {
-      console.log("No connected apps yet");
+      console.log("No connected apps yet or fetch error", err);
     }
   };
 
@@ -39,17 +41,17 @@ export default function Integrations({ userEmail }) {
     fetchConnectedApps();
   }, [userId]);
 
-  // -------------------------------
-  // Connect with popup + postMessage
-  // -------------------------------
+  // Connect popup + postMessage
   const connectIntegration = (app) => {
+    if (!userId) return alert("User not logged in!");
+
     const width = 600;
     const height = 700;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
 
     const popup = window.open(
-      `${BACKEND}/auth/${app.key}?user_id=${userId}`,
+      `${BACKEND}/auth/${app.key}?user_id=${encodeURIComponent(userId)}`,
       "oauth",
       `width=${width},height=${height},top=${top},left=${left}`
     );
@@ -58,11 +60,12 @@ export default function Integrations({ userEmail }) {
       "http://localhost:3000",
       "https://ai-data-analyst-1xksv2hif-mandlas-projects-228bb82e.vercel.app",
       "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-      "https://ai-data-analyst-swart.vercel.app",
+      "https://ai-data-analyst-swart.vercel.app"
     ];
 
     const handleMessage = (e) => {
       if (!allowedOrigins.includes(e.origin)) return;
+
       if (e.data === "oauth-success") {
         fetchConnectedApps();
         popup?.close();
@@ -74,6 +77,7 @@ export default function Integrations({ userEmail }) {
   };
 
   const disconnect = async (appKey) => {
+    if (!userId) return;
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
 
     setApps((prev) =>
