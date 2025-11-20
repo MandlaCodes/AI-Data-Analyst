@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { CheckCircleIcon, XCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
 
-// List of all available integrations
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
   { name: "HubSpot", key: "hubspot", connected: false, lastSync: null },
@@ -14,17 +13,27 @@ const availableApps = [
 export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
+  const [userEmail, setUserEmail] = useState(""); // dynamic user email
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  // Grab logged-in user from localStorage/session (set this during login)
-  const userId = localStorage.getItem("user_email"); // e.g., "mandlandhlovu264@gmail.com"
+  // -------------------------------
+  // Prompt user email if not set
+  // -------------------------------
+  useEffect(() => {
+    if (!userEmail) {
+      const email = prompt("Enter your email to manage integrations:");
+      if (email) setUserEmail(email);
+    }
+  }, [userEmail]);
 
+  // -------------------------------
+  // Fetch connected apps
+  // -------------------------------
   const fetchConnectedApps = async () => {
-    if (!userId) return;
-
+    if (!userEmail) return;
     try {
-      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
+      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${encodeURIComponent(userEmail)}`);
       const statuses = res.data;
 
       setApps((prev) =>
@@ -41,13 +50,13 @@ export default function Integrations() {
 
   useEffect(() => {
     fetchConnectedApps();
-  }, [userId]);
+  }, [userEmail]);
 
   // -------------------------------
-  // Connect integration via popup + postMessage
+  // Connect integration (OAuth popup)
   // -------------------------------
   const connectIntegration = (app) => {
-    if (!userId) return alert("User not logged in!");
+    if (!userEmail) return alert("User not logged in!");
 
     const width = 600;
     const height = 700;
@@ -55,23 +64,21 @@ export default function Integrations() {
     const top = window.screen.height / 2 - height / 2;
 
     const popup = window.open(
-      `${BACKEND}/auth/${app.key}?user_id=${encodeURIComponent(userId)}`,
+      `${BACKEND}/auth/${app.key}?user_id=${encodeURIComponent(userEmail)}`,
       "oauth",
       `width=${width},height=${height},top=${top},left=${left}`
     );
 
     const allowedOrigins = [
       "http://localhost:3000",
-      "https://ai-data-analyst-1xksv2hif-mandlas-projects-228bb82e.vercel.app",
       "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-      "https://ai-data-analyst-swart.vercel.app",
+      "https://ai-data-analyst-swart.vercel.app"
     ];
 
     const handleMessage = (e) => {
       if (!allowedOrigins.includes(e.origin)) return;
-
       if (e.data === "oauth-success") {
-        fetchConnectedApps();
+        fetchConnectedApps(); // refresh app status
         popup?.close();
         window.removeEventListener("message", handleMessage);
       }
@@ -80,11 +87,13 @@ export default function Integrations() {
     window.addEventListener("message", handleMessage);
   };
 
+  // -------------------------------
+  // Disconnect integration
+  // -------------------------------
   const disconnect = async (appKey) => {
-    if (!userId) return alert("User not logged in!");
+    if (!userEmail) return alert("User not logged in!");
 
-    await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
-
+    await axios.post(`${BACKEND}/disconnect`, { user_id: userEmail, app: appKey });
     setApps((prev) =>
       prev.map((app) =>
         app.key === appKey ? { ...app, connected: false, lastSync: null } : app
@@ -95,7 +104,6 @@ export default function Integrations() {
   const filteredApps = apps.filter((app) =>
     app.name.toLowerCase().includes(search.toLowerCase())
   );
-
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
