@@ -53,7 +53,15 @@ export default function Integrations() {
       `width=${width},height=${height},top=${top},left=${left}`
     );
 
+    const allowedOrigins = [
+      "http://localhost:5173",
+      "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
+      "https://ai-data-analyst-swart.vercel.app",
+    ];
+
     const handleMessage = (e) => {
+      if (!allowedOrigins.includes(e.origin)) return;
+
       if (e.data === "oauth-success") {
         fetchConnectedApps(); // update UI immediately
         popup?.close();
