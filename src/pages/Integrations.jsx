@@ -10,14 +10,15 @@ const availableApps = [
   { name: "Mailchimp", key: "mailchimp", connected: false, lastSync: null },
 ];
 
-export default function Integrations() {
+export default function Integrations({ userEmail }) {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
-  const userId = "123"; // Replace with actual logged-in user ID
+  const userId = userEmail; // dynamically use logged-in email
 
   const fetchConnectedApps = async () => {
+    if (!userId) return;
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
       const statuses = res.data;
@@ -36,7 +37,7 @@ export default function Integrations() {
 
   useEffect(() => {
     fetchConnectedApps();
-  }, []);
+  }, [userId]);
 
   // -------------------------------
   // Connect with popup + postMessage
@@ -53,17 +54,15 @@ export default function Integrations() {
       `width=${width},height=${height},top=${top},left=${left}`
     );
 
-    // IMPORTANT: Added your REAL frontend domain
     const allowedOrigins = [
       "http://localhost:3000",
       "https://ai-data-analyst-1xksv2hif-mandlas-projects-228bb82e.vercel.app",
       "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-      "https://ai-data-analyst-swart.vercel.app"
+      "https://ai-data-analyst-swart.vercel.app",
     ];
 
     const handleMessage = (e) => {
       if (!allowedOrigins.includes(e.origin)) return;
-
       if (e.data === "oauth-success") {
         fetchConnectedApps();
         popup?.close();
