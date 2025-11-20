@@ -13,15 +13,14 @@ const availableApps = [
 export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
+
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
+  const userId = "123"; // Replace with actual logged-in user ID
 
-  // Replace with actual logged-in user ID
-  const [userId, setUserId] = useState("123"); 
-
-  // Fetch connected apps from backend
-  const fetchConnectedApps = async (uid = userId) => {
+  // Load connected apps from backend
+  const fetchConnectedApps = async () => {
     try {
-      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${uid}`);
+      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
       const statuses = res.data;
       setApps((prev) =>
         prev.map((app) => ({
@@ -37,9 +36,11 @@ export default function Integrations() {
 
   useEffect(() => {
     fetchConnectedApps();
-  }, [userId]);
+  }, []);
 
-  // OAuth popup flow
+  // -------------------------------
+  // Connect with popup + postMessage
+  // -------------------------------
   const connectIntegration = (app) => {
     const width = 600;
     const height = 700;
@@ -63,18 +64,15 @@ export default function Integrations() {
     window.addEventListener("message", handleMessage);
   };
 
+  // Disconnect
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
     setApps((prev) =>
-      prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
-      )
+      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
     );
   };
 
-  const filteredApps = apps.filter((app) =>
-    app.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
