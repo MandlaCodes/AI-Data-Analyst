@@ -17,11 +17,11 @@ export default function Integrations() {
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
   const userId = "123"; // Replace with actual logged-in user ID
 
-  // Load connected apps from backend
   const fetchConnectedApps = async () => {
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
       const statuses = res.data;
+
       setApps((prev) =>
         prev.map((app) => ({
           ...app,
@@ -53,17 +53,19 @@ export default function Integrations() {
       `width=${width},height=${height},top=${top},left=${left}`
     );
 
+    // IMPORTANT: Added your REAL frontend domain
     const allowedOrigins = [
-      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://ai-data-analyst-1xksv2hif-mandlas-projects-228bb82e.vercel.app",
       "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-      "https://ai-data-analyst-swart.vercel.app",
+      "https://ai-data-analyst-swart.vercel.app"
     ];
 
     const handleMessage = (e) => {
       if (!allowedOrigins.includes(e.origin)) return;
 
       if (e.data === "oauth-success") {
-        fetchConnectedApps(); // update UI immediately
+        fetchConnectedApps();
         popup?.close();
         window.removeEventListener("message", handleMessage);
       }
@@ -72,15 +74,19 @@ export default function Integrations() {
     window.addEventListener("message", handleMessage);
   };
 
-  // Disconnect
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
+
     setApps((prev) =>
-      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
+      prev.map((app) =>
+        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
+      )
     );
   };
 
-  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredApps = apps.filter((app) =>
+    app.name.toLowerCase().includes(search.toLowerCase())
+  );
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
@@ -124,7 +130,9 @@ export default function Integrations() {
               {app.connected ? "Connected" : "Not connected"}
             </p>
 
-            {app.lastSync && <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>}
+            {app.lastSync && (
+              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
+            )}
 
             {!app.connected ? (
               <button

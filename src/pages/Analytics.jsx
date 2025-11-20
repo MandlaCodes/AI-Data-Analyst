@@ -27,7 +27,6 @@ ChartJS.register(
   Legend
 );
 
-/* Google Sheets SVG */
 function GoogleSheetsLogo({ className }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden>
@@ -41,13 +40,14 @@ function GoogleSheetsLogo({ className }) {
 }
 
 export default function Analytics() {
-  const userId = "123";
+  const userId = "123"; // TODO: replace with actual logged-in user ID
+  const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
+
   const [connectedApps, setConnectedApps] = useState([]);
   const [selectedApp, setSelectedApp] = useState(null);
 
   const [sheets, setSheets] = useState([]);
   const [selectedSheet, setSelectedSheet] = useState(null);
-
   const [sheetData, setSheetData] = useState([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
 
@@ -67,16 +67,14 @@ export default function Analytics() {
 
   // Fetch connected apps
   useEffect(() => {
-    axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/connected-apps?user_id=${userId}`)
-
+    axios
+      .get(`${BACKEND}/connected-apps?user_id=${userId}`)
       .then((res) => {
         const data = res.data || {};
-        if (Array.isArray(data.apps)) {
-          setConnectedApps(data.apps.filter((a) => a.status === "connected").map((a) => a.key));
-        } else {
-          const apps = Object.entries(data).filter(([k, v]) => v).map(([k]) => k);
-          setConnectedApps(apps);
-        }
+        const apps = Object.entries(data)
+          .filter(([k, v]) => k !== "google_sheets_last_sync" && v)
+          .map(([k]) => k);
+        setConnectedApps(apps);
       })
       .catch(() => setConnectedApps([]));
   }, []);
@@ -85,8 +83,8 @@ export default function Analytics() {
   useEffect(() => {
     if (selectedApp === "google_sheets") {
       setLoadingSheets(true);
-      axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets-list/${userId}`)
-
+      axios
+        .get(`${BACKEND}/sheets-list/${userId}`)
         .then((res) => setSheets(res.data?.spreadsheets || []))
         .catch(() => setSheets([]))
         .finally(() => setLoadingSheets(false));
@@ -102,8 +100,7 @@ export default function Analytics() {
     setLoadingSheetValues(true);
     setProgress(20);
     try {
-      const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets/${userId}/${selectedSheet.id}`)
-      ;
+      const res = await axios.get(`${BACKEND}/sheets/${userId}/${selectedSheet.id}`);
       const values = res.data.values || [];
       setSheetData(values);
 
@@ -128,13 +125,8 @@ export default function Analytics() {
 
       setShowAnalytics(true);
       setLandingOpen(false);
-
       setTimeout(() => setProgress(100), 250);
       setTimeout(() => setProgress(0), 900);
-      setTimeout(() => {
-        const el = document.querySelector("#analytics-top");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 350);
     } catch (err) {
       console.error("Failed to fetch sheet values", err);
       setSheetData([]);
@@ -170,12 +162,6 @@ export default function Analytics() {
     setKpiMetrics({ total, avg, max, min });
   }, [selectedColumns, sheetData]);
 
-  const chartOptions = {
-    responsive: true,
-    plugins: { legend: { labels: { color: "#fff" } }, tooltip: { mode: "index", intersect: false } },
-    scales: { x: { ticks: { color: "#d1d5db" } }, y: { ticks: { color: "#d1d5db" } } },
-  };
-
   const generateCharts = () => {
     if (!sheetData.length || selectedColumns.length === 0) return null;
     const labels = sheetData.slice(1).map((r) => r[0] || "");
@@ -196,15 +182,23 @@ export default function Analytics() {
               data={{
                 labels,
                 datasets: [
-                  { label, data: values, borderColor: "rgba(34,197,94,1)", backgroundColor: "rgba(34,197,94,0.3)", tension: 0.4, fill: true, pointRadius: 3 },
+                  {
+                    label,
+                    data: values,
+                    borderColor: "rgba(34,197,94,1)",
+                    backgroundColor: "rgba(34,197,94,0.3)",
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                  },
                 ],
               }}
-              options={chartOptions}
+              options={{ responsive: true }}
             />
           ) : (
             <Bar
               data={{ labels, datasets: [{ label, data: values, backgroundColor: "rgba(99,102,241,0.8)", borderRadius: 6 }] }}
-              options={chartOptions}
+              options={{ responsive: true }}
             />
           )}
         </div>
@@ -214,15 +208,12 @@ export default function Analytics() {
 
   const generateAIInsights = async () => {
     try {
-      const res = await axios.post("https://ai-data-analyst-backend-1nuw.onrender.com/analyze-dataset", {
-
+      const res = await axios.post(`${BACKEND}/analyze-dataset`, {
         user_id: userId,
         app: selectedApp || "google_sheets",
         dataset: sheetData,
       });
       setAiSummary(res.data.summary || "No summary returned.");
-      const el = document.querySelector("#ai-insights");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (err) {
       console.error(err);
       setAiSummary("Failed to generate insights.");
@@ -231,7 +222,7 @@ export default function Analytics() {
 
   const handleAppClick = (key) => {
     if (!connectedApps.includes(key)) {
-      setNotConnectedAppName(key);
+      setNotConnectedAppName(key === "google_sheets" ? "Google Sheets" : key);
       setShowNotConnectedModal(true);
       return;
     }
@@ -243,7 +234,7 @@ export default function Analytics() {
 
   return (
     <div className="relative min-h-[80vh]">
-      <div className="p-3 pt-5 space-y-5">
+   <div className="p-3 pt-5 space-y-5">
         {/* Header */}
         <section id="analytics-top" className="space-y-2">
           <h2 className="text-4xl font-bold text-white">Analytics Dashboard</h2>
