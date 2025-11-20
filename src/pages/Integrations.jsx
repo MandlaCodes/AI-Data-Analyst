@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircleIcon, XCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
@@ -14,64 +14,48 @@ const availableApps = [
 export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
-  const userId = "123"; // Your logged-in user ID
+  const [searchParams, setSearchParams] = useSearchParams();
+  const userId = "123"; // Replace with actual logged-in user ID
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // -------------------------------
   // Load connected apps from backend
-  // -------------------------------
   useEffect(() => {
-    axios
-      .get(`${BACKEND}/connected-apps?user_id=${userId}`)
+    axios.get(`${BACKEND}/connected-apps?user_id=${userId}`)
       .then((res) => {
-        const statuses = res.data; // e.g., { google_sheets: true }
+        const statuses = res.data;
         setApps((prev) =>
           prev.map((app) => ({
             ...app,
             connected: statuses[app.key] || false,
-            lastSync: statuses[app.key] ? "Synced recently" : null,
+            lastSync: statuses[app.key] ? new Date().toLocaleString() : null,
           }))
         );
       })
       .catch(() => console.log("No connected apps yet"));
   }, []);
 
-  // ------------------------------------------
-  // Handle OAuth redirect query params
-  // ------------------------------------------
+  // Handle Google callback query params
   useEffect(() => {
-    const query = new URLSearchParams(location.search);
-    const connectedApp = query.get("type");
-    const connectedStatus = query.get("connected") === "true";
-    const queryUserId = query.get("user_id");
+    const justConnected = searchParams.get("connected") === "true";
+    const type = searchParams.get("type");
 
-    if (connectedApp && connectedStatus && queryUserId === userId) {
-      // Update app state
+    if (justConnected && type) {
       setApps((prev) =>
         prev.map((app) =>
-          app.key === connectedApp
-            ? { ...app, connected: true, lastSync: "Just now" }
+          app.key === type
+            ? { ...app, connected: true, lastSync: new Date().toLocaleString() }
             : app
         )
       );
-      // Clean URL to remove query params
-      navigate("/integrations", { replace: true });
+      // Clean URL
+      window.history.replaceState({}, document.title, "/integrations");
     }
-  }, [location.search, userId, navigate]);
+  }, [searchParams]);
 
-  // -------------------------------
-  // Start OAuth flow
-  // -------------------------------
   const connectIntegration = (app) => {
     window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
   };
 
-  // -------------------------------
-  // Disconnect
-  // -------------------------------
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
     setApps((prev) =>
@@ -135,7 +119,9 @@ export default function Integrations() {
             </p>
 
             {app.lastSync && (
-              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
+              <p className="text-gray-400 text-xs mb-2">
+                Last synced: {app.lastSync}
+              </p>
             )}
 
             {!app.connected ? (
