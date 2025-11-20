@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircleIcon, XCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
+import { useLocation } from "react-router-dom";
 
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
@@ -13,29 +14,16 @@ const availableApps = [
 export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
-  const [userEmail, setUserEmail] = useState(""); // dynamic user email
+  const location = useLocation();
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
+  const userId = "123"; // Replace with actual logged-in user ID
 
-  // -------------------------------
-  // Prompt user email if not set
-  // -------------------------------
-  useEffect(() => {
-    if (!userEmail) {
-      const email = prompt("Enter your email to manage integrations:");
-      if (email) setUserEmail(email);
-    }
-  }, [userEmail]);
-
-  // -------------------------------
-  // Fetch connected apps
-  // -------------------------------
+  // Load connected apps from backend
   const fetchConnectedApps = async () => {
-    if (!userEmail) return;
     try {
-      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${encodeURIComponent(userEmail)}`);
-      const statuses = res.data;
-
+      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
+      const statuses = res.data; // e.g., { google_sheets: true }
       setApps((prev) =>
         prev.map((app) => ({
           ...app,
@@ -44,66 +32,43 @@ export default function Integrations() {
         }))
       );
     } catch (err) {
-      console.log("No connected apps yet", err);
+      console.log("No connected apps yet");
     }
   };
 
   useEffect(() => {
     fetchConnectedApps();
-  }, [userEmail]);
+  }, []);
 
-  // -------------------------------
-  // Connect integration (OAuth popup)
-  // -------------------------------
+  // Handle OAuth return from Google
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const justConnected = searchParams.get("connected") === "true";
+    const appType = searchParams.get("type");
+    const oauthUserId = searchParams.get("user_id");
+
+    if (justConnected && appType && oauthUserId === userId) {
+      fetchConnectedApps();
+
+      // Clean URL so query params don't persist
+      window.history.replaceState({}, document.title, "/integrations");
+    }
+  }, [location.search]);
+
+  // Start OAuth flow
   const connectIntegration = (app) => {
-    if (!userEmail) return alert("User not logged in!");
-
-    const width = 600;
-    const height = 700;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-
-    const popup = window.open(
-      `${BACKEND}/auth/${app.key}?user_id=${encodeURIComponent(userEmail)}`,
-      "oauth",
-      `width=${width},height=${height},top=${top},left=${left}`
-    );
-
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-      "https://ai-data-analyst-swart.vercel.app"
-    ];
-
-    const handleMessage = (e) => {
-      if (!allowedOrigins.includes(e.origin)) return;
-      if (e.data === "oauth-success") {
-        fetchConnectedApps(); // refresh app status
-        popup?.close();
-        window.removeEventListener("message", handleMessage);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
+    window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
   };
 
-  // -------------------------------
-  // Disconnect integration
-  // -------------------------------
+  // Disconnect
   const disconnect = async (appKey) => {
-    if (!userEmail) return alert("User not logged in!");
-
-    await axios.post(`${BACKEND}/disconnect`, { user_id: userEmail, app: appKey });
+    await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
     setApps((prev) =>
-      prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
-      )
+      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
     );
   };
 
-  const filteredApps = apps.filter((app) =>
-    app.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
@@ -147,9 +112,7 @@ export default function Integrations() {
               {app.connected ? "Connected" : "Not connected"}
             </p>
 
-            {app.lastSync && (
-              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
-            )}
+            {app.lastSync && <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>}
 
             {!app.connected ? (
               <button
@@ -159,10 +122,7 @@ export default function Integrations() {
                 Connect <PlusCircleIcon className="w-5 h-5" />
               </button>
             ) : (
-              <button
-                onClick={() => disconnect(app.key)}
-                className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
-              >
+              <button onClick={() => disconnect(app.key)} className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white">
                 Disconnect
               </button>
             )}
@@ -171,4 +131,4 @@ export default function Integrations() {
       </div>
     </div>
   );
-}
+}      
