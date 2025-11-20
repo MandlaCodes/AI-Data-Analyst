@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { CheckCircleIcon, XCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
 
+// List of all available integrations
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
   { name: "HubSpot", key: "hubspot", connected: false, lastSync: null },
@@ -10,17 +11,18 @@ const availableApps = [
   { name: "Mailchimp", key: "mailchimp", connected: false, lastSync: null },
 ];
 
-export default function Integrations({ userEmail }) {
+export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  // If userEmail not passed as prop, try localStorage/session
-  const userId = userEmail || localStorage.getItem("userEmail");
+  // Grab logged-in user from localStorage/session (set this during login)
+  const userId = localStorage.getItem("user_email"); // e.g., "mandlandhlovu264@gmail.com"
 
   const fetchConnectedApps = async () => {
     if (!userId) return;
+
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
       const statuses = res.data;
@@ -33,7 +35,7 @@ export default function Integrations({ userEmail }) {
         }))
       );
     } catch (err) {
-      console.log("No connected apps yet or fetch error", err);
+      console.log("No connected apps yet", err);
     }
   };
 
@@ -41,7 +43,9 @@ export default function Integrations({ userEmail }) {
     fetchConnectedApps();
   }, [userId]);
 
-  // Connect popup + postMessage
+  // -------------------------------
+  // Connect integration via popup + postMessage
+  // -------------------------------
   const connectIntegration = (app) => {
     if (!userId) return alert("User not logged in!");
 
@@ -60,7 +64,7 @@ export default function Integrations({ userEmail }) {
       "http://localhost:3000",
       "https://ai-data-analyst-1xksv2hif-mandlas-projects-228bb82e.vercel.app",
       "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-      "https://ai-data-analyst-swart.vercel.app"
+      "https://ai-data-analyst-swart.vercel.app",
     ];
 
     const handleMessage = (e) => {
@@ -77,7 +81,8 @@ export default function Integrations({ userEmail }) {
   };
 
   const disconnect = async (appKey) => {
-    if (!userId) return;
+    if (!userId) return alert("User not logged in!");
+
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
 
     setApps((prev) =>
@@ -90,6 +95,7 @@ export default function Integrations({ userEmail }) {
   const filteredApps = apps.filter((app) =>
     app.name.toLowerCase().includes(search.toLowerCase())
   );
+
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
