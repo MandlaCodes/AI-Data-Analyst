@@ -17,13 +17,17 @@ export default function Integrations() {
   const location = useLocation();
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
-  const userId = "123"; // Replace with actual logged-in user ID
+
+  // ✅ GET user_id FROM URL, fallback to 123
+  const searchParams = new URLSearchParams(location.search);
+  const userId = searchParams.get("user_id") || "123";
 
   // Load connected apps from backend
   const fetchConnectedApps = async () => {
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
-      const statuses = res.data; // e.g., { google_sheets: true }
+      const statuses = res.data;
+
       setApps((prev) =>
         prev.map((app) => ({
           ...app,
@@ -38,22 +42,22 @@ export default function Integrations() {
 
   useEffect(() => {
     fetchConnectedApps();
-  }, []);
+  }, [userId]); // run when userId changes
 
   // Handle OAuth return from Google
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
     const justConnected = searchParams.get("connected") === "true";
     const appType = searchParams.get("type");
     const oauthUserId = searchParams.get("user_id");
 
+    // 💥 This now works because userId is dynamic
     if (justConnected && appType && oauthUserId === userId) {
       fetchConnectedApps();
 
       // Clean URL so query params don't persist
       window.history.replaceState({}, document.title, "/integrations");
     }
-  }, [location.search]);
+  }, [location.search, userId]);
 
   // Start OAuth flow
   const connectIntegration = (app) => {
@@ -131,4 +135,4 @@ export default function Integrations() {
       </div>
     </div>
   );
-}      
+}
