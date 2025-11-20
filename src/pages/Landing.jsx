@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import Contact from "./Contact";
 import { FaChartLine, FaLightbulb, FaDesktop, FaQuestionCircle } from "react-icons/fa";
 
@@ -57,14 +58,24 @@ export default function Landing({ onGetStarted }) {
         </div>
 
         <ul className="flex gap-8 text-white font-medium">
-          <li><a href="#home" className="hover:text-cyan-400 transition">Home</a></li>
-          <li><a href="#product" className="hover:text-cyan-400 transition">Product</a></li>
-          <li><a href="#faq" className="hover:text-cyan-400 transition flex items-center gap-1"><FaQuestionCircle /> FAQ</a></li>
+          <li><Link to="#home" className="hover:text-cyan-400 transition">Home</Link></li>
+          <li><Link to="#product" className="hover:text-cyan-400 transition">Product</Link></li>
+          <li>
+            <Link
+              to="#faq"
+              className="hover:text-cyan-400 transition flex items-center gap-1"
+            >
+              <FaQuestionCircle /> FAQ
+            </Link>
+          </li>
         </ul>
 
-        <a href="#contact" className="px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-400 rounded-lg text-white font-semibold hover:from-purple-500 hover:to-cyan-300 transition shadow-lg">
+        <Link
+          to="#contact"
+          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-400 rounded-lg text-white font-semibold hover:from-purple-500 hover:to-cyan-300 transition shadow-lg"
+        >
           Contact Us
-        </a>
+        </Link>
       </nav>
 
       {/* HERO */}
@@ -80,22 +91,24 @@ export default function Landing({ onGetStarted }) {
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
 
         <div ref={heroRef} className="max-w-4xl w-full px-4 text-center">
-        <h1 className="text-2xl md:text-6xl lg:text-7xl font-extrabold mb-6 
-text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 
-leading-[1.2]">
-  Hello, I'm your AI Data Analyst
-</h1>
-
+          <h1 className="text-2xl md:text-6xl lg:text-7xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 leading-[1.10]">
+            Hello, I'm your AI Data Analyst
+          </h1>
 
           <h2 className="text-lg md:text-2xl lg:text-3xl text-gray-200 mb-6">
             <span className="text-white font-semibold mr-2">Here to</span>
-            <span className={`text-cyan-400 fade-transition inline-block`} style={{ opacity: phraseVisible ? 1 : 0 }} aria-live="polite">
+            <span
+              className={`text-cyan-400 fade-transition inline-block`}
+              style={{ opacity: phraseVisible ? 1 : 0 }}
+              aria-live="polite"
+            >
               {phrases[currentPhraseIndex]}
             </span>
           </h2>
 
           <div className="text-gray-300 max-w-3xl mx-auto mb-10 text-lg md:text-xl">
-            Relax and let me be your personal smart manager for data analysis. I turn complex data into clear insights and beautiful visualizations and provide business direction.
+            Relax and let me be your personal smart manager for data analysis.
+            I turn complex data into clear insights and beautiful visualizations and provide business direction.
           </div>
 
           <div className="flex flex-col md:flex-row gap-6 justify-center">
@@ -106,14 +119,17 @@ leading-[1.2]">
               Get Started
             </button>
 
-            <a href="#contact" className="px-8 py-4 rounded-xl border border-white/20 text-gray-300 hover:bg-white/10 transition text-lg font-medium hover:scale-105">
+            <Link
+              to="#contact"
+              className="px-8 py-4 rounded-xl border border-white/20 text-gray-300 hover:bg-white/10 transition text-lg font-medium hover:scale-105"
+            >
               Contact Us
-            </a>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* FEATURES / PRODUCT */}
+      {/* PRODUCT */}
       <section id="product" className="py-20 md:py-28 px-6 md:px-32 bg-black relative z-10">
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-white">
           What This Tool Does
@@ -122,17 +138,17 @@ leading-[1.2]">
         <div className="grid md:grid-cols-3 gap-8">
           {[
             {
-              icon: <FaChartLine size={32} className="text-gradient from-purple-400 via-pink-500 to-cyan-400 animate-pulse" />,
+              icon: <FaChartLine size={32} className="animate-pulse" />,
               title: "Data Strategy",
               desc: "Analyze complex datasets to uncover actionable business strategies and growth opportunities."
             },
             {
-              icon: <FaLightbulb size={32} className="text-gradient from-green-400 via-teal-400 to-cyan-300 animate-pulse" />,
+              icon: <FaLightbulb size={32} className="animate-pulse" />,
               title: "Smart Insights",
               desc: "Provide clear, digestible insights that allow executives to make informed, data-driven decisions."
             },
             {
-              icon: <FaDesktop size={32} className="text-gradient from-indigo-400 via-purple-400 to-pink-400 animate-pulse" />,
+              icon: <FaDesktop size={32} className="animate-pulse" />,
               title: "Interactive Visualizations",
               desc: "Deliver clean and intuitive dashboards that highlight key metrics, trends, and KPIs effortlessly."
             },
@@ -153,7 +169,7 @@ leading-[1.2]">
 
       {/* FAQ */}
       <section id="faq" className="py-20 md:py-28 px-6 md:px-32 bg-gray-900 text-white relative z-10">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400">
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400">
           Frequently Asked Questions
         </h2>
         <div className="max-w-3xl mx-auto flex flex-col gap-6">

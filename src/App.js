@@ -3,19 +3,26 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "r
 import Landing from "./pages/Landing";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
-import Integrations from "./pages/Integrations";
 
 function AppWrapper() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
 
+  // Load saved profile from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("adt_profile");
     if (saved) setProfile(JSON.parse(saved));
   }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem("adt_profile");
+    setProfile(null);
+    navigate("/"); // send user back to landing
+  };
+
   return (
     <Routes>
+      {/* Landing Page */}
       <Route
         path="/"
         element={
@@ -26,23 +33,35 @@ function AppWrapper() {
           )
         }
       />
+
+      {/* Onboarding */}
       <Route
         path="/onboarding"
-        element={<Onboarding onComplete={(p) => setProfile(p)} />}
-      />
-      <Route
-        path="/dashboard"
         element={
-          <Dashboard
-            profile={profile}
-            onLogout={() => {
-              localStorage.removeItem("adt_profile");
-              setProfile(null);
+          <Onboarding
+            onComplete={(p) => {
+              setProfile(p);
+              localStorage.setItem("adt_profile", JSON.stringify(p));
+              navigate("/dashboard");
             }}
           />
         }
       />
-      <Route path="/integrations" element={<Integrations />} />
+
+      {/* Dashboard */}
+      <Route
+        path="/dashboard/*"
+        element={
+          profile ? (
+            <Dashboard profile={profile} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" />
+          )
+        }
+      />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }
