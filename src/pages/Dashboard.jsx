@@ -17,14 +17,20 @@ export default function Dashboard({ profile, onLogout }) {
     const type = searchParams.get("type");
 
     if (type === "google_sheets") {
-      setCurrent("integrations");
+      setCurrent("integrations"); // Automatically switch to Integrations after OAuth
+    } else if (type === "profile") {
+      setCurrent("profile");
+    } else if (type === "analytics") {
+      setCurrent("analytics");
+    } else if (type === "settings") {
+      setCurrent("settings");
+    } else {
+      setCurrent("ai"); // default
     }
-    // You can add more logic for other apps later
   }, [location.search]);
 
   return (
     <div className="min-h-screen flex bg-gradient-to-b from-black via-gray-900 to-purple-900 text-white">
-      
       <div className="w-64 fixed top-0 left-0 h-full z-20">
         <Sidebar
           profile={profile}

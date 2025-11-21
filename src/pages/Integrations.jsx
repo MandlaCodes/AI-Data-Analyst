@@ -7,7 +7,7 @@ const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
 ];
 
-export default function Integrations({ profile }) {
+export default function Integrations() {
   const location = useLocation();
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
@@ -16,7 +16,7 @@ export default function Integrations({ profile }) {
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
   const searchParams = new URLSearchParams(location.search);
-  const userId = profile?.user_id || searchParams.get("user_id") || "123";
+  const userId = searchParams.get("user_id") || "123";
 
   // Fetch connected apps
   const fetchConnectedApps = async () => {
@@ -31,19 +31,22 @@ export default function Integrations({ profile }) {
           lastSync: statuses[`${app.key}_last_sync`] || null,
         }))
       );
+
+      return statuses; // ✅ important for chaining
     } catch (err) {
       console.log("Error fetching apps", err);
+      return null;
     }
   };
 
-  // Fetch Google Sheets
+  // Fetch sheets for Google Sheets
   const fetchSheets = async () => {
     try {
       const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
-      setSheets(res.data.sheets);
+      setSheets(res.data.sheets || []);
     } catch (err) {
       console.log(err);
-      alert("Google Sheets not connected");
+      alert("Google Sheets Not Connected");
     }
   };
 
@@ -52,16 +55,20 @@ export default function Integrations({ profile }) {
     fetchConnectedApps();
   }, []);
 
-  // Handle OAuth redirect
+  // Handle OAuth redirect after Google Sheets connection
   useEffect(() => {
     const justConnected = searchParams.get("connected") === "true";
     const appType = searchParams.get("type");
 
     if (justConnected && appType === "google_sheets") {
-      fetchConnectedApps();
-      fetchSheets(); // 🔥 Automatically list sheets after OAuth
+      // Wait until connection status is confirmed
+      fetchConnectedApps().then((statuses) => {
+        if (statuses?.google_sheets) {
+          fetchSheets();
+        }
+      });
 
-      // Clean URL
+      // Clean URL to remove query params
       window.history.replaceState({}, document.title, "/dashboard/integrations");
     }
   }, [location.search]);
@@ -162,6 +169,7 @@ export default function Integrations({ profile }) {
       {sheets.length > 0 && (
         <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700">
           <h3 className="text-2xl font-bold text-white mb-4">Your Google Sheets</h3>
+
           <ul className="space-y-2">
             {sheets.map((sheet) => (
               <li key={sheet.id} className="text-white bg-gray-700 p-3 rounded-xl">
