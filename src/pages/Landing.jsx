@@ -90,8 +90,8 @@ export default function Landing({ onGetStarted }) {
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-700 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
 
-        <div ref={heroRef} className="max-w-4xl w-full px-4 text-center">
-          <h1 className="text-2xl md:text-6xl lg:text-7xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 leading-[1.10]">
+        <div ref={heroRef} className="max-w-5xl w-full px-4 text-center">
+          <h1 className="text-2xl md:text-6xl lg:text-7xl font-extrabold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 leading-[1.9]">
             Hello, I'm your AI Data Analyst
           </h1>
 
