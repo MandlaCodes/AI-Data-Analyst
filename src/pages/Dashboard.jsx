@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import ChatPanel from "../components/ChatPanel";
 import Profile from "./Profile";
@@ -8,6 +9,7 @@ import Integrations from "./Integrations";
 
 export default function Dashboard({ profile, onLogout }) {
   const [current, setCurrent] = useState("ai");
+  const location = useLocation();
 
   return (
     <div className="min-h-screen flex bg-gradient-to-b from-black via-gray-900 to-purple-900 text-white">
@@ -25,7 +27,9 @@ export default function Dashboard({ profile, onLogout }) {
       {/* Main content scrolls independently */}
       <div className="flex-1 ml-64 p-6 overflow-y-auto">
         {current === "ai" && <ChatPanel profile={profile} />}
-        {current === "integrations" && <Integrations />}
+        {current === "integrations" && (
+          <Integrations location={location} key={location.search} />
+        )}
         {current === "profile" && <Profile profile={profile} />}
         {current === "analytics" && <Analytics />}
         {current === "settings" && <Settings />}

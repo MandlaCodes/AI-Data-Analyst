@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircleIcon, XCircleIcon, PlusCircleIcon } from "@heroicons/react/24/outline";
 import axios from "axios";
-import { useLocation } from "react-router-dom";
 
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
@@ -11,14 +10,13 @@ const availableApps = [
   { name: "Mailchimp", key: "mailchimp", connected: false, lastSync: null },
 ];
 
-export default function Integrations() {
+export default function Integrations({ location }) {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
-  const location = useLocation();
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  // Get user_id dynamically from URL during OAuth flow
+  // Get user_id from URL or fallback
   const searchParams = new URLSearchParams(location.search);
   const userId = searchParams.get("user_id") || "123";
 
@@ -32,7 +30,9 @@ export default function Integrations() {
         prev.map((app) => ({
           ...app,
           connected: statuses[app.key] || false,
-          lastSync: statuses[app.key] ? new Date().toLocaleString() : null,
+          lastSync: statuses[`${app.key}_last_sync`] 
+            ? new Date(statuses[`${app.key}_last_sync`]).toLocaleString() 
+            : null,
         }))
       );
     } catch (err) {
@@ -40,24 +40,23 @@ export default function Integrations() {
     }
   };
 
+  // Fetch on mount and when userId changes
   useEffect(() => {
     fetchConnectedApps();
   }, [userId]);
 
-  // Handle OAuth callback
+  // Handle OAuth redirect updates dynamically
   useEffect(() => {
     const justConnected = searchParams.get("connected") === "true";
     const appType = searchParams.get("type");
     const oauthUserId = searchParams.get("user_id");
 
     if (justConnected && appType && oauthUserId === userId) {
-      // Update UI with new integration status
       fetchConnectedApps();
 
-      // Delay URL cleanup so React reads query params correctly
-      setTimeout(() => {
-        window.history.replaceState({}, document.title, "/integrations");
-      }, 200);
+      // Clean URL without reloading
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   }, [location.search, userId]);
 
@@ -66,21 +65,15 @@ export default function Integrations() {
     window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
   };
 
-  // Disconnect integration
+  // Disconnect
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
-
     setApps((prev) =>
-      prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
-      )
+      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
     );
   };
 
-  const filteredApps = apps.filter((app) =>
-    app.name.toLowerCase().includes(search.toLowerCase())
-  );
-
+  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
@@ -94,7 +87,6 @@ export default function Integrations() {
           <CheckCircleIcon className="w-6 h-6 text-green-400" />
           <span>{connectedCount} Connected</span>
         </div>
-
         <div className="flex items-center gap-2 bg-gray-900/70 p-4 rounded-2xl border border-gray-700">
           <XCircleIcon className="w-6 h-6 text-red-400" />
           <span>{apps.length - connectedCount} Not Connected</span>
@@ -110,10 +102,7 @@ export default function Integrations() {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredApps.map((app) => (
-          <div
-            key={app.key}
-            className="p-6 bg-gray-800/70 border border-gray-700 rounded-3xl shadow-lg"
-          >
+          <div key={app.key} className="p-6 bg-gray-800/70 border border-gray-700 rounded-3xl shadow-lg">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-xl text-white">{app.name}</h3>
               {app.connected ? (
@@ -123,19 +112,11 @@ export default function Integrations() {
               )}
             </div>
 
-            <p
-              className={`text-sm mb-3 ${
-                app.connected ? "text-green-300" : "text-red-300"
-              }`}
-            >
+            <p className={`text-sm mb-3 ${app.connected ? "text-green-300" : "text-red-300"}`}>
               {app.connected ? "Connected" : "Not connected"}
             </p>
 
-            {app.lastSync && (
-              <p className="text-gray-400 text-xs mb-2">
-                Last synced: {app.lastSync}
-              </p>
-            )}
+            {app.lastSync && <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>}
 
             {!app.connected ? (
               <button
