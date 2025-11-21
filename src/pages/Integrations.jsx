@@ -13,6 +13,7 @@ export default function Integrations() {
   const [search, setSearch] = useState("");
   const [sheets, setSheets] = useState([]);
 
+  // 🔥 NEW BACKEND URL
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
   const searchParams = new URLSearchParams(location.search);
@@ -31,7 +32,7 @@ export default function Integrations() {
         }))
       );
     } catch (err) {
-      console.log("Error fetching apps");
+      console.log(err);
     }
   };
 
@@ -39,7 +40,7 @@ export default function Integrations() {
     fetchConnectedApps();
   }, []);
 
-  // Handle redirect return:
+  // 🔥 Handle Google OAuth redirect
   useEffect(() => {
     if (searchParams.get("connected") === "true") {
       fetchConnectedApps();
@@ -51,18 +52,11 @@ export default function Integrations() {
     window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
   };
 
-  const disconnect = async (appKey) => {
-    await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
-    setApps((prev) =>
-      prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
-      )
-    );
-  };
-
   const fetchSheets = async () => {
     try {
       const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
+
+      // Matches backend: { sheets: [...] }
       setSheets(res.data.sheets);
     } catch (err) {
       console.log(err);
@@ -135,13 +129,6 @@ export default function Integrations() {
                   className="w-full py-2 mt-2 bg-green-600 rounded-xl text-white"
                 >
                   List Google Sheets
-                </button>
-
-                <button
-                  onClick={() => disconnect(app.key)}
-                  className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
-                >
-                  Disconnect
                 </button>
               </>
             )}
