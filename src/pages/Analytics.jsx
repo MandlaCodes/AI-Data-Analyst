@@ -1,4 +1,3 @@
-// src/pages/Analytics.jsx
 import React, { useEffect, useState } from "react";
 import { Bar, Line } from "react-chartjs-2";
 import {
@@ -85,7 +84,7 @@ export default function Analytics() {
       setLoadingSheets(true);
       axios
         .get(`${BACKEND}/sheets-list/${userId}`)
-        .then((res) => setSheets(res.data?.spreadsheets || []))
+        .then((res) => setSheets(res.data.sheets || []))
         .catch(() => setSheets([]))
         .finally(() => setLoadingSheets(false));
     } else {
@@ -234,30 +233,43 @@ export default function Analytics() {
 
   return (
     <div className="relative min-h-[80vh]">
-   <div className="p-3 pt-5 space-y-5">
-        {/* Header */}
+      <div className="p-3 pt-5 space-y-5">
         <section id="analytics-top" className="space-y-2">
           <h2 className="text-4xl font-bold text-white">Analytics Dashboard</h2>
-          <p className="text-gray-300 text-lg max-w-3xl">Create strategic business insights that enable confident, data-driven decisions.</p>
+          <p className="text-gray-300 text-lg max-w-3xl">
+            Create strategic business insights that enable confident, data-driven decisions.
+          </p>
         </section>
 
         {/* Landing Cards */}
         <AnimatePresence>
           {landingOpen && (
             <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Google Sheets */}
               <div className="col-span-1 p-6 bg-gradient-to-br from-indigo-800 to-purple-800 rounded-2xl shadow-xl space-y-4">
                 <h3 className="text-xl font-semibold text-white">Google Sheets</h3>
                 <p className="text-gray-300">Connect and analyze spreadsheets stored in Google Drive.</p>
                 <div className="flex items-center gap-4">
-                  <div onClick={() => handleAppClick("google_sheets")} className={`p-3 rounded-xl cursor-pointer ${connectedApps.includes("google_sheets") ? "bg-white/6 hover:bg-white/10" : "bg-gray-700 opacity-70"}`}>
+                  <div
+                    onClick={() => handleAppClick("google_sheets")}
+                    className={`p-3 rounded-xl cursor-pointer ${connectedApps.includes("google_sheets") ? "bg-white/6 hover:bg-white/10" : "bg-gray-700 opacity-70"}`}
+                  >
                     <GoogleSheetsLogo className="w-10 h-10" />
                   </div>
                   <div className="flex-1 space-y-2">
                     {connectedApps.includes("google_sheets") ? (
-                      <button onClick={() => handleAppClick("google_sheets")} className="px-4 py-2 bg-indigo-600 rounded-xl text-white font-semibold shadow">Use Google Sheets</button>
+                      <button
+                        onClick={() => handleAppClick("google_sheets")}
+                        className="px-4 py-2 bg-indigo-600 rounded-xl text-white font-semibold shadow"
+                      >
+                        Use Google Sheets
+                      </button>
                     ) : (
-                      <button onClick={() => { setNotConnectedAppName("Google Sheets"); setShowNotConnectedModal(true); }} className="px-4 py-2 bg-gray-700 rounded-xl text-gray-200">Not connected</button>
+                      <button
+                        onClick={() => { setNotConnectedAppName("Google Sheets"); setShowNotConnectedModal(true); }}
+                        className="px-4 py-2 bg-gray-700 rounded-xl text-gray-200"
+                      >
+                        Not connected
+                      </button>
                     )}
                     <div className="text-xs text-gray-300">Last synced: —</div>
                   </div>
@@ -308,13 +320,17 @@ export default function Analytics() {
                     <div className="p-4 bg-black/30 rounded-xl text-gray-400">No spreadsheets found. Check the Integrations page if you expected sheets.</div>
                   ) : (
                     <div className="flex items-center gap-3">
-                      <select value={selectedSheet?.id || ""} onChange={(e) => { const found = sheets.find(s => s.id === e.target.value); setSelectedSheet(found || null); setAiSummary(""); }} className="bg-gray-700 text-white px-4 py-2 rounded-xl">
+                      <select
+                        value={selectedSheet?.id || ""}
+                        onChange={(e) => { const found = sheets.find(s => s.id === e.target.value); setSelectedSheet(found || null); setAiSummary(""); }}
+                        className="bg-gray-700 text-white px-4 py-2 rounded-xl"
+                      >
                         <option value="">{selectedSheet ? selectedSheet.name : "Choose a spreadsheet…"}</option>
                         {sheets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
 
                       {selectedSheet && !showAnalytics && (
-                        <motion.button initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={fetchSheetData} className="px-6 py-2 bg-green-600 rounded-xl text-white font-semibold hover:scale-105 transition">
+                        <motion.button onClick={fetchSheetData} className="px-6 py-2 bg-green-600 rounded-xl text-white font-semibold hover:scale-105 transition">
                           {loadingSheetValues ? "Loading…" : "Interpret Data"}
                         </motion.button>
                       )}
@@ -364,11 +380,11 @@ export default function Analytics() {
                 <p className="text-2xl font-bold">{kpiMetrics.avg.toLocaleString()}</p>
               </div>
               <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl text-white">
-                <h5 className="text-sm">Max</h5>
+                <h5 className="text-sm">Maximum</h5>
                 <p className="text-2xl font-bold">{kpiMetrics.max.toLocaleString()}</p>
               </div>
               <div className="p-4 bg-indigo-500 rounded-2xl shadow-xl text-white">
-                <h5 className="text-sm">Min</h5>
+                <h5 className="text-sm">Minimum</h5>
                 <p className="text-2xl font-bold">{kpiMetrics.min.toLocaleString()}</p>
               </div>
             </motion.div>
@@ -376,30 +392,31 @@ export default function Analytics() {
         </AnimatePresence>
 
         {/* Charts */}
-        {showAnalytics && <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{generateCharts()}</div>}
+        {showAnalytics && <div className="space-y-8 mt-6">{generateCharts()}</div>}
 
         {/* AI Insights */}
         {showAnalytics && (
-          <section id="ai-insights" className="p-6 bg-gray-900/60 rounded-2xl shadow-xl space-y-4">
-            <h4 className="text-xl text-white font-semibold">AI Insights</h4>
-            <button onClick={generateAIInsights} className="px-4 py-2 bg-green-600 rounded-xl text-white font-semibold hover:bg-green-500 transition">
+          <div className="p-6 bg-gray-900/70 rounded-2xl mt-6 space-y-4">
+            <h4 className="text-xl font-semibold text-white">AI Insights</h4>
+            <button onClick={generateAIInsights} className="px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:scale-105 transition">
               Generate Insights
             </button>
-            {aiSummary && <p className="text-gray-200 whitespace-pre-line">{aiSummary}</p>}
-          </section>
+            {aiSummary && <div className="mt-4 text-gray-300 whitespace-pre-line">{aiSummary}</div>}
+          </div>
         )}
 
         {/* Not Connected Modal */}
         <AnimatePresence>
           {showNotConnectedModal && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-gray-800 p-6 rounded-2xl shadow-xl max-w-sm w-full space-y-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+              <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full space-y-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-lg font-semibold text-white">{notConnectedAppName} Not Connected</h4>
-                  <button onClick={() => setShowNotConnectedModal(false)} className="text-gray-300 hover:text-white"><FaTimes /></button>
+                  <h3 className="text-white text-xl font-semibold">{notConnectedAppName} not connected</h3>
+                  <button onClick={() => setShowNotConnectedModal(false)}><FaTimes className="text-gray-300" /></button>
                 </div>
-                <p className="text-gray-300">Please connect {notConnectedAppName} from the Integrations page before using it.</p>
-              </motion.div>
+                <p className="text-gray-300">Please connect {notConnectedAppName} from the Integrations page before using it here.</p>
+                <button onClick={() => setShowNotConnectedModal(false)} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold">Close</button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
