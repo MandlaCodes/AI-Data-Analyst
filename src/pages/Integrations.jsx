@@ -10,81 +10,69 @@ const availableApps = [
   { name: "Mailchimp", key: "mailchimp", connected: false, lastSync: null },
 ];
 
-export default function Integrations() {
+export default function Integrations({ profile }) {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
+  const userEmail = profile?.email || "default@example.com";
 
-  // Get user_email from URL (from OAuth redirect)
-  const userId = new URLSearchParams(window.location.search).get("user_email") || "default@example.com";
-
+  // Fetch connected apps from backend
   const fetchConnectedApps = async () => {
     try {
-      const res = await axios.get(`${BACKEND}/connected-apps?user_email=${userId}`);
+      const res = await axios.get(`${BACKEND}/connected-apps`, { params: { user_email: userEmail } });
       const statuses = res.data;
 
       setApps((prev) =>
         prev.map((app) => ({
           ...app,
           connected: statuses[app.key] || false,
-          lastSync: statuses[app.key] ? new Date().toLocaleString() : null,
+          lastSync: statuses[`${app.key}_last_sync`] || null,
         }))
       );
     } catch (err) {
-      console.log("No connected apps yet", err);
+      console.log("Failed to fetch connected apps", err);
     }
   };
 
   useEffect(() => {
     fetchConnectedApps();
+  }, [userEmail]);
 
-    // Listen for postMessage from OAuth popup
-    const handleMessage = (e) => {
-      const allowedOrigins = [
-        "http://localhost:3000",
-        "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
-        "https://ai-data-analyst-swart.vercel.app"
-      ];
-
-      if (!allowedOrigins.includes(e.origin)) return;
-
-      if (e.data === "oauth-success") {
-        fetchConnectedApps();
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
-
+  // Connect app via popup
   const connectIntegration = (app) => {
     const width = 600;
     const height = 700;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
 
-    window.open(
-      `${BACKEND}/auth/${app.key}?user_email=${userId}`,
+    const popup = window.open(
+      `${BACKEND}/auth/${app.key}?user_email=${userEmail}`,
       "oauth",
       `width=${width},height=${height},top=${top},left=${left}`
     );
+
+    // Handle postMessage from popup
+    const handleMessage = (e) => {
+      if (e.data === "oauth-success") {
+        fetchConnectedApps();
+        popup?.close();
+        window.removeEventListener("message", handleMessage);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
   };
 
+  // Disconnect app
   const disconnect = async (appKey) => {
-    await axios.post(`${BACKEND}/disconnect`, { user_email: userId, app: appKey });
-
+    await axios.post(`${BACKEND}/disconnect`, { user_email: userEmail, app: appKey });
     setApps((prev) =>
-      prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
-      )
+      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
     );
   };
 
-  const filteredApps = apps.filter((app) =>
-    app.name.toLowerCase().includes(search.toLowerCase())
-  );
-
+  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
@@ -98,7 +86,6 @@ export default function Integrations() {
           <CheckCircleIcon className="w-6 h-6 text-green-400" />
           <span>{connectedCount} Connected</span>
         </div>
-
         <div className="flex items-center gap-2 bg-gray-900/70 p-4 rounded-2xl border border-gray-700">
           <XCircleIcon className="w-6 h-6 text-red-400" />
           <span>{apps.length - connectedCount} Not Connected</span>
@@ -128,9 +115,7 @@ export default function Integrations() {
               {app.connected ? "Connected" : "Not connected"}
             </p>
 
-            {app.lastSync && (
-              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
-            )}
+            {app.lastSync && <p className="text-gray-400 text-xs mb-2">Last synced: {new Date(app.lastSync).toLocaleString()}</p>}
 
             {!app.connected ? (
               <button
