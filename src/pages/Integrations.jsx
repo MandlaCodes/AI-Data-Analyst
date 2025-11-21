@@ -4,29 +4,24 @@ import axios from "axios";
 import { useLocation } from "react-router-dom";
 
 const availableApps = [
-  { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null, sheets: [] },
-  { name: "HubSpot", key: "hubspot", connected: false, lastSync: null },
-  { name: "Salesforce", key: "salesforce", connected: false, lastSync: null },
-  { name: "Slack", key: "slack", connected: false, lastSync: null },
-  { name: "Mailchimp", key: "mailchimp", connected: false, lastSync: null },
+  { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
 ];
 
 export default function Integrations() {
   const location = useLocation();
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
+  const [sheets, setSheets] = useState([]);
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  // Get userId from query params
   const searchParams = new URLSearchParams(location.search);
   const userId = searchParams.get("user_id") || "123";
 
-  // Fetch connected apps and optionally sheets
   const fetchConnectedApps = async () => {
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
-      const statuses = res.data; // e.g., { google_sheets: true, google_sheets_last_sync: "..." }
+      const statuses = res.data;
 
       setApps((prev) =>
         prev.map((app) => ({
@@ -35,65 +30,50 @@ export default function Integrations() {
           lastSync: statuses[`${app.key}_last_sync`] || null,
         }))
       );
-
-      // If Google Sheets connected, fetch sheets immediately
-      if (statuses.google_sheets) {
-        fetchSheets();
-      }
     } catch (err) {
-      console.log("No connected apps yet");
+      console.log("Error fetching apps");
     }
   };
 
-  // Fetch actual Google Sheets list
-  const fetchSheets = async () => {
-    try {
-      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
-      setApps((prev) =>
-        prev.map((app) =>
-          app.key === "google_sheets"
-            ? { ...app, sheets: res.data.spreadsheets || [] }
-            : app
-        )
-      );
-    } catch (err) {
-      console.log("Error fetching sheets:", err);
-    }
-  };
-
-  // Load apps on mount
   useEffect(() => {
     fetchConnectedApps();
   }, []);
 
-  // Handle OAuth return from Google
+  // Handle redirect return:
   useEffect(() => {
-    const justConnected = searchParams.get("connected") === "true";
-    const appType = searchParams.get("type");
-
-    if (justConnected && appType) {
+    if (searchParams.get("connected") === "true") {
       fetchConnectedApps();
-      // Clean URL so query params don't persist
       window.history.replaceState({}, document.title, "/dashboard/integrations");
     }
   }, [location.search]);
 
-  // Start OAuth flow
   const connectIntegration = (app) => {
     window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
   };
 
-  // Disconnect
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
     setApps((prev) =>
       prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null, sheets: [] } : app
+        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
       )
     );
   };
 
-  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
+  const fetchSheets = async () => {
+    try {
+      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
+      setSheets(res.data.sheets);
+    } catch (err) {
+      console.log(err);
+      alert("Google Sheets Not Connected");
+    }
+  };
+
+  const filteredApps = apps.filter((app) =>
+    app.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
@@ -137,15 +117,8 @@ export default function Integrations() {
               {app.connected ? "Connected" : "Not connected"}
             </p>
 
-            {app.lastSync && <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>}
-
-            {/* Show actual Google Sheets if connected */}
-            {app.key === "google_sheets" && app.connected && app.sheets.length > 0 && (
-              <ul className="mb-2 text-sm text-white/80">
-                {app.sheets.map((sheet) => (
-                  <li key={sheet.id} className="border-b border-gray-700 py-1">{sheet.name}</li>
-                ))}
-              </ul>
+            {app.lastSync && (
+              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
             )}
 
             {!app.connected ? (
@@ -156,16 +129,39 @@ export default function Integrations() {
                 Connect <PlusCircleIcon className="w-5 h-5" />
               </button>
             ) : (
-              <button
-                onClick={() => disconnect(app.key)}
-                className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
-              >
-                Disconnect
-              </button>
+              <>
+                <button
+                  onClick={fetchSheets}
+                  className="w-full py-2 mt-2 bg-green-600 rounded-xl text-white"
+                >
+                  List Google Sheets
+                </button>
+
+                <button
+                  onClick={() => disconnect(app.key)}
+                  className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
+                >
+                  Disconnect
+                </button>
+              </>
             )}
           </div>
         ))}
       </div>
+
+      {sheets.length > 0 && (
+        <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700">
+          <h3 className="text-2xl font-bold text-white mb-4">Your Google Sheets</h3>
+
+          <ul className="space-y-2">
+            {sheets.map((sheet) => (
+              <li key={sheet.id} className="text-white bg-gray-700 p-3 rounded-xl">
+                {sheet.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
