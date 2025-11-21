@@ -1,61 +1,43 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export default function Analytics() {
   const [sheets, setSheets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
-
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-
-  const userId = searchParams.get("user_id") || "123";
-
-  const fetchSheets = async () => {
-    try {
-      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
-      setSheets(res.data.sheets || []);
-    } catch (err) {
-      console.log(err);
-      setSheets([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchSheets();
+    fetch("http://localhost:8000/google/list-sheets")
+      .then(res => res.json())
+      .then(data => {
+        console.log("Analytics sheets:", data);
+        setSheets(data.sheets || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (
-    <div className="space-y-10">
-      <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-indigo-500">
-        Analytics Dashboard
-      </h2>
+    <div className="space-y-8">
+      <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+      <p className="text-gray-700">Select Google Sheet</p>
 
-      <p className="text-gray-300 text-lg">
-        Create strategic business insights that enable confident, data-driven decisions.
-      </p>
-
-      <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700">
-        <h3 className="text-2xl font-bold text-white mb-4">Select Google Sheet</h3>
-
-        {loading ? (
-          <p className="text-gray-300">Loading...</p>
-        ) : sheets.length === 0 ? (
-          <p className="text-red-400">No spreadsheets found.</p>
-        ) : (
-          <ul className="space-y-2">
-            {sheets.map((sheet) => (
-              <li key={sheet.id} className="text-white bg-gray-700 p-3 rounded-xl">
-                {sheet.name}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {loading ? (
+        <p>Loading sheets...</p>
+      ) : sheets.length === 0 ? (
+        <p className="text-red-500">
+          No spreadsheets found. Check the Integrations page if you expected sheets.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {sheets.map(sheet => (
+            <div
+              key={sheet.id}
+              className="p-4 border rounded-lg bg-white hover:bg-gray-50 cursor-pointer"
+            >
+              {sheet.name}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
