@@ -10,70 +10,81 @@ const availableApps = [
   { name: "Mailchimp", key: "mailchimp", connected: false, lastSync: null },
 ];
 
-export default function Integrations({ location }) {
+export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  // Get user_id from URL or fallback
-  const searchParams = new URLSearchParams(location.search);
-  const userId = searchParams.get("user_id") || "123";
+  // Get user_email from URL (from OAuth redirect)
+  const userId = new URLSearchParams(window.location.search).get("user_email") || "default@example.com";
 
-  // Fetch connected apps
   const fetchConnectedApps = async () => {
     try {
-      const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
+      const res = await axios.get(`${BACKEND}/connected-apps?user_email=${userId}`);
       const statuses = res.data;
 
       setApps((prev) =>
         prev.map((app) => ({
           ...app,
           connected: statuses[app.key] || false,
-          lastSync: statuses[`${app.key}_last_sync`] 
-            ? new Date(statuses[`${app.key}_last_sync`]).toLocaleString() 
-            : null,
+          lastSync: statuses[app.key] ? new Date().toLocaleString() : null,
         }))
       );
     } catch (err) {
-      console.log("No connected apps yet");
+      console.log("No connected apps yet", err);
     }
   };
 
-  // Fetch on mount and when userId changes
   useEffect(() => {
     fetchConnectedApps();
-  }, [userId]);
 
-  // Handle OAuth redirect updates dynamically
-  useEffect(() => {
-    const justConnected = searchParams.get("connected") === "true";
-    const appType = searchParams.get("type");
-    const oauthUserId = searchParams.get("user_id");
+    // Listen for postMessage from OAuth popup
+    const handleMessage = (e) => {
+      const allowedOrigins = [
+        "http://localhost:3000",
+        "https://ai-data-analyst-538stxz7v-mandlas-projects-228bb82e.vercel.app",
+        "https://ai-data-analyst-swart.vercel.app"
+      ];
 
-    if (justConnected && appType && oauthUserId === userId) {
-      fetchConnectedApps();
+      if (!allowedOrigins.includes(e.origin)) return;
 
-      // Clean URL without reloading
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-  }, [location.search, userId]);
+      if (e.data === "oauth-success") {
+        fetchConnectedApps();
+      }
+    };
 
-  // Start OAuth
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   const connectIntegration = (app) => {
-    window.location.href = `${BACKEND}/auth/${app.key}?user_id=${userId}`;
-  };
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
 
-  // Disconnect
-  const disconnect = async (appKey) => {
-    await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
-    setApps((prev) =>
-      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
+    window.open(
+      `${BACKEND}/auth/${app.key}?user_email=${userId}`,
+      "oauth",
+      `width=${width},height=${height},top=${top},left=${left}`
     );
   };
 
-  const filteredApps = apps.filter((app) => app.name.toLowerCase().includes(search.toLowerCase()));
+  const disconnect = async (appKey) => {
+    await axios.post(`${BACKEND}/disconnect`, { user_email: userId, app: appKey });
+
+    setApps((prev) =>
+      prev.map((app) =>
+        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
+      )
+    );
+  };
+
+  const filteredApps = apps.filter((app) =>
+    app.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   const connectedCount = apps.filter((app) => app.connected).length;
 
   return (
@@ -87,6 +98,7 @@ export default function Integrations({ location }) {
           <CheckCircleIcon className="w-6 h-6 text-green-400" />
           <span>{connectedCount} Connected</span>
         </div>
+
         <div className="flex items-center gap-2 bg-gray-900/70 p-4 rounded-2xl border border-gray-700">
           <XCircleIcon className="w-6 h-6 text-red-400" />
           <span>{apps.length - connectedCount} Not Connected</span>
@@ -116,7 +128,9 @@ export default function Integrations({ location }) {
               {app.connected ? "Connected" : "Not connected"}
             </p>
 
-            {app.lastSync && <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>}
+            {app.lastSync && (
+              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
+            )}
 
             {!app.connected ? (
               <button
