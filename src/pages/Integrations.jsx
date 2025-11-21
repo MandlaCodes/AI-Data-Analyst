@@ -7,7 +7,7 @@ const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
 ];
 
-export default function Integrations() {
+export default function Integrations({ onSheetsUpdate }) {
   const location = useLocation();
   const [apps, setApps] = useState(availableApps);
   const [search, setSearch] = useState("");
@@ -43,16 +43,21 @@ export default function Integrations() {
   const fetchSheets = async () => {
     try {
       const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
-      setSheets(res.data.sheets || []);
+      const sheetList = res.data.sheets || [];
+      setSheets(sheetList);
+      if (onSheetsUpdate) onSheetsUpdate(sheetList); // Pass to Analytics
     } catch (err) {
       console.log(err);
+      setSheets([]);
       alert("Google Sheets Not Connected");
     }
   };
 
   // Initial load
   useEffect(() => {
-    fetchConnectedApps();
+    fetchConnectedApps().then((statuses) => {
+      if (statuses?.google_sheets) fetchSheets();
+    });
   }, []);
 
   // Handle OAuth redirect after Google Sheets connection
@@ -61,14 +66,10 @@ export default function Integrations() {
     const appType = searchParams.get("type");
 
     if (justConnected && appType === "google_sheets") {
-      // Wait until connection status is confirmed
       fetchConnectedApps().then((statuses) => {
-        if (statuses?.google_sheets) {
-          fetchSheets();
-        }
+        if (statuses?.google_sheets) fetchSheets();
       });
 
-      // Clean URL to remove query params
       window.history.replaceState({}, document.title, "/dashboard/integrations");
     }
   }, [location.search]);
@@ -84,7 +85,8 @@ export default function Integrations() {
         app.key === appKey ? { ...app, connected: false, lastSync: null } : app
       )
     );
-    setSheets([]); // Clear sheets on disconnect
+    setSheets([]);
+    if (onSheetsUpdate) onSheetsUpdate([]); // Clear in Analytics
   };
 
   const filteredApps = apps.filter((app) =>

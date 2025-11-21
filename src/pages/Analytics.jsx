@@ -39,26 +39,20 @@ function GoogleSheetsLogo({ className }) {
 }
 
 export default function Analytics() {
-  const userId = "123"; // TODO: replace with actual logged-in user ID
+  const userId = "123";
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
   const [connectedApps, setConnectedApps] = useState([]);
-  const [selectedApp, setSelectedApp] = useState(null);
-
   const [sheets, setSheets] = useState([]);
   const [selectedSheet, setSelectedSheet] = useState(null);
   const [sheetData, setSheetData] = useState([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
-
   const [numericColumns, setNumericColumns] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
-
   const [kpiMetrics, setKpiMetrics] = useState({ total: 0, avg: 0, max: 0, min: 0 });
   const [aiSummary, setAiSummary] = useState("");
-
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [loadingSheetValues, setLoadingSheetValues] = useState(false);
-
   const [landingOpen, setLandingOpen] = useState(true);
   const [showNotConnectedModal, setShowNotConnectedModal] = useState(false);
   const [notConnectedAppName, setNotConnectedAppName] = useState("");
@@ -74,26 +68,26 @@ export default function Analytics() {
           .filter(([k, v]) => k !== "google_sheets_last_sync" && v)
           .map(([k]) => k);
         setConnectedApps(apps);
+
+        if (apps.includes("google_sheets")) fetchSheets();
       })
       .catch(() => setConnectedApps([]));
   }, []);
 
-  // Fetch sheets when Google Sheets selected
-  useEffect(() => {
-    if (selectedApp === "google_sheets") {
-      setLoadingSheets(true);
-      axios
-        .get(`${BACKEND}/sheets-list/${userId}`)
-        .then((res) => setSheets(res.data.sheets || []))
-        .catch(() => setSheets([]))
-        .finally(() => setLoadingSheets(false));
-    } else {
+  // Fetch sheets
+  const fetchSheets = async () => {
+    setLoadingSheets(true);
+    try {
+      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
+      setSheets(res.data.sheets || []);
+    } catch (err) {
+      console.error(err);
       setSheets([]);
-      setSelectedSheet(null);
+    } finally {
+      setLoadingSheets(false);
     }
-  }, [selectedApp]);
+  };
 
-  // Fetch sheet values
   const fetchSheetData = async () => {
     if (!selectedSheet) return;
     setLoadingSheetValues(true);
@@ -127,7 +121,7 @@ export default function Analytics() {
       setTimeout(() => setProgress(100), 250);
       setTimeout(() => setProgress(0), 900);
     } catch (err) {
-      console.error("Failed to fetch sheet values", err);
+      console.error(err);
       setSheetData([]);
       setShowAnalytics(false);
       setProgress(0);
@@ -136,7 +130,6 @@ export default function Analytics() {
     }
   };
 
-  // KPI calculations
   useEffect(() => {
     if (!sheetData.length || selectedColumns.length === 0) {
       setKpiMetrics({ total: 0, avg: 0, max: 0, min: 0 });
@@ -209,7 +202,7 @@ export default function Analytics() {
     try {
       const res = await axios.post(`${BACKEND}/analyze-dataset`, {
         user_id: userId,
-        app: selectedApp || "google_sheets",
+        app: "google_sheets",
         dataset: sheetData,
       });
       setAiSummary(res.data.summary || "No summary returned.");
@@ -225,197 +218,86 @@ export default function Analytics() {
       setShowNotConnectedModal(true);
       return;
     }
-    setSelectedApp(key);
     setLandingOpen(false);
-    setShowNotConnectedModal(false);
     setAiSummary("");
   };
 
   return (
     <div className="relative min-h-[80vh]">
       <div className="p-3 pt-5 space-y-5">
-        <section id="analytics-top" className="space-y-2">
-          <h2 className="text-4xl font-bold text-white">Analytics Dashboard</h2>
-          <p className="text-gray-300 text-lg max-w-3xl">
-            Create strategic business insights that enable confident, data-driven decisions.
-          </p>
-        </section>
+        <h2 className="text-4xl font-bold text-white">Analytics Dashboard</h2>
+        <p className="text-gray-300 text-lg max-w-3xl">Create strategic business insights that enable confident, data-driven decisions.</p>
 
-        {/* Landing Cards */}
-        <AnimatePresence>
-          {landingOpen && (
-            <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="col-span-1 p-6 bg-gradient-to-br from-indigo-800 to-purple-800 rounded-2xl shadow-xl space-y-4">
-                <h3 className="text-xl font-semibold text-white">Google Sheets</h3>
-                <p className="text-gray-300">Connect and analyze spreadsheets stored in Google Drive.</p>
-                <div className="flex items-center gap-4">
-                  <div
-                    onClick={() => handleAppClick("google_sheets")}
-                    className={`p-3 rounded-xl cursor-pointer ${connectedApps.includes("google_sheets") ? "bg-white/6 hover:bg-white/10" : "bg-gray-700 opacity-70"}`}
-                  >
-                    <GoogleSheetsLogo className="w-10 h-10" />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    {connectedApps.includes("google_sheets") ? (
-                      <button
-                        onClick={() => handleAppClick("google_sheets")}
-                        className="px-4 py-2 bg-indigo-600 rounded-xl text-white font-semibold shadow"
-                      >
-                        Use Google Sheets
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => { setNotConnectedAppName("Google Sheets"); setShowNotConnectedModal(true); }}
-                        className="px-4 py-2 bg-gray-700 rounded-xl text-gray-200"
-                      >
-                        Not connected
-                      </button>
-                    )}
-                    <div className="text-xs text-gray-300">Last synced: —</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Placeholder Cards */}
-              <div className="p-6 bg-gradient-to-br from-gray-800/70 to-gray-900 rounded-2xl shadow-xl flex flex-col justify-between space-y-2">
-                <div>
-                  <h3 className="text-xl font-semibold text-white mb-1">HubSpot (coming)</h3>
-                  <p className="text-gray-400">CRM and contacts integration planned.</p>
-                </div>
-                <button className="px-4 py-2 bg-transparent border border-white/10 text-gray-300 rounded-xl mt-2">Learn more</button>
-              </div>
-
-              <div className="p-6 bg-gradient-to-br from-gray-800/70 to-gray-900 rounded-2xl shadow-xl flex flex-col justify-between space-y-2">
-                <div>
-                  <h3 className="text-xl font-semibold text-white mb-1">Stripe (coming)</h3>
-                  <p className="text-gray-400">Payments & revenue insights planned.</p>
-                </div>
-                <button className="px-4 py-2 bg-transparent border border-white/10 text-gray-300 rounded-xl mt-2">Learn more</button>
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
-
-        {/* Connected Apps + Sheet Picker */}
-        <section className="space-y-6">
-          <div className="p-6 bg-gray-800/40 rounded-2xl shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-semibold text-white">Connected Apps</h3>
-              <div className="text-gray-300 text-sm">Tap a logo to select source</div>
-            </div>
-
-            <div className="flex gap-6 items-center">
-              <motion.button whileHover={{ scale: 1.05 }} onClick={() => handleAppClick("google_sheets")} className={`p-4 rounded-xl transition ${selectedApp === "google_sheets" ? "bg-indigo-600" : "bg-gray-700"}`}>
-                <GoogleSheetsLogo className="w-12 h-12" />
-              </motion.button>
-            </div>
-
-            <AnimatePresence>
-              {selectedApp === "google_sheets" && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="space-y-4">
-                  <h4 className="text-lg text-white font-semibold">Select Google Sheet</h4>
-                  {loadingSheets ? (
-                    <div className="p-4 bg-black/30 rounded-xl">Loading spreadsheets…</div>
-                  ) : sheets.length === 0 ? (
-                    <div className="p-4 bg-black/30 rounded-xl text-gray-400">No spreadsheets found. Check the Integrations page if you expected sheets.</div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={selectedSheet?.id || ""}
-                        onChange={(e) => { const found = sheets.find(s => s.id === e.target.value); setSelectedSheet(found || null); setAiSummary(""); }}
-                        className="bg-gray-700 text-white px-4 py-2 rounded-xl"
-                      >
-                        <option value="">{selectedSheet ? selectedSheet.name : "Choose a spreadsheet…"}</option>
-                        {sheets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-
-                      {selectedSheet && !showAnalytics && (
-                        <motion.button onClick={fetchSheetData} className="px-6 py-2 bg-green-600 rounded-xl text-white font-semibold hover:scale-105 transition">
-                          {loadingSheetValues ? "Loading…" : "Interpret Data"}
-                        </motion.button>
-                      )}
-                    </div>
-                  )}
-                  <div className="mt-4">
-                    <div className="h-2 bg-white/6 rounded-full overflow-hidden">
-                      <div style={{ width: `${progress}%` }} className="h-2 bg-green-500 transition-all duration-300"></div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        {/* Connected Apps */}
+        <div className="p-6 bg-gray-800/40 rounded-2xl shadow-xl space-y-4">
+          <div className="flex items-center gap-6">
+            <motion.button whileHover={{ scale: 1.05 }} onClick={() => handleAppClick("google_sheets")} className={`p-4 rounded-xl transition ${connectedApps.includes("google_sheets") ? "bg-indigo-600" : "bg-gray-700"}`}>
+              <GoogleSheetsLogo className="w-12 h-12" />
+            </motion.button>
           </div>
-        </section>
 
-        {/* Column Selector */}
-        <AnimatePresence>
-          {showAnalytics && numericColumns.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="p-4 bg-gray-900/60 rounded-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-white font-semibold">Select Columns</h4>
-                <div className="text-sm text-gray-300">Showing up to 5 rows preview</div>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {numericColumns.map((i) => (
-                  <label key={i} className={`px-3 py-1 rounded-xl cursor-pointer ${selectedColumns.includes(i) ? "bg-indigo-600 text-white" : "bg-gray-700 text-gray-300"}`}>
-                    <input type="checkbox" checked={selectedColumns.includes(i)} onChange={() => setSelectedColumns((prev) => (prev.includes(i) ? prev.filter((c) => c !== i) : [...prev, i]))} className="mr-2" />
-                    {sheetData[0]?.[i] ?? `Column ${i + 1}`}
-                  </label>
-                ))}
-              </div>
-            </motion.div>
+          {connectedApps.includes("google_sheets") && (
+            <div className="mt-4 space-y-3">
+              <h4 className="text-lg text-white font-semibold">Select Google Sheet</h4>
+              {loadingSheets ? (
+                <div className="p-4 bg-black/30 rounded-xl">Loading spreadsheets…</div>
+              ) : sheets.length === 0 ? (
+                <div className="p-4 bg-black/30 rounded-xl text-gray-400">No spreadsheets found. Connect Sheets from Integrations first.</div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedSheet?.id || ""}
+                    onChange={(e) => { const found = sheets.find(s => s.id === e.target.value); setSelectedSheet(found || null); setAiSummary(""); }}
+                    className="bg-gray-700 text-white px-4 py-2 rounded-xl"
+                  >
+                    <option value="">{selectedSheet ? selectedSheet.name : "Choose a spreadsheet…"}</option>
+                    {sheets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+
+                  {selectedSheet && !showAnalytics && (
+                    <motion.button onClick={fetchSheetData} className="px-6 py-2 bg-green-600 rounded-xl text-white font-semibold hover:scale-105 transition">
+                      Load Data
+                    </motion.button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
-        </AnimatePresence>
+        </div>
 
-        {/* KPIs */}
-        <AnimatePresence>
-          {showAnalytics && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="p-4 bg-indigo-800 rounded-2xl shadow-xl text-white">
-                <h5 className="text-sm">Total</h5>
-                <p className="text-2xl font-bold">{kpiMetrics.total.toLocaleString()}</p>
-              </div>
-              <div className="p-4 bg-indigo-700 rounded-2xl shadow-xl text-white">
-                <h5 className="text-sm">Average</h5>
-                <p className="text-2xl font-bold">{kpiMetrics.avg.toLocaleString()}</p>
-              </div>
-              <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl text-white">
-                <h5 className="text-sm">Maximum</h5>
-                <p className="text-2xl font-bold">{kpiMetrics.max.toLocaleString()}</p>
-              </div>
-              <div className="p-4 bg-indigo-500 rounded-2xl shadow-xl text-white">
-                <h5 className="text-sm">Minimum</h5>
-                <p className="text-2xl font-bold">{kpiMetrics.min.toLocaleString()}</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Charts */}
-        {showAnalytics && <div className="space-y-8 mt-6">{generateCharts()}</div>}
-
-        {/* AI Insights */}
+        {/* Analytics display */}
         {showAnalytics && (
-          <div className="p-6 bg-gray-900/70 rounded-2xl mt-6 space-y-4">
-            <h4 className="text-xl font-semibold text-white">AI Insights</h4>
-            <button onClick={generateAIInsights} className="px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:scale-105 transition">
-              Generate Insights
-            </button>
-            {aiSummary && <div className="mt-4 text-gray-300 whitespace-pre-line">{aiSummary}</div>}
+          <div className="space-y-6">
+            <div className="flex gap-6 flex-wrap">
+              <div className="p-4 bg-gray-900 rounded-xl text-white">
+                <div>Total: {kpiMetrics.total}</div>
+                <div>Average: {kpiMetrics.avg}</div>
+                <div>Max: {kpiMetrics.max}</div>
+                <div>Min: {kpiMetrics.min}</div>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">{generateCharts()}</div>
+
+            <div className="mt-6 p-6 bg-gray-900 rounded-xl text-white">
+              <h4 className="text-lg font-semibold mb-3">AI Insights</h4>
+              <button onClick={generateAIInsights} className="px-4 py-2 bg-indigo-600 rounded-xl font-semibold hover:scale-105 transition">
+                Generate Insights
+              </button>
+              {aiSummary && <p className="mt-3">{aiSummary}</p>}
+            </div>
           </div>
         )}
 
-        {/* Not Connected Modal */}
         <AnimatePresence>
           {showNotConnectedModal && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-              <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full space-y-4">
+              <div className="bg-gray-800 p-6 rounded-2xl w-96 space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-white text-xl font-semibold">{notConnectedAppName} not connected</h3>
-                  <button onClick={() => setShowNotConnectedModal(false)}><FaTimes className="text-gray-300" /></button>
+                  <h4 className="text-lg font-bold text-white">{notConnectedAppName} Not Connected</h4>
+                  <FaTimes className="cursor-pointer" onClick={() => setShowNotConnectedModal(false)} />
                 </div>
-                <p className="text-gray-300">Please connect {notConnectedAppName} from the Integrations page before using it here.</p>
-                <button onClick={() => setShowNotConnectedModal(false)} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold">Close</button>
+                <p className="text-gray-300">Please connect {notConnectedAppName} from the Integrations page first.</p>
               </div>
             </motion.div>
           )}
