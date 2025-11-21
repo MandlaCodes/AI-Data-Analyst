@@ -57,6 +57,24 @@ export default function Analytics() {
   const [showNotConnectedModal, setShowNotConnectedModal] = useState(false);
   const [notConnectedAppName, setNotConnectedAppName] = useState("");
   const [progress, setProgress] = useState(0);
+  // NEW — Fetch sheets on mount so Analytics always loads Sheets
+  useEffect(() => {
+    async function loadSheetsFromBackend() {
+      try {
+        const res = await fetch(`${BACKEND}/sheets-list/${userId}`);
+        const data = await res.json();
+
+        if (data.sheets) {
+          console.log("Sheets loaded in Analytics:", data.sheets);
+          setSheets(data.sheets);
+        }
+      } catch (err) {
+        console.error("Failed to load sheets:", err);
+      }
+    }
+
+    loadSheetsFromBackend();
+  }, [BACKEND, userId]);
 
   // Fetch connected apps
   useEffect(() => {
