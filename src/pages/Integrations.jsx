@@ -7,18 +7,16 @@ const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
 ];
 
-export default function Integrations({ onSheetsUpdate }) {
+export default function Integrations() {
   const location = useLocation();
   const [apps, setApps] = useState(availableApps);
-  const [search, setSearch] = useState("");
-  const [sheets, setSheets] = useState([]);
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
   const searchParams = new URLSearchParams(location.search);
   const userId = searchParams.get("user_id") || "123";
 
-  // Fetch connected apps
+  // Fetch connected integrations
   const fetchConnectedApps = async () => {
     try {
       const res = await axios.get(`${BACKEND}/connected-apps?user_id=${userId}`);
@@ -31,45 +29,23 @@ export default function Integrations({ onSheetsUpdate }) {
           lastSync: statuses[`${app.key}_last_sync`] || null,
         }))
       );
-
-      return statuses; // ✅ important for chaining
     } catch (err) {
       console.log("Error fetching apps", err);
-      return null;
     }
   };
 
-  // Fetch sheets for Google Sheets
-  const fetchSheets = async () => {
-    try {
-      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
-      const sheetList = res.data.sheets || [];
-      setSheets(sheetList);
-      if (onSheetsUpdate) onSheetsUpdate(sheetList); // Pass to Analytics
-    } catch (err) {
-      console.log(err);
-      setSheets([]);
-      alert("Google Sheets Not Connected");
-    }
-  };
-
-  // Initial load
+  // Run on load
   useEffect(() => {
-    fetchConnectedApps().then((statuses) => {
-      if (statuses?.google_sheets) fetchSheets();
-    });
+    fetchConnectedApps();
   }, []);
 
-  // Handle OAuth redirect after Google Sheets connection
+  // After OAuth redirect
   useEffect(() => {
     const justConnected = searchParams.get("connected") === "true";
-    const appType = searchParams.get("type");
+    const type = searchParams.get("type");
 
-    if (justConnected && appType === "google_sheets") {
-      fetchConnectedApps().then((statuses) => {
-        if (statuses?.google_sheets) fetchSheets();
-      });
-
+    if (justConnected && type === "google_sheets") {
+      fetchConnectedApps();
       window.history.replaceState({}, document.title, "/dashboard/integrations");
     }
   }, [location.search]);
@@ -80,18 +56,13 @@ export default function Integrations({ onSheetsUpdate }) {
 
   const disconnect = async (appKey) => {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
+
     setApps((prev) =>
       prev.map((app) =>
         app.key === appKey ? { ...app, connected: false, lastSync: null } : app
       )
     );
-    setSheets([]);
-    if (onSheetsUpdate) onSheetsUpdate([]); // Clear in Analytics
   };
-
-  const filteredApps = apps.filter((app) =>
-    app.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   const connectedCount = apps.filter((app) => app.connected).length;
 
@@ -101,7 +72,7 @@ export default function Integrations({ onSheetsUpdate }) {
         Integrations
       </h2>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex gap-4">
         <div className="flex items-center gap-2 bg-gray-900/70 p-4 rounded-2xl border border-gray-700">
           <CheckCircleIcon className="w-6 h-6 text-green-400" />
           <span>{connectedCount} Connected</span>
@@ -113,16 +84,9 @@ export default function Integrations({ onSheetsUpdate }) {
         </div>
       </div>
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search integrations..."
-        className="w-full md:w-1/3 p-3 rounded-xl bg-gray-800 border border-gray-700 text-white"
-      />
-
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredApps.map((app) => (
-          <div key={app.key} className="p-6 bg-gray-800/70 border border-gray-700 rounded-3xl shadow-lg">
+        {apps.map((app) => (
+          <div key={app.key} className="p-6 bg-gray-800 border border-gray-700 rounded-3xl">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-xl text-white">{app.name}</h3>
               {app.connected ? (
@@ -132,14 +96,6 @@ export default function Integrations({ onSheetsUpdate }) {
               )}
             </div>
 
-            <p className={`text-sm mb-3 ${app.connected ? "text-green-300" : "text-red-300"}`}>
-              {app.connected ? "Connected" : "Not connected"}
-            </p>
-
-            {app.lastSync && (
-              <p className="text-gray-400 text-xs mb-2">Last synced: {app.lastSync}</p>
-            )}
-
             {!app.connected ? (
               <button
                 onClick={() => connectIntegration(app)}
@@ -148,39 +104,16 @@ export default function Integrations({ onSheetsUpdate }) {
                 Connect <PlusCircleIcon className="w-5 h-5" />
               </button>
             ) : (
-              <>
-                <button
-                  onClick={fetchSheets}
-                  className="w-full py-2 mt-2 bg-green-600 rounded-xl text-white"
-                >
-                  List Google Sheets
-                </button>
-
-                <button
-                  onClick={() => disconnect(app.key)}
-                  className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
-                >
-                  Disconnect
-                </button>
-              </>
+              <button
+                onClick={() => disconnect(app.key)}
+                className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
+              >
+                Disconnect
+              </button>
             )}
           </div>
         ))}
       </div>
-
-      {sheets.length > 0 && (
-        <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700">
-          <h3 className="text-2xl font-bold text-white mb-4">Your Google Sheets</h3>
-
-          <ul className="space-y-2">
-            {sheets.map((sheet) => (
-              <li key={sheet.id} className="text-white bg-gray-700 p-3 rounded-xl">
-                {sheet.name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
