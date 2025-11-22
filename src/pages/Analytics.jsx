@@ -1,78 +1,61 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { useLocation } from "react-router-dom";
 
 export default function Analytics() {
+  const [sheets, setSheets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-  const [connected, setConnected] = useState(false);
-  const [sheets, setSheets] = useState([]);
-  const [loadingSheets, setLoadingSheets] = useState(true);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
 
-  // Check Google status + load sheets only here
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${BACKEND}/google/status?user_id=123`);
-        const data = await res.json();
+  const userId = searchParams.get("user_id") || "123";
 
-        setConnected(data.connected);
-
-        if (data.connected) {
-          const sheetsRes = await fetch(
-            `${BACKEND}/google/list-sheets?user_id=123`
-          );
-          const sheetsData = await sheetsRes.json();
-          setSheets(sheetsData.sheets || []);
-        }
-      } catch (err) {
-        console.error("Error loading sheets:", err);
-      }
-      setLoadingSheets(false);
+  const fetchSheets = async () => {
+    try {
+      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
+      setSheets(res.data.sheets || []);
+    } catch (err) {
+      console.log(err);
+      setSheets([]);
+    } finally {
+      setLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    fetchSheets();
   }, []);
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-      <p className="text-neutral-600 dark:text-neutral-400">
-        Create strategic business insights that enable confident, data-driven
-        decisions.
+    <div className="space-y-10">
+      <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-indigo-500">
+        Analytics Dashboard
+      </h2>
+
+      <p className="text-gray-300 text-lg">
+        Create strategic business insights that enable confident, data-driven decisions.
       </p>
 
-      {!connected ? (
-        <div className="p-6 border rounded-lg bg-white dark:bg-neutral-900">
-          <p className="text-red-500 font-medium">
-            Google Sheets is not connected.
-          </p>
-          <p className="text-neutral-500">
-            Go to the Integrations page to connect it.
-          </p>
-        </div>
-      ) : loadingSheets ? (
-        <p>Loading sheets...</p>
-      ) : (
-        <div className="p-6 border rounded-lg bg-white dark:bg-neutral-900">
-          <h2 className="text-xl font-semibold mb-4">Select Google Sheet</h2>
+      <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700">
+        <h3 className="text-2xl font-bold text-white mb-4">Select Google Sheet</h3>
 
-          {sheets.length === 0 ? (
-            <p className="text-neutral-500">
-              No spreadsheets found. Check the Integrations page if you expected
-              sheets.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {sheets.map((sheet) => (
-                <li
-                  key={sheet.id}
-                  className="p-3 border rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
-                >
-                  {sheet.name}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+        {loading ? (
+          <p className="text-gray-300">Loading...</p>
+        ) : sheets.length === 0 ? (
+          <p className="text-red-400">No spreadsheets found.</p>
+        ) : (
+          <ul className="space-y-2">
+            {sheets.map((sheet) => (
+              <li key={sheet.id} className="text-white bg-gray-700 p-3 rounded-xl">
+                {sheet.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
