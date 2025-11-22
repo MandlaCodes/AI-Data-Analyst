@@ -39,7 +39,9 @@ export default function Landing({ onGetStarted }) {
 
   return (
     <div className="relative bg-gray-900 text-white overflow-x-hidden font-sans">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
       <style>{`
+        body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { display: none; }
         .fade-transition { transition: opacity .45s ease, transform .45s ease; }
         @keyframes blob {
@@ -50,8 +52,36 @@ export default function Landing({ onGetStarted }) {
         .animate-blob { animation: blob 7s infinite; }
         .animation-delay-2000 { animation-delay: 2s; }
         .hover-glow:hover { box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(128, 0, 255, 0.3); }
-        .futuristic-card { background: linear-gradient(135deg, rgba(20,20,20,0.8), rgba(40,40,40,0.8)); border: 1px solid rgba(0,255,255,0.2); }
+        .futuristic-card { 
+          background: linear-gradient(135deg, rgba(20,20,20,0.85), rgba(40,40,40,0.85));
+          border: 1px solid rgba(0,255,255,0.15);
+          backdrop-filter: blur(20px);
+          transition: transform 0.5s ease, box-shadow 0.5s ease;
+        }
+        .futuristic-card:hover { 
+          transform: translateY(-8px) scale(1.02);
+          box-shadow: 0 15px 40px rgba(0,255,255,0.3), 0 5px 10px rgba(128,0,255,0.2);
+        }
+        .neon-grid-line {
+          position: absolute;
+          width: 100%;
+          height: 2px;
+          background: linear-gradient(to right, rgba(0,255,255,0.2), rgba(255,0,255,0.2));
+          animation: floatLine 10s linear infinite;
+        }
+        @keyframes floatLine {
+          0% { transform: translateY(0); }
+          50% { transform: translateY(15px); }
+          100% { transform: translateY(0); }
+        }
       `}</style>
+
+      {/* FLOATING NEON GRID LINES */}
+      <div className="absolute top-0 left-0 w-full h-full -z-10">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="neon-grid-line" style={{ top: `${i * 20}%` }} />
+        ))}
+      </div>
 
       {/* NAVBAR */}
       <nav className="w-full flex items-center justify-between px-8 py-6 fixed top-0 z-50 backdrop-blur-md bg-black/40 shadow-lg">
@@ -85,15 +115,16 @@ export default function Landing({ onGetStarted }) {
         id="home"
         className="relative min-h-screen flex flex-col justify-center items-center text-center px-6 py-32 lg:pb-40 z-10"
       >
-        <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover -z-20 brightness-75">
+        <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover -z-10 brightness-75">
           <source src="/12421439_3840_2160_30fps.mp4" type="video/mp4" />
         </video>
-        <div className="absolute top-0 left-0 w-full h-full bg-black/70 -z-10" />
+
+        {/* Floating neon blobs */}
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-700 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
 
         <div ref={heroRef} className="max-w-4xl w-full px-4 text-center overflow-visible">
-          {/* KEEP THIS EXACT */}
+          {/* HERO HEADING */}
           <h2 className="text-7xl md:text-6xl font-extrabold mb-16 leading-[1.3] md:leading-[1.2] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-white">
             Hello, I'm your AI Data Analyst
           </h2>
@@ -158,7 +189,7 @@ export default function Landing({ onGetStarted }) {
           ].map((feature, index) => (
             <div
               key={index}
-              className="futuristic-card backdrop-blur-3xl rounded-3xl p-8 shadow-2xl hover:scale-105 transform transition duration-500 flex flex-col items-start gap-5 hover:shadow-cyan-500/50 hover-glow"
+              className="futuristic-card rounded-3xl p-8 shadow-2xl flex flex-col items-start gap-5"
             >
               <div className="p-5 bg-black/30 rounded-full flex items-center justify-center w-20 h-20">
                 {feature.icon}
