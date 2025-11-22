@@ -11,6 +11,22 @@ export default function Integrations() {
   const location = useLocation();
   const [apps, setApps] = useState(availableApps);
 
+  const [sheets, setSheets] = useState([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [sheetData, setSheetData] = useState([]);
+
+  const [numericColumns, setNumericColumns] = useState([]);
+  const [selectedColumns, setSelectedColumns] = useState([]);
+
+  const [kpiMetrics, setKpiMetrics] = useState({
+    total: 0,
+    avg: 0,
+    max: 0,
+    min: 0,
+  });
+
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
   const searchParams = new URLSearchParams(location.search);
@@ -29,17 +45,107 @@ export default function Integrations() {
           lastSync: statuses[`${app.key}_last_sync`] || null,
         }))
       );
+
+      // If Google Sheets is connected, auto-fetch spreadsheets
+      if (statuses["google_sheets"] === true) {
+        fetchSheets();
+      }
     } catch (err) {
       console.log("Error fetching apps", err);
     }
   };
 
-  // Run on load
+  // Fetch Sheets
+  const fetchSheets = async () => {
+    setLoadingSheets(true);
+    try {
+      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
+      setSheets(res.data.sheets || []);
+
+      // Save sheets in backend for analytics
+      await axios.post(`${BACKEND}/save-sheets`, {
+        user_id: userId,
+        sheets: res.data.sheets || [],
+      });
+    } catch (err) {
+      console.log("Error fetching sheets", err);
+      setSheets([]);
+    } finally {
+      setLoadingSheets(false);
+    }
+  };
+
+  // Load sheet data
+  const loadSheetData = async () => {
+    if (!selectedSheet) return;
+
+    try {
+      const res = await axios.get(`${BACKEND}/sheets/${userId}/${selectedSheet.id}`);
+      const values = res.data.values || [];
+
+      setSheetData(values);
+
+      // Detect numeric columns
+      if (values.length > 1) {
+        const headers = values[0];
+        const sample = values[1];
+
+        const numericIndexes = headers
+          .map((h, i) => {
+            const v = sample[i];
+            if (v === undefined || v === null) return null;
+            const cleaned = String(v).replace(/[, ]+/g, "");
+            return !isNaN(Number(cleaned)) && i !== 0 ? i : null;
+          })
+          .filter((i) => i !== null);
+
+        setNumericColumns(numericIndexes);
+        setSelectedColumns(numericIndexes);
+      } else {
+        setNumericColumns([]);
+        setSelectedColumns([]);
+      }
+    } catch (err) {
+      console.log("Error loading sheet data", err);
+      setSheetData([]);
+    }
+  };
+
+  // Recalculate KPIs
+  useEffect(() => {
+    if (!sheetData.length || selectedColumns.length === 0) {
+      setKpiMetrics({ total: 0, avg: 0, max: 0, min: 0 });
+      return;
+    }
+
+    const numbers = sheetData.slice(1).flatMap((row) =>
+      selectedColumns.map((i) => {
+        const v = row[i];
+        if (!v) return 0;
+        const n = Number(String(v).replace(/[, ]+/g, ""));
+        return isNaN(n) ? 0 : n;
+      })
+    );
+
+    if (!numbers.length) {
+      setKpiMetrics({ total: 0, avg: 0, max: 0, min: 0 });
+      return;
+    }
+
+    const total = numbers.reduce((a, b) => a + b, 0);
+    const avg = total / numbers.length;
+    const max = Math.max(...numbers);
+    const min = Math.min(...numbers);
+
+    setKpiMetrics({ total, avg, max, min });
+  }, [sheetData, selectedColumns]);
+
+  // First load
   useEffect(() => {
     fetchConnectedApps();
   }, []);
 
-  // After OAuth redirect
+  // OAuth redirect handler
   useEffect(() => {
     const justConnected = searchParams.get("connected") === "true";
     const type = searchParams.get("type");
@@ -62,6 +168,10 @@ export default function Integrations() {
         app.key === appKey ? { ...app, connected: false, lastSync: null } : app
       )
     );
+
+    setSheets([]);
+    setSheetData([]);
+    setSelectedSheet(null);
   };
 
   const connectedCount = apps.filter((app) => app.connected).length;
@@ -114,6 +224,65 @@ export default function Integrations() {
           </div>
         ))}
       </div>
+
+      {/* Sheets Section */}
+      {apps.find((a) => a.key === "google_sheets" && a.connected) && (
+        <div className="p-6 bg-gray-900/60 rounded-2xl border border-gray-700 space-y-4">
+          <h3 className="text-xl text-white font-semibold">Your Google Sheets</h3>
+
+          {loadingSheets ? (
+            <div className="text-gray-400">Loading sheets…</div>
+          ) : sheets.length === 0 ? (
+            <div className="text-gray-400">No Sheets Found</div>
+          ) : (
+            <select
+              className="bg-gray-800 text-white p-3 rounded-xl"
+              value={selectedSheet?.id || ""}
+              onChange={(e) => {
+                const found = sheets.find((s) => s.id === e.target.value);
+                setSelectedSheet(found || null);
+                setSheetData([]);
+              }}
+            >
+              <option value="">Select a spreadsheet…</option>
+              {sheets.map((sheet) => (
+                <option key={sheet.id} value={sheet.id}>
+                  {sheet.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {selectedSheet && (
+            <button
+              onClick={loadSheetData}
+              className="px-6 py-2 bg-green-600 rounded-xl text-white"
+            >
+              Load Data
+            </button>
+          )}
+
+          {/* Data Loaded */}
+          {sheetData.length > 0 && (
+            <div className="space-y-6 text-white">
+              <div className="p-4 bg-gray-800 rounded-xl">
+                <h4 className="font-bold mb-2">KPIs</h4>
+                <div>Total: {kpiMetrics.total}</div>
+                <div>Average: {kpiMetrics.avg}</div>
+                <div>Max: {kpiMetrics.max}</div>
+                <div>Min: {kpiMetrics.min}</div>
+              </div>
+
+              <div className="p-4 bg-gray-800 rounded-xl">
+                <h4 className="font-bold mb-2">Raw Data Preview</h4>
+                <pre className="text-gray-300 text-sm max-h-64 overflow-y-scroll">
+                  {JSON.stringify(sheetData, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
