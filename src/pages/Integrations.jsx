@@ -72,6 +72,7 @@ export default function Integrations() {
     setLoadingSheets(true);
     try {
       const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
+      console.log("Sheets fetched:", res.data.sheets);
       setSheets(res.data.sheets || []);
     } catch (err) {
       console.log("Error fetching sheets", err);
@@ -84,6 +85,7 @@ export default function Integrations() {
   // Load sheet data when a sheet is clicked
   const loadSheetData = async (sheet) => {
     if (!sheet) return;
+
     setSelectedSheet(sheet);
     setShowAnalytics(false); // reset analytics while loading
     setSheetData([]);
@@ -91,14 +93,17 @@ export default function Integrations() {
     setSelectedColumns([]);
 
     try {
-      const res = await axios.get(`${BACKEND}/sheets/${userId}/${sheet.id}`);
+      const sheetId = sheet.id || sheet.sheetId || sheet.spreadsheetId; // ensure correct ID
+      console.log("Loading sheet data for:", sheetId);
+
+      const res = await axios.get(`${BACKEND}/sheets/${userId}/${sheetId}`);
       const values = res.data.values || [];
       setSheetData(values);
 
       if (values.length > 1) {
         const headers = values[0];
 
-        // Detect numeric columns using first 5 rows for accuracy
+        // Detect numeric columns using first 5 rows
         const numericIndexes = headers
           .map((_, i) => {
             for (let r = 1; r < Math.min(6, values.length); r++) {
@@ -272,7 +277,7 @@ export default function Integrations() {
         ))}
       </div>
 
-      {/* Sheets Section */}
+      {/* Google Sheets Section */}
       {apps.find((a) => a.key === "google_sheets" && a.connected) && (
         <div className="p-6 bg-gray-900/60 rounded-2xl border border-gray-700 space-y-4">
           <h3 className="text-xl text-white font-semibold">Your Google Sheets</h3>
@@ -283,17 +288,22 @@ export default function Integrations() {
             <div className="text-gray-400">No Sheets Found</div>
           ) : (
             <div className="flex flex-col gap-2">
-              {sheets.map((sheet) => (
-                <button
-                  key={sheet.id}
-                  className={`text-left p-3 rounded-xl w-full ${
-                    selectedSheet?.id === sheet.id ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-200"
-                  }`}
-                  onClick={() => loadSheetData(sheet)}
-                >
-                  {sheet.name}
-                </button>
-              ))}
+              {sheets.map((sheet) => {
+                const sheetId = sheet.id || sheet.sheetId || sheet.spreadsheetId;
+                return (
+                  <button
+                    key={sheetId}
+                    className={`text-left p-3 rounded-xl w-full border-2 ${
+                      selectedSheet?.id === sheetId
+                        ? "bg-indigo-600 text-white border-indigo-400"
+                        : "bg-gray-800 text-gray-200 border-gray-700"
+                    }`}
+                    onClick={() => loadSheetData({ ...sheet, id: sheetId })}
+                  >
+                    {sheet.name || sheet.title || "Untitled Sheet"}
+                  </button>
+                );
+              })}
             </div>
           )}
 
