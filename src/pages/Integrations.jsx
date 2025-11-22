@@ -15,16 +15,7 @@ import {
   Legend,
 } from "chart.js";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend);
 
 const availableApps = [
   { name: "Google Sheets", key: "google_sheets", connected: false, lastSync: null },
@@ -35,7 +26,6 @@ export default function Integrations() {
   const [apps, setApps] = useState(availableApps);
   const [sheets, setSheets] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
-
   const [selectedSheet, setSelectedSheet] = useState(null);
   const [sheetData, setSheetData] = useState([]);
   const [numericColumns, setNumericColumns] = useState([]);
@@ -61,7 +51,7 @@ export default function Integrations() {
         }))
       );
 
-      if (statuses["google_sheets"] === true) fetchSheets();
+      if (statuses["google_sheets"]) fetchSheets();
     } catch (err) {
       console.log("Error fetching apps", err);
     }
@@ -93,7 +83,7 @@ export default function Integrations() {
     setSelectedColumns([]);
 
     try {
-      const sheetId = sheet.id || sheet.sheetId || sheet.spreadsheetId; // ensure correct ID
+      const sheetId = sheet.id;
       console.log("Loading sheet data for:", sheetId);
 
       const res = await axios.get(`${BACKEND}/sheets/${userId}/${sheetId}`);
@@ -242,7 +232,6 @@ export default function Integrations() {
           <CheckCircleIcon className="w-6 h-6 text-green-400" />
           <span>{connectedCount} Connected</span>
         </div>
-
         <div className="flex items-center gap-2 bg-gray-900/70 p-4 rounded-2xl border border-gray-700">
           <XCircleIcon className="w-6 h-6 text-red-400" />
           <span>{apps.length - connectedCount} Not Connected</span>
@@ -257,7 +246,6 @@ export default function Integrations() {
               <h3 className="text-xl text-white">{app.name}</h3>
               {app.connected ? <CheckCircleIcon className="w-6 h-6 text-green-400" /> : <XCircleIcon className="w-6 h-6 text-red-400" />}
             </div>
-
             {!app.connected ? (
               <button
                 onClick={() => connectIntegration(app)}
@@ -266,10 +254,7 @@ export default function Integrations() {
                 Connect <PlusCircleIcon className="w-5 h-5" />
               </button>
             ) : (
-              <button
-                onClick={() => disconnect(app.key)}
-                className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white"
-              >
+              <button onClick={() => disconnect(app.key)} className="w-full py-2 mt-2 bg-red-600 rounded-xl text-white">
                 Disconnect
               </button>
             )}
@@ -288,22 +273,19 @@ export default function Integrations() {
             <div className="text-gray-400">No Sheets Found</div>
           ) : (
             <div className="flex flex-col gap-2">
-              {sheets.map((sheet) => {
-                const sheetId = sheet.id || sheet.sheetId || sheet.spreadsheetId;
-                return (
-                  <button
-                    key={sheetId}
-                    className={`text-left p-3 rounded-xl w-full border-2 ${
-                      selectedSheet?.id === sheetId
-                        ? "bg-indigo-600 text-white border-indigo-400"
-                        : "bg-gray-800 text-gray-200 border-gray-700"
-                    }`}
-                    onClick={() => loadSheetData({ ...sheet, id: sheetId })}
-                  >
-                    {sheet.name || sheet.title || "Untitled Sheet"}
-                  </button>
-                );
-              })}
+              {sheets.map((sheet) => (
+                <button
+                  key={sheet.id}
+                  className={`text-left p-3 rounded-xl w-full border-2 ${
+                    selectedSheet?.id === sheet.id
+                      ? "bg-indigo-600 text-white border-indigo-400"
+                      : "bg-gray-800 text-gray-200 border-gray-700"
+                  }`}
+                  onClick={() => loadSheetData(sheet)}
+                >
+                  {sheet.name || "Untitled Sheet"}
+                </button>
+              ))}
             </div>
           )}
 

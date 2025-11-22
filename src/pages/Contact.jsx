@@ -24,7 +24,7 @@ export default function Contact() {
   return (
     <div className="py-28 px-6 md:px-32 bg-gray-900 text-white relative z-10">
       <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400">
-        Contact Me
+        Contact us
       </h2>
       
       <div className="max-w-3xl mx-auto bg-white/5 backdrop-blur-md rounded-2xl p-8 shadow-lg hover:shadow-cyan-500/50 transition-all">
