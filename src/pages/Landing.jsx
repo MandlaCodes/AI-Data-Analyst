@@ -12,8 +12,10 @@ export default function Landing({ onGetStarted }) {
 
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [phraseVisible, setPhraseVisible] = useState(true);
+  const [loading, setLoading] = useState(true);
   const heroRef = useRef(null);
 
+  // Cycle hero phrases
   useEffect(() => {
     const interval = setInterval(() => {
       setPhraseVisible(false);
@@ -25,6 +27,7 @@ export default function Landing({ onGetStarted }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Hero animation
   useEffect(() => {
     const el = heroRef.current;
     if (!el) return;
@@ -35,6 +38,14 @@ export default function Landing({ onGetStarted }) {
         el.classList.add("opacity-100", "translate-y-0", "transition-all", "duration-700", "ease-out");
       }, 80);
     });
+  }, []);
+
+  // Simulate loading delay (replace with actual data fetching if needed)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000); // 2 seconds loading screen
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -48,6 +59,11 @@ export default function Landing({ onGetStarted }) {
           0%, 100% { transform: translate(0px, 0px) scale(1); }
           33% { transform: translate(30px, -50px) scale(1.1); }
           66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+        @keyframes pulse-gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
         .animate-blob { animation: blob 7s infinite; }
         .animation-delay-2000 { animation-delay: 2s; }
@@ -75,11 +91,32 @@ export default function Landing({ onGetStarted }) {
           50% { transform: translateY(15px); }
           100% { transform: translateY(0); }
         }
-        .parallax {
-          transform: translateZ(0);
-          will-change: transform;
+        .parallax { transform: translateZ(0); will-change: transform; }
+        .loading-screen {
+          position: fixed;
+          top: 0; left: 0; width: 100%; height: 100%;
+          display: flex; justify-content: center; align-items: center;
+          background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+          z-index: 9999; transition: opacity 0.8s ease;
+        }
+        .loading-hidden { opacity: 0; pointer-events: none; }
+        .loading-text {
+          font-size: 2rem;
+          font-weight: 800;
+          background: linear-gradient(270deg, #00f0ff, #ff00ff, #00ff99);
+          background-size: 600% 600%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: pulse-gradient 3s ease infinite;
         }
       `}</style>
+
+      {/* LOADING SCREEN */}
+      {loading && (
+        <div className={`loading-screen ${!loading ? "loading-hidden" : ""}`}>
+          <div className="loading-text">AI Analyst</div>
+        </div>
+      )}
 
       {/* FLOATING NEON GRID LINES */}
       <div className="absolute top-0 left-0 w-full h-full -z-10">
@@ -93,20 +130,15 @@ export default function Landing({ onGetStarted }) {
         <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 tracking-wide">
           AI Analyst
         </div>
-
         <ul className="flex gap-8 text-white font-medium">
           <li><Link to="#home" className="hover:text-cyan-400 transition-all duration-300 ease-out">Home</Link></li>
           <li><Link to="#product" className="hover:text-cyan-400 transition-all duration-300 ease-out">Product</Link></li>
           <li>
-            <Link
-              to="#faq"
-              className="hover:text-cyan-400 transition-all duration-300 ease-out flex items-center gap-1"
-            >
+            <Link to="#faq" className="hover:text-cyan-400 transition-all duration-300 ease-out flex items-center gap-1">
               <FaQuestionCircle /> FAQ
             </Link>
           </li>
         </ul>
-
         <Link
           to="#contact"
           className="px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-400 rounded-lg text-white font-semibold hover:from-purple-500 hover:to-cyan-300 transition shadow-lg hover-glow"
@@ -118,13 +150,12 @@ export default function Landing({ onGetStarted }) {
       {/* HERO */}
       <section
         id="home"
-        className="relative min-h-screen flex flex-col justify-center items-center text-center px-6 py-32 lg:pb-40 z-10"
+        className={`relative min-h-screen flex flex-col justify-center items-center text-center px-6 py-32 lg:pb-40 z-10 ${loading ? "pointer-events-none" : ""}`}
       >
         <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover -z-10 brightness-75">
           <source src="/12421439_3840_2160_30fps.mp4" type="video/mp4" />
         </video>
 
-        {/* Floating neon blobs */}
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-700 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
 
@@ -135,11 +166,7 @@ export default function Landing({ onGetStarted }) {
 
           <h2 className="text-lg md:text-2xl lg:text-3xl text-gray-200 mb-8">
             <span className="text-white font-semibold mr-2">Here to</span>
-            <span
-              className={`text-cyan-400 fade-transition inline-block`}
-              style={{ opacity: phraseVisible ? 1 : 0 }}
-              aria-live="polite"
-            >
+            <span className={`text-cyan-400 fade-transition inline-block`} style={{ opacity: phraseVisible ? 1 : 0 }} aria-live="polite">
               {phrases[currentPhraseIndex]}
             </span>
           </h2>
@@ -150,17 +177,10 @@ export default function Landing({ onGetStarted }) {
           </div>
 
           <div className="flex flex-col md:flex-row gap-6 justify-center">
-            <button
-              onClick={onGetStarted}
-              className="px-12 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-400 hover:from-purple-500 hover:to-cyan-300 transition shadow-xl text-lg font-semibold text-white hover:shadow-cyan-500/70 transform hover:scale-105 hover-glow"
-            >
+            <button onClick={onGetStarted} className="px-12 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-400 hover:from-purple-500 hover:to-cyan-300 transition shadow-xl text-lg font-semibold text-white hover:shadow-cyan-500/70 transform hover:scale-105 hover-glow">
               Get Started
             </button>
-
-            <Link
-              to="#contact"
-              className="px-8 py-4 rounded-xl border border-white/20 text-gray-300 hover:bg-white/10 transition text-lg font-medium hover:scale-105 hover-glow"
-            >
+            <Link to="#contact" className="px-8 py-4 rounded-xl border border-white/20 text-gray-300 hover:bg-white/10 transition text-lg font-medium hover:scale-105 hover-glow">
               Contact Us
             </Link>
           </div>
@@ -169,35 +189,15 @@ export default function Landing({ onGetStarted }) {
 
       {/* PRODUCT */}
       <section id="product" className="py-24 md:py-32 px-6 md:px-32 bg-black relative z-10">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-white tracking-wide">
-          What This Tool Does
-        </h2>
-
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-white tracking-wide">What This Tool Does</h2>
         <div className="grid md:grid-cols-3 gap-10">
           {[
-            {
-              icon: <FaChartLine size={36} className="animate-pulse text-cyan-400" />,
-              title: "Data Strategy",
-              desc: "Analyze complex datasets to uncover actionable business strategies and growth opportunities."
-            },
-            {
-              icon: <FaLightbulb size={36} className="animate-pulse text-purple-400" />,
-              title: "Smart Insights",
-              desc: "Provide clear, digestible insights that allow executives to make informed, data-driven decisions."
-            },
-            {
-              icon: <FaDesktop size={36} className="animate-pulse text-pink-400" />,
-              title: "Interactive Visualizations",
-              desc: "Deliver clean and intuitive dashboards that highlight key metrics, trends, and KPIs effortlessly."
-            },
+            { icon: <FaChartLine size={36} className="animate-pulse text-cyan-400" />, title: "Data Strategy", desc: "Analyze complex datasets to uncover actionable business strategies and growth opportunities." },
+            { icon: <FaLightbulb size={36} className="animate-pulse text-purple-400" />, title: "Smart Insights", desc: "Provide clear, digestible insights that allow executives to make informed, data-driven decisions." },
+            { icon: <FaDesktop size={36} className="animate-pulse text-pink-400" />, title: "Interactive Visualizations", desc: "Deliver clean and intuitive dashboards that highlight key metrics, trends, and KPIs effortlessly." }
           ].map((feature, index) => (
-            <div
-              key={index}
-              className="futuristic-card rounded-3xl p-8 shadow-2xl flex flex-col items-start gap-5 parallax"
-            >
-              <div className="p-5 bg-black/30 rounded-full flex items-center justify-center w-20 h-20">
-                {feature.icon}
-              </div>
+            <div key={index} className="futuristic-card rounded-3xl p-8 shadow-2xl flex flex-col items-start gap-5 parallax">
+              <div className="p-5 bg-black/30 rounded-full flex items-center justify-center w-20 h-20">{feature.icon}</div>
               <h3 className="font-semibold text-2xl text-white tracking-tight">{feature.title}</h3>
               <p className="text-gray-300 text-base leading-relaxed">{feature.desc}</p>
             </div>
@@ -214,7 +214,7 @@ export default function Landing({ onGetStarted }) {
           {[
             { q: "How do I get started?", a: "Click the Get Started button and fill out the form." },
             { q: "Do you provide custom dashboards?", a: "Yes! I tailor dashboards to your business needs." },
-            { q: "Can I integrate this with existing data sources?", a: "Absolutely. We support most APIs and databases." },
+            { q: "Can I integrate this with existing data sources?", a: "Absolutely. We support most APIs and databases." }
           ].map((item, index) => (
             <details key={index} className="bg-white/5 backdrop-blur-md p-5 rounded-xl cursor-pointer hover:bg-cyan-500/10 transition-all duration-300">
               <summary className="font-semibold text-lg">{item.q}</summary>
