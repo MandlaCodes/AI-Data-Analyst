@@ -1,61 +1,144 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useLocation } from "react-router-dom";
 
-export default function Analytics() {
+export default function Analytics({ userId }) {
+  const [connectedApps, setConnectedApps] = useState({});
+  const [selectedApp, setSelectedApp] = useState(null);
   const [sheets, setSheets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [sheetData, setSheetData] = useState([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
-  const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
+  useEffect(() => {
+    async function fetchConnectedApps() {
+      try {
+        const res = await axios.get(`http://localhost:8000/connected-apps?user_id=${userId}`);
+        setConnectedApps(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchConnectedApps();
+  }, [userId]);
 
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-
-  const userId = searchParams.get("user_id") || "123";
-
-  const fetchSheets = async () => {
-    try {
-      const res = await axios.get(`${BACKEND}/sheets-list/${userId}`);
-      setSheets(res.data.sheets || []);
-    } catch (err) {
-      console.log(err);
-      setSheets([]);
-    } finally {
-      setLoading(false);
+  const handleSelectApp = async (appName) => {
+    setSelectedApp(appName);
+    setSheetData([]);
+    if (appName === "google_sheets") {
+      setLoadingSheets(true);
+      try {
+        const res = await axios.get(`http://localhost:8000/sheets-list/${userId}`);
+        setSheets(res.data.sheets);
+        setSelectedSheet(null);
+      } catch (err) {
+        console.error(err);
+      }
+      setLoadingSheets(false);
     }
   };
 
-  useEffect(() => {
-    fetchSheets();
-  }, []);
+  const handleSelectSheet = (e) => {
+    setSelectedSheet(e.target.value);
+    setSheetData([]);
+  };
+
+  const handleInterpretData = async () => {
+    if (!selectedSheet) return;
+    setLoadingData(true);
+    try {
+      const res = await axios.get(`http://localhost:8000/sheets/${userId}/${selectedSheet}`);
+      setSheetData(res.data.values);
+    } catch (err) {
+      console.error(err);
+    }
+    setLoadingData(false);
+  };
 
   return (
-    <div className="space-y-10">
-      <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-indigo-500">
-        Analytics Dashboard
-      </h2>
+    <div className="p-10 bg-gray-900 min-h-screen text-white font-sans">
+      <h1 className="text-3xl font-bold mb-6">
+        Connect your business data sources to get insights from business data
+      </h1>
 
-      <p className="text-gray-300 text-lg">
-        Create strategic business insights that enable confident, data-driven decisions.
-      </p>
-
-      <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700">
-        <h3 className="text-2xl font-bold text-white mb-4">Select Google Sheet</h3>
-
-        {loading ? (
-          <p className="text-gray-300">Loading...</p>
-        ) : sheets.length === 0 ? (
-          <p className="text-red-400">No spreadsheets found.</p>
-        ) : (
-          <ul className="space-y-2">
-            {sheets.map((sheet) => (
-              <li key={sheet.id} className="text-white bg-gray-700 p-3 rounded-xl">
-                {sheet.name}
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-2">Connected Apps</h2>
+        {Object.keys(connectedApps).map((app) => {
+          if (connectedApps[app]) {
+            return (
+              <button
+                key={app}
+                onClick={() => handleSelectApp(app)}
+                className={`mr-4 mb-2 px-4 py-2 rounded-lg transform transition-transform duration-300 hover:scale-105 ${
+                  selectedApp === app ? "bg-indigo-600" : "bg-purple-600"
+                } hover:bg-indigo-500`}
+              >
+                {app.replace("_", " ").toUpperCase()}
+              </button>
+            );
+          }
+          return null;
+        })}
       </div>
+
+      {selectedApp === "google_sheets" && (
+        <div className="mb-6 flex items-center space-x-4">
+          {loadingSheets ? (
+            <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <>
+              <select
+                value={selectedSheet || ""}
+                onChange={handleSelectSheet}
+                className="p-2 rounded-lg text-black"
+              >
+                <option value="">Select a datasheet</option>
+                {sheets.map((sheet) => (
+                  <option key={sheet.id} value={sheet.id}>
+                    {sheet.name}
+                  </option>
+                ))}
+              </select>
+
+              {selectedSheet && (
+                <button
+                  onClick={handleInterpretData}
+                  className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg font-semibold transition-colors"
+                >
+                  Interpret Data
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {loadingData && (
+        <div className="flex justify-center items-center my-6">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {sheetData.length > 0 && !loadingData && (
+        <div className="overflow-auto border border-gray-700 rounded-lg p-4 transition-transform transform hover:scale-105">
+          <table className="min-w-full border-collapse border border-gray-600">
+            <tbody>
+              {sheetData.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={cellIndex}
+                      className="border border-gray-600 p-2 text-center"
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

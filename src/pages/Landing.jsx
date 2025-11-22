@@ -56,11 +56,12 @@ export default function Landing({ onGetStarted }) {
           background: linear-gradient(135deg, rgba(20,20,20,0.85), rgba(40,40,40,0.85));
           border: 1px solid rgba(0,255,255,0.15);
           backdrop-filter: blur(20px);
-          transition: transform 0.5s ease, box-shadow 0.5s ease;
+          transition: transform 0.6s ease, box-shadow 0.6s ease;
+          perspective: 1000px;
         }
         .futuristic-card:hover { 
-          transform: translateY(-8px) scale(1.02);
-          box-shadow: 0 15px 40px rgba(0,255,255,0.3), 0 5px 10px rgba(128,0,255,0.2);
+          transform: rotateY(8deg) rotateX(4deg) translateY(-8px) scale(1.02);
+          box-shadow: 0 20px 50px rgba(0,255,255,0.3), 0 10px 20px rgba(128,0,255,0.2);
         }
         .neon-grid-line {
           position: absolute;
@@ -73,6 +74,10 @@ export default function Landing({ onGetStarted }) {
           0% { transform: translateY(0); }
           50% { transform: translateY(15px); }
           100% { transform: translateY(0); }
+        }
+        .parallax {
+          transform: translateZ(0);
+          will-change: transform;
         }
       `}</style>
 
@@ -124,7 +129,6 @@ export default function Landing({ onGetStarted }) {
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
 
         <div ref={heroRef} className="max-w-4xl w-full px-4 text-center overflow-visible">
-          {/* HERO HEADING */}
           <h2 className="text-7xl md:text-6xl font-extrabold mb-16 leading-[1.3] md:leading-[1.2] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-white">
             Hello, I'm your AI Data Analyst
           </h2>
@@ -189,7 +193,7 @@ export default function Landing({ onGetStarted }) {
           ].map((feature, index) => (
             <div
               key={index}
-              className="futuristic-card rounded-3xl p-8 shadow-2xl flex flex-col items-start gap-5"
+              className="futuristic-card rounded-3xl p-8 shadow-2xl flex flex-col items-start gap-5 parallax"
             >
               <div className="p-5 bg-black/30 rounded-full flex items-center justify-center w-20 h-20">
                 {feature.icon}
