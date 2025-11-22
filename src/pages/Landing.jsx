@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import Contact from "./Contact";
 import { FaChartLine, FaLightbulb, FaDesktop, FaQuestionCircle } from "react-icons/fa";
+import Particles from "react-tsparticles";
+import { loadFull } from "tsparticles";
 
 export default function Landing({ onGetStarted }) {
   const phrases = [
@@ -22,8 +24,8 @@ export default function Landing({ onGetStarted }) {
       setTimeout(() => {
         setCurrentPhraseIndex((p) => (p + 1) % phrases.length);
         setPhraseVisible(true);
-      }, 450);
-    }, 3500);
+      }, 500);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -35,18 +37,23 @@ export default function Landing({ onGetStarted }) {
     requestAnimationFrame(() => {
       setTimeout(() => {
         el.classList.remove("opacity-0", "translate-y-6");
-        el.classList.add("opacity-100", "translate-y-0", "transition-all", "duration-700", "ease-out");
-      }, 80);
+        el.classList.add("opacity-100", "translate-y-0", "transition-all", "duration-1500", "ease-out");
+      }, 200);
     });
-  }, []);
+  }, [loading]);
 
-  // Simulate loading delay (replace with actual data fetching if needed)
+  // Loading screen simulation
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 2000); // 2 seconds loading screen
+    }, 3000); // 3 seconds loading
     return () => clearTimeout(timer);
   }, []);
+
+  // tsparticles init
+  const particlesInit = async (main) => {
+    await loadFull(main);
+  };
 
   return (
     <div className="relative bg-gray-900 text-white overflow-x-hidden font-sans">
@@ -54,66 +61,43 @@ export default function Landing({ onGetStarted }) {
       <style>{`
         body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { display: none; }
-        .fade-transition { transition: opacity .45s ease, transform .45s ease; }
-        @keyframes blob {
-          0%, 100% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-        }
-        @keyframes pulse-gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
+        .fade-transition { transition: opacity .6s ease, transform .6s ease; }
+        @keyframes blob { 0%,100% { transform: translate(0,0) scale(1);} 33% { transform: translate(30px,-50px) scale(1.1);} 66% { transform: translate(-20px,20px) scale(0.9);} }
+        @keyframes pulse-gradient {0% {background-position:0% 50%;} 50% {background-position:100% 50%;} 100% {background-position:0% 50%;}}
         .animate-blob { animation: blob 7s infinite; }
         .animation-delay-2000 { animation-delay: 2s; }
-        .hover-glow:hover { box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(128, 0, 255, 0.3); }
-        .futuristic-card { 
-          background: linear-gradient(135deg, rgba(20,20,20,0.85), rgba(40,40,40,0.85));
-          border: 1px solid rgba(0,255,255,0.15);
-          backdrop-filter: blur(20px);
-          transition: transform 0.6s ease, box-shadow 0.6s ease;
-          perspective: 1000px;
-        }
-        .futuristic-card:hover { 
-          transform: rotateY(8deg) rotateX(4deg) translateY(-8px) scale(1.02);
-          box-shadow: 0 20px 50px rgba(0,255,255,0.3), 0 10px 20px rgba(128,0,255,0.2);
-        }
-        .neon-grid-line {
-          position: absolute;
-          width: 100%;
-          height: 2px;
-          background: linear-gradient(to right, rgba(0,255,255,0.2), rgba(255,0,255,0.2));
-          animation: floatLine 10s linear infinite;
-        }
-        @keyframes floatLine {
-          0% { transform: translateY(0); }
-          50% { transform: translateY(15px); }
-          100% { transform: translateY(0); }
-        }
-        .parallax { transform: translateZ(0); will-change: transform; }
-        .loading-screen {
-          position: fixed;
-          top: 0; left: 0; width: 100%; height: 100%;
-          display: flex; justify-content: center; align-items: center;
-          background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
-          z-index: 9999; transition: opacity 0.8s ease;
-        }
-        .loading-hidden { opacity: 0; pointer-events: none; }
-        .loading-text {
-          font-size: 2rem;
-          font-weight: 800;
-          background: linear-gradient(270deg, #00f0ff, #ff00ff, #00ff99);
-          background-size: 600% 600%;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          animation: pulse-gradient 3s ease infinite;
-        }
+        .hover-glow:hover { box-shadow: 0 0 25px rgba(0,255,255,0.5), 0 0 50px rgba(128,0,255,0.3);}
+        .futuristic-card { background: linear-gradient(135deg, rgba(20,20,20,0.85), rgba(40,40,40,0.85)); border:1px solid rgba(0,255,255,0.15); backdrop-filter: blur(20px); transition: transform 0.6s ease, box-shadow 0.6s ease; perspective:1000px; }
+        .futuristic-card:hover { transform: rotateY(8deg) rotateX(4deg) translateY(-8px) scale(1.02); box-shadow: 0 20px 50px rgba(0,255,255,0.3),0 10px 20px rgba(128,0,255,0.2);}
+        .neon-grid-line { position:absolute; width:100%; height:2px; background: linear-gradient(to right, rgba(0,255,255,0.2), rgba(255,0,255,0.2)); animation: floatLine 12s linear infinite; }
+        @keyframes floatLine { 0% {transform:translateY(0);} 50% {transform:translateY(15px);} 100% {transform:translateY(0);} }
+        .loading-screen { position: fixed; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; background:#0a0a0a; z-index:9999; transition: opacity 1s ease; }
+        .loading-hidden { opacity:0; pointer-events:none; }
+        .loading-text { font-size:3rem; font-weight:800; background: linear-gradient(270deg, #00f0ff, #ff00ff, #00ff99); background-size:600% 600%; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: pulse-gradient 3s ease infinite;}
       `}</style>
 
       {/* LOADING SCREEN */}
       {loading && (
         <div className={`loading-screen ${!loading ? "loading-hidden" : ""}`}>
+          <Particles
+            id="tsparticles"
+            init={particlesInit}
+            options={{
+              fullScreen: { enable: false },
+              background: { color: "#0a0a0a" },
+              particles: {
+                number: { value: 60, density: { enable: true, area: 800 } },
+                color: { value: ["#00ffff","#ff00ff","#00ff99"] },
+                shape: { type: "circle" },
+                opacity: { value: 0.5, random: true },
+                size: { value: { min: 1, max: 4 }, random: true },
+                move: { enable: true, speed: 1, direction: "none", random: true, straight: false, outMode: "bounce", attract: { enable: false } },
+                links: { enable: true, distance: 150, color: "#00ffff", opacity: 0.3, width: 1 },
+              },
+              interactivity: { events: { onHover: { enable: true, mode: "repulse" }, onClick: { enable: true, mode: "push" } }, modes: { repulse: { distance: 100 }, push: { quantity: 4 } } },
+            }}
+            className="absolute w-full h-full top-0 left-0 -z-10"
+          />
           <div className="loading-text">AI Analyst</div>
         </div>
       )}
@@ -127,55 +111,33 @@ export default function Landing({ onGetStarted }) {
 
       {/* NAVBAR */}
       <nav className="w-full flex items-center justify-between px-8 py-6 fixed top-0 z-50 backdrop-blur-md bg-black/40 shadow-lg">
-        <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 tracking-wide">
-          AI Analyst
-        </div>
+        <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 tracking-wide">AI Analyst</div>
         <ul className="flex gap-8 text-white font-medium">
           <li><Link to="#home" className="hover:text-cyan-400 transition-all duration-300 ease-out">Home</Link></li>
           <li><Link to="#product" className="hover:text-cyan-400 transition-all duration-300 ease-out">Product</Link></li>
-          <li>
-            <Link to="#faq" className="hover:text-cyan-400 transition-all duration-300 ease-out flex items-center gap-1">
-              <FaQuestionCircle /> FAQ
-            </Link>
-          </li>
+          <li><Link to="#faq" className="hover:text-cyan-400 transition-all duration-300 ease-out flex items-center gap-1"><FaQuestionCircle /> FAQ</Link></li>
         </ul>
-        <Link
-          to="#contact"
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-400 rounded-lg text-white font-semibold hover:from-purple-500 hover:to-cyan-300 transition shadow-lg hover-glow"
-        >
-          Contact Us
-        </Link>
+        <Link to="#contact" className="px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-400 rounded-lg text-white font-semibold hover:from-purple-500 hover:to-cyan-300 transition shadow-lg hover-glow">Contact Us</Link>
       </nav>
 
       {/* HERO */}
-      <section
-        id="home"
-        className={`relative min-h-screen flex flex-col justify-center items-center text-center px-6 py-32 lg:pb-40 z-10 ${loading ? "pointer-events-none" : ""}`}
-      >
+      <section id="home" className={`relative min-h-screen flex flex-col justify-center items-center text-center px-6 py-32 lg:pb-40 z-10 ${loading ? "pointer-events-none" : ""}`}>
         <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover -z-10 brightness-75">
           <source src="/12421439_3840_2160_30fps.mp4" type="video/mp4" />
         </video>
-
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-700 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-
         <div ref={heroRef} className="max-w-4xl w-full px-4 text-center overflow-visible">
-          <h2 className="text-7xl md:text-6xl font-extrabold mb-16 leading-[1.3] md:leading-[1.2] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-white">
+          <h2 className="text-7xl md:text-6xl font-extrabold mb-16 leading-[1.3] md:leading-[1.2] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-white transition-all duration-1500 ease-out">
             Hello, I'm your AI Data Analyst
           </h2>
-
           <h2 className="text-lg md:text-2xl lg:text-3xl text-gray-200 mb-8">
             <span className="text-white font-semibold mr-2">Here to</span>
-            <span className={`text-cyan-400 fade-transition inline-block`} style={{ opacity: phraseVisible ? 1 : 0 }} aria-live="polite">
-              {phrases[currentPhraseIndex]}
-            </span>
+            <span className={`text-cyan-400 fade-transition inline-block`} style={{ opacity: phraseVisible ? 1 : 0 }} aria-live="polite">{phrases[currentPhraseIndex]}</span>
           </h2>
-
           <div className="text-gray-300 max-w-3xl mx-auto mb-12 text-lg md:text-xl leading-relaxed">
-            Relax and let me be your personal smart manager for data analysis. I turn complex data into 
-            clear insights, sleek visualizations, and actionable business direction.
+            Relax and let me be your personal smart manager for data analysis. I turn complex data into clear insights, sleek visualizations, and actionable business direction.
           </div>
-
           <div className="flex flex-col md:flex-row gap-6 justify-center">
             <button onClick={onGetStarted} className="px-12 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-400 hover:from-purple-500 hover:to-cyan-300 transition shadow-xl text-lg font-semibold text-white hover:shadow-cyan-500/70 transform hover:scale-105 hover-glow">
               Get Started
@@ -207,9 +169,7 @@ export default function Landing({ onGetStarted }) {
 
       {/* FAQ */}
       <section id="faq" className="py-24 md:py-32 px-6 md:px-32 bg-gray-900 text-white relative z-10">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 tracking-wide">
-          Frequently Asked Questions
-        </h2>
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-purple-400 to-pink-400 tracking-wide">Frequently Asked Questions</h2>
         <div className="max-w-3xl mx-auto flex flex-col gap-6">
           {[
             { q: "How do I get started?", a: "Click the Get Started button and fill out the form." },
@@ -225,9 +185,7 @@ export default function Landing({ onGetStarted }) {
       </section>
 
       {/* CONTACT */}
-      <section id="contact">
-        <Contact title="Contact Us" />
-      </section>
+      <section id="contact"><Contact title="Contact Us" /></section>
 
       {/* FOOTER */}
       <footer className="py-16 md:py-24 bg-gray-900 text-gray-400 text-center relative z-10 tracking-wide">
