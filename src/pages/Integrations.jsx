@@ -41,7 +41,6 @@ export default function Integrations() {
   const [numericColumns, setNumericColumns] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [kpiMetrics, setKpiMetrics] = useState({ total: 0, avg: 0, max: 0, min: 0 });
-
   const [showAnalytics, setShowAnalytics] = useState(false);
 
   const BACKEND = "https://ai-data-analyst-backend-1nuw.onrender.com";
@@ -62,9 +61,7 @@ export default function Integrations() {
         }))
       );
 
-      if (statuses["google_sheets"] === true) {
-        fetchSheets();
-      }
+      if (statuses["google_sheets"] === true) fetchSheets();
     } catch (err) {
       console.log("Error fetching apps", err);
     }
@@ -88,6 +85,11 @@ export default function Integrations() {
   const loadSheetData = async (sheet) => {
     if (!sheet) return;
     setSelectedSheet(sheet);
+    setShowAnalytics(false); // reset analytics while loading
+    setSheetData([]);
+    setNumericColumns([]);
+    setSelectedColumns([]);
+
     try {
       const res = await axios.get(`${BACKEND}/sheets/${userId}/${sheet.id}`);
       const values = res.data.values || [];
@@ -95,33 +97,33 @@ export default function Integrations() {
 
       if (values.length > 1) {
         const headers = values[0];
-        const sample = values[1];
 
+        // Detect numeric columns using first 5 rows for accuracy
         const numericIndexes = headers
-          .map((h, i) => {
-            const v = sample[i];
-            if (v === undefined || v === null) return null;
-            const cleaned = String(v).replace(/[, ]+/g, "");
-            return !isNaN(Number(cleaned)) && i !== 0 ? i : null;
+          .map((_, i) => {
+            for (let r = 1; r < Math.min(6, values.length); r++) {
+              const v = values[r][i];
+              if (v !== undefined && v !== null) {
+                const cleaned = String(v).replace(/[, ]+/g, "");
+                if (!isNaN(Number(cleaned)) && i !== 0) return i;
+              }
+            }
+            return null;
           })
           .filter((i) => i !== null);
 
         setNumericColumns(numericIndexes);
         setSelectedColumns(numericIndexes);
-      } else {
-        setNumericColumns([]);
-        setSelectedColumns([]);
       }
 
       setShowAnalytics(true);
     } catch (err) {
       console.log("Error loading sheet data", err);
-      setSheetData([]);
       setShowAnalytics(false);
     }
   };
 
-  // Recalculate KPIs
+  // Recalculate KPIs whenever sheetData or selectedColumns change
   useEffect(() => {
     if (!sheetData.length || selectedColumns.length === 0) {
       setKpiMetrics({ total: 0, avg: 0, max: 0, min: 0 });
@@ -150,7 +152,7 @@ export default function Integrations() {
     setKpiMetrics({ total, avg, max, min });
   }, [sheetData, selectedColumns]);
 
-  // Generate charts
+  // Generate charts for selected columns
   const generateCharts = () => {
     if (!sheetData.length || selectedColumns.length === 0) return null;
     const labels = sheetData.slice(1).map((r) => r[0] || "");
@@ -162,7 +164,9 @@ export default function Integrations() {
         const cleaned = String(v).replace(/[, ]+/g, "");
         return isNaN(Number(cleaned)) ? 0 : Number(cleaned);
       });
+
       const isRevenue = String(label).toLowerCase().includes("revenue");
+
       return (
         <div key={colIndex} className="p-6 bg-gray-800 rounded-2xl shadow-xl">
           <h3 className="text-xl font-semibold mb-4 text-white">{label}</h3>
@@ -198,7 +202,6 @@ export default function Integrations() {
     });
   };
 
-  // Load apps on page load
   useEffect(() => {
     fetchConnectedApps();
   }, []);
@@ -211,9 +214,7 @@ export default function Integrations() {
     await axios.post(`${BACKEND}/disconnect`, { user_id: userId, app: appKey });
 
     setApps((prev) =>
-      prev.map((app) =>
-        app.key === appKey ? { ...app, connected: false, lastSync: null } : app
-      )
+      prev.map((app) => (app.key === appKey ? { ...app, connected: false, lastSync: null } : app))
     );
 
     setSheets([]);
@@ -230,6 +231,7 @@ export default function Integrations() {
         Integrations
       </h2>
 
+      {/* Connection Status */}
       <div className="flex gap-4">
         <div className="flex items-center gap-2 bg-gray-900/70 p-4 rounded-2xl border border-gray-700">
           <CheckCircleIcon className="w-6 h-6 text-green-400" />
@@ -242,16 +244,13 @@ export default function Integrations() {
         </div>
       </div>
 
+      {/* App Cards */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {apps.map((app) => (
           <div key={app.key} className="p-6 bg-gray-800 border border-gray-700 rounded-3xl">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-xl text-white">{app.name}</h3>
-              {app.connected ? (
-                <CheckCircleIcon className="w-6 h-6 text-green-400" />
-              ) : (
-                <XCircleIcon className="w-6 h-6 text-red-400" />
-              )}
+              {app.connected ? <CheckCircleIcon className="w-6 h-6 text-green-400" /> : <XCircleIcon className="w-6 h-6 text-red-400" />}
             </div>
 
             {!app.connected ? (
@@ -293,6 +292,27 @@ export default function Integrations() {
                   onClick={() => loadSheetData(sheet)}
                 >
                   {sheet.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Column Selector */}
+          {numericColumns.length > 0 && (
+            <div className="flex gap-2 flex-wrap mt-4">
+              {numericColumns.map((colIndex) => (
+                <button
+                  key={colIndex}
+                  className={`px-3 py-1 rounded-xl ${
+                    selectedColumns.includes(colIndex) ? "bg-indigo-600 text-white" : "bg-gray-700 text-gray-300"
+                  }`}
+                  onClick={() =>
+                    setSelectedColumns((prev) =>
+                      prev.includes(colIndex) ? prev.filter((i) => i !== colIndex) : [...prev, colIndex]
+                    )
+                  }
+                >
+                  {sheetData[0][colIndex]}
                 </button>
               ))}
             </div>
