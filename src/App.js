@@ -1,13 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
-
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
@@ -36,18 +28,24 @@ function AppWrapper() {
   const handleLogout = () => {
     localStorage.removeItem("adt_profile");
     setProfile(null);
-    navigate("/");
+    navigate("/"); // send user back to landing
   };
 
   return (
     <Routes>
+      {/* Landing Page */}
       <Route
         path="/"
         element={
-          profile ? <Navigate to="/dashboard" /> : <Landing onGetStarted={() => navigate("/onboarding")} />
+          profile ? (
+            <Navigate to={`/dashboard?user_id=${profile.user_id}`} />
+          ) : (
+            <Landing onGetStarted={() => navigate("/onboarding")} />
+          )
         }
       />
 
+      {/* Onboarding */}
       <Route
         path="/onboarding"
         element={
@@ -55,20 +53,25 @@ function AppWrapper() {
             onComplete={(p) => {
               setProfile(p);
               localStorage.setItem("adt_profile", JSON.stringify(p));
-              navigate("/dashboard");
+              navigate(`/dashboard?user_id=${p.user_id}`);
             }}
           />
         }
       />
 
+      {/* Dashboard */}
       <Route
         path="/dashboard/*"
         element={
-          profile ? <Dashboard profile={profile} onLogout={handleLogout} /> : <Navigate to="/" />
+          profile ? (
+            <Dashboard profile={profile} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" />
+          )
         }
       />
 
-      {/* fallback */}
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

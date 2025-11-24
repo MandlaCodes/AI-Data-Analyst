@@ -1,32 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import axios from "axios";
 
-export default function Integrations() {
-  const location = useLocation();
-  const [userId, setUserId] = useState(null);
+export default function Integrations({ profile }) {
   const [googleSheetsConnected, setGoogleSheetsConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const uid = params.get("user_id");
-    const connected = params.get("connected") === "true";
-
-    if (uid) setUserId(uid);
-    if (connected && uid) setGoogleSheetsConnected(true);
-  }, [location]);
+  const userId = profile?.user_id;
 
   const handleConnect = () => {
     if (!userId) return alert("User ID missing");
     window.location.href = `https://ai-data-analyst-backend-1nuw.onrender.com/auth/google_sheets?user_id=${userId}`;
   };
 
-  const handleDisconnect = async () => {
-    if (!userId) return;
-    // Remove token from backend (optional: add endpoint to delete)
-    await axios.post(`https://ai-data-analyst-backend-1nuw.onrender.com/disconnect/${userId}`);
-    setGoogleSheetsConnected(false);
+  const handleDisconnect = () => {
+    alert("Disconnect not implemented yet.");
   };
 
   return (

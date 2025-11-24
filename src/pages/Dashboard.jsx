@@ -35,10 +35,10 @@ export default function Dashboard({ profile, onLogout }) {
     }
   }, [location.search]);
 
-  // Optional: navigate manually to update URL query
+  // Update URL when switching tabs
   const switchTab = (tab) => {
     setCurrent(tab);
-    navigate(`/dashboard?type=${tab}`);
+    navigate(`/dashboard?type=${tab}&user_id=${profile.user_id}`);
   };
 
   return (
