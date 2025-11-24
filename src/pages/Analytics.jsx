@@ -3,53 +3,75 @@ import axios from "axios";
 
 export default function Analytics({ profile }) {
   const [connectedApps, setConnectedApps] = useState([]);
-  const [selectedApp, setSelectedApp] = useState(null);
-  const [sheetsList, setSheetsList] = useState([]);
-  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [selectedApp, setSelectedApp] = useState("");
+  const [sheets, setSheets] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState("");
   const [sheetData, setSheetData] = useState([]);
 
   useEffect(() => {
     if (!profile) return;
 
     const fetchConnectedApps = async () => {
-      const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/connected-apps?user_id=${profile.user_id}`);
-      const apps = [];
-      if (res.data.google_sheets) apps.push("Google Sheets");
-      setConnectedApps(apps);
+      try {
+        const res = await axios.get(
+          `https://ai-data-analyst-backend-1nuw.onrender.com/connected-apps?user_id=${profile.user_id}`
+        );
+        const apps = [];
+        if (res.data.google_sheets) apps.push("Google Sheets");
+        setConnectedApps(apps);
+      } catch (err) {
+        console.error(err);
+      }
     };
 
     fetchConnectedApps();
   }, [profile]);
 
-  const handleAppSelect = async (app) => {
+  const handleSelectApp = async (app) => {
     setSelectedApp(app);
+    setSelectedSheet("");
+    setSheetData([]);
     if (app === "Google Sheets") {
-      const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets-list/${profile.user_id}`);
-      setSheetsList(res.data.sheets);
+      try {
+        const res = await axios.get(
+          `https://ai-data-analyst-backend-1nuw.onrender.com/sheets-list/${profile.user_id}`
+        );
+        setSheets(res.data.sheets);
+      } catch (err) {
+        console.error(err);
+      }
     }
+  };
+
+  const handleSelectSheet = (e) => {
+    setSelectedSheet(e.target.value);
+    setSheetData([]);
   };
 
   const handleInterpretData = async () => {
     if (!selectedSheet) return;
-    const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets/${profile.user_id}/${selectedSheet}`);
-    setSheetData(res.data.values);
+    try {
+      const res = await axios.get(
+        `https://ai-data-analyst-backend-1nuw.onrender.com/sheets/${profile.user_id}/${selectedSheet}`
+      );
+      setSheetData(res.data.values);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-white mb-6">
-        Connect your business data sources to get insights from business data
-      </h1>
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Connected Apps</h2>
+    <div className="space-y-6">
+      <div className="bg-gray-900/40 backdrop-blur-lg rounded-xl p-6 shadow-lg border border-white/20">
+        <h2 className="text-xl font-semibold mb-4">Connected Apps</h2>
+        {connectedApps.length === 0 && <p>No apps connected yet.</p>}
         <div className="flex gap-4 flex-wrap">
           {connectedApps.map((app) => (
             <button
               key={app}
-              onClick={() => handleAppSelect(app)}
-              className={`px-4 py-2 rounded-md font-semibold ${
-                selectedApp === app ? "bg-purple-600" : "bg-gray-700 hover:bg-gray-600"
+              onClick={() => handleSelectApp(app)}
+              className={`py-2 px-4 rounded-lg font-bold transition-all ${
+                selectedApp === app ? "bg-green-500" : "bg-gray-700 hover:bg-gray-600"
               }`}
             >
               {app} {selectedApp === app && "✓"}
@@ -58,24 +80,25 @@ export default function Analytics({ profile }) {
         </div>
       </div>
 
-      {selectedApp === "Google Sheets" && sheetsList.length > 0 && (
-        <div className="space-y-4">
+      {selectedApp === "Google Sheets" && sheets.length > 0 && (
+        <div className="bg-gray-900/40 backdrop-blur-lg rounded-xl p-6 shadow-lg border border-white/20">
+          <h3 className="text-lg font-semibold mb-2">Select a Sheet</h3>
           <select
-            className="px-4 py-2 rounded-md bg-gray-800 text-white"
-            onChange={(e) => setSelectedSheet(e.target.value)}
+            className="p-2 rounded-lg text-black font-bold mb-4"
+            value={selectedSheet}
+            onChange={handleSelectSheet}
           >
             <option value="">Select a datasheet</option>
-            {sheetsList.map((sheet) => (
+            {sheets.map((sheet) => (
               <option key={sheet.id} value={sheet.id}>
                 {sheet.name}
               </option>
             ))}
           </select>
-
           {selectedSheet && (
             <button
               onClick={handleInterpretData}
-              className="px-6 py-2 bg-green-500 hover:bg-green-600 rounded-md font-semibold"
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg ml-4"
             >
               Interpret Data
             </button>
@@ -84,13 +107,13 @@ export default function Analytics({ profile }) {
       )}
 
       {sheetData.length > 0 && (
-        <div className="overflow-auto mt-6">
-          <table className="table-auto border-collapse border border-gray-500 w-full text-white">
+        <div className="bg-gray-900/40 backdrop-blur-lg rounded-xl p-6 shadow-lg border border-white/20 overflow-x-auto">
+          <table className="w-full text-white border-collapse">
             <tbody>
               {sheetData.map((row, i) => (
-                <tr key={i}>
+                <tr key={i} className="border-b border-white/20">
                   {row.map((cell, j) => (
-                    <td key={j} className="border px-4 py-2">
+                    <td key={j} className="px-4 py-2 border-r border-white/20">
                       {cell}
                     </td>
                   ))}

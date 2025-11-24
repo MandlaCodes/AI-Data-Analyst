@@ -1,49 +1,54 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 
 export default function Integrations({ profile }) {
   const [googleSheetsConnected, setGoogleSheetsConnected] = useState(false);
 
-  const userId = profile?.user_id;
+  useEffect(() => {
+    if (!profile) return;
+
+    const fetchConnected = async () => {
+      try {
+        const res = await axios.get(
+          `https://ai-data-analyst-backend-1nuw.onrender.com/connected-apps?user_id=${profile.user_id}`
+        );
+        setGoogleSheetsConnected(res.data.google_sheets);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchConnected();
+  }, [profile]);
 
   const handleConnect = () => {
-    if (!userId) return alert("User ID missing");
-    window.location.href = `https://ai-data-analyst-backend-1nuw.onrender.com/auth/google_sheets?user_id=${userId}`;
+    window.location.href = `https://ai-data-analyst-backend-1nuw.onrender.com/auth/google_sheets?user_id=${profile.user_id}`;
   };
 
   const handleDisconnect = () => {
-    alert("Disconnect not implemented yet.");
+    setGoogleSheetsConnected(false);
+    alert("Disconnected (simulate backend token deletion)");
   };
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-white mb-6">
-        Connect your business data sources to get insights from business data
-      </h1>
-
-      <div className="bg-gradient-to-r from-purple-800 to-blue-800 p-6 rounded-xl shadow-lg flex justify-between items-center hover:scale-105 transition-transform duration-300">
-        <div>
-          <h2 className="text-xl font-semibold">Google Sheets</h2>
-          <p className="text-gray-200">Sync your spreadsheets to analyze business data.</p>
-        </div>
-
-        <div>
-          {!googleSheetsConnected ? (
-            <button
-              onClick={handleConnect}
-              className="px-6 py-2 bg-green-500 hover:bg-green-600 rounded-md font-semibold"
-            >
-              Connect
-            </button>
-          ) : (
-            <button
-              onClick={handleDisconnect}
-              className="px-6 py-2 bg-red-500 hover:bg-red-600 rounded-md font-semibold"
-            >
-              Disconnect
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="max-w-md mx-auto bg-gray-900/40 backdrop-blur-lg rounded-xl p-6 shadow-lg border border-white/20">
+      <h2 className="text-xl font-semibold mb-4">Google Sheets</h2>
+      <p className="mb-6">{googleSheetsConnected ? "Connected" : "Not connected"}</p>
+      {googleSheetsConnected ? (
+        <button
+          onClick={handleDisconnect}
+          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-all"
+        >
+          Disconnect
+        </button>
+      ) : (
+        <button
+          onClick={handleConnect}
+          className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg transition-all"
+        >
+          Connect
+        </button>
+      )}
     </div>
   );
 }
