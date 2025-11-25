@@ -1,12 +1,15 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
-export default function Sidebar({ profile, current, setCurrent, onLogout }) {
+export default function Sidebar({ profile, current, onLogout }) {
+  const navigate = useNavigate();
+
   const items = [
     { id: "ai", label: "AI Ask" },
     { id: "integrations", label: "Integrations" },
-    { id: "profile", label: "Profile" },
     { id: "analytics", label: "Analytics" },
+    { id: "profile", label: "Profile" },
     { id: "settings", label: "Settings" },
     { id: "logout", label: "Log out" },
   ];
@@ -26,7 +29,10 @@ export default function Sidebar({ profile, current, setCurrent, onLogout }) {
         {items.map((it) => (
           <motion.button
             key={it.id}
-            onClick={() => (it.id === "logout" ? onLogout() : setCurrent(it.id))}
+            onClick={() => {
+              if (it.id === "logout") return onLogout();
+              navigate(`/dashboard/${it.id}?user_id=${profile.user_id}`);
+            }}
             whileHover={{ x: 5, scale: 1.02 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={`p-3 rounded-lg border border-gray-800 transition-all ${
