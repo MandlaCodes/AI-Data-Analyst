@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
@@ -10,8 +11,8 @@ function AppWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Restore profile from localStorage or URL param
   useEffect(() => {
     const saved = localStorage.getItem("adt_profile");
     if (saved) {
@@ -25,16 +26,20 @@ function AppWrapper() {
         localStorage.setItem("adt_profile", JSON.stringify(tempProfile));
       }
     }
+    setLoading(false);
   }, [location.search]);
 
   const handleLogout = () => {
     localStorage.removeItem("adt_profile");
     setProfile(null);
-    navigate("/"); // back to landing
+    navigate("/");
   };
+
+  if (loading) return null;
 
   return (
     <Routes>
+      {/* Landing */}
       <Route
         path="/"
         element={profile ? (
@@ -44,6 +49,7 @@ function AppWrapper() {
         )}
       />
 
+      {/* Onboarding */}
       <Route
         path="/onboarding"
         element={
