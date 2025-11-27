@@ -408,7 +408,8 @@ export default function Landing({ onGetStarted }) {
           </div>
           <style>{`
             @keyframes progress { 0%{ width: 0%; } 100% { width: 100%; } }
-            .animate-[progress_2.8s_linear_1] { animation: progress 2.8s linear 1 forwards; }
+            .animate-[progress_2.8s_linear_1] { animation: progress 2.8s linear 1 forwards; }+
+              
             .animate-pulse { animation: blinking 1s linear infinite; }
             @keyframes blinking { 0%{opacity:1}50%{opacity:0}100%{opacity:1} }
           `}</style>
@@ -519,45 +520,67 @@ export default function Landing({ onGetStarted }) {
           <div className="absolute left-0 right-0 bottom-0 h-40 neon-grid pointer-events-none" style={{ opacity: 0.14 }} />
         </section>
 
-        {/* PRODUCT / ABOUT */}
-        <section id="product" className="py-20 px-6 md:px-12">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 glow-grad reveal-on-scroll">What NeuraTwin Does</h2>
+{/* PRODUCT / ABOUT */}
+<section id="product" className="py-20 px-6 md:px-12">
+  <div className="max-w-6xl mx-auto">
+    <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 glow-grad reveal-on-scroll">
+      What NeuraTwin Does
+    </h2>
 
-            <div className="grid md:grid-cols-3 gap-8">
-              {PRODUCT_IMAGES.map((img, i) => (
-                <article key={i} className="rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition transform hover:-translate-y-2 reveal-on-scroll" style={{ transitionDelay: `${i * 100}ms` }}>
-                  <div className="h-44 bg-cover bg-center" style={{ backgroundImage: `url(${img})` }} />
-                  <div className="p-6 glass">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#06b6d4] to-[#6b46ff] flex items-center justify-center text-black">
-                        {i === 0 ? <FaChartLine /> : i === 1 ? <FaLightbulb /> : <FaDesktop />}
-                      </div>
-                      <h3 className="text-xl font-semibold">Feature {i + 1}</h3>
-                    </div>
-                    <p className="text-gray-300">Description of feature {i + 1} with AI/data focus.</p>
-                    <div className="mt-4">
-                      <button className="text-sm px-3 py-2 rounded bg-white/6 hover:bg-white/8">Learn more</button>
-                    </div>
-                  </div>
-                </article>
-              ))}
+    <div className="grid md:grid-cols-3 gap-8">
+      {PRODUCT_IMAGES.map((img, i) => (
+        <article
+          key={i}
+          className="rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition transform hover:-translate-y-2 reveal-on-scroll flex flex-col"
+          style={{ transitionDelay: `${i * 100}ms` }}
+        >
+          <div
+            className="h-44 bg-cover bg-center"
+            style={{ backgroundImage: `url(${img})` }}
+          />
+          <div className="p-6 glass flex-1 flex flex-col">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#06b6d4] to-[#6b46ff] flex items-center justify-center text-black">
+                {i === 0 ? <FaChartLine /> : i === 1 ? <FaLightbulb /> : <FaDesktop />}
+              </div>
+              <h3 className="text-xl font-semibold">
+                {i === 0
+                  ? "Smart Analytics"
+                  : i === 1
+                  ? "AI Insights"
+                  : "Interactive Dashboards"}
+              </h3>
             </div>
+            <p className="text-gray-300 flex-1">
+              {i === 0
+                ? "Automatically analyze your business data, track KPIs, and generate actionable reports without manual effort."
+                : i === 1
+                ? "Receive AI-driven insights that highlight opportunities, risks, and trends tailored to your business objectives."
+                : "Visualize your data in interactive charts and dashboards, making it easy to explore patterns and make informed decisions."}
+            </p>
           </div>
-        </section>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
 
         {/* TEXT MORPH SECTION */}
         <section id="morph" className="py-10 px-6 md:px-12">
-          <div className="max-w-6xl mx-auto reveal-on-scroll" ref={morphRef} style={{ display: "grid", gap: 16 }}>
-            <h3 className="text-xl md:text-2xl font-semibold text-center glow-grad">Data that speaks</h3>
-            <div className="mx-auto w-full md:w-3/4">
-              <TextMorphCanvas text="AI ANALYTICS" triggerRef={morphRef} />
-            </div>
-            <p className="text-center text-gray-300 max-w-3xl mx-auto">
-              Watch particles rearrange to form meaning — this is how NeuraTwin turns raw numbers into clear narratives.
-            </p>
-          </div>
-        </section>
+  <div className="max-w-6xl mx-auto reveal-on-scroll" ref={morphRef} style={{ display: "grid", gap: 16 }}>
+    <h3 className="text-xl md:text-2xl font-semibold text-center glow-grad">
+      Transforming Data into Action
+    </h3>
+    <div className="mx-auto w-full md:w-3/4">
+      <TextMorphCanvas text="INSIGHTFUL ANALYTICS" triggerRef={morphRef} />
+    </div>
+    <p className="text-center text-gray-300 max-w-3xl mx-auto">
+      See your raw numbers come alive — NeuraTwin converts complex datasets into clear, actionable visual insights in real time.
+    </p>
+  </div>
+</section>
+
 
         {/* FAQ */}
         <section id="faq" className="py-16 px-6 md:px-12 bg-[#06060b]">

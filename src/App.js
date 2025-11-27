@@ -39,11 +39,12 @@ function AppWrapper() {
 
   return (
     <Routes>
+
       {/* Landing */}
       <Route
         path="/"
         element={profile ? (
-          <Navigate to={`/dashboard/ai?user_id=${profile.user_id}`} />
+          <Navigate to={`/dashboard/overview?user_id=${profile.user_id}`} />
         ) : (
           <Landing onGetStarted={() => navigate("/onboarding")} />
         )}
@@ -57,7 +58,7 @@ function AppWrapper() {
             onComplete={(p) => {
               setProfile(p);
               localStorage.setItem("adt_profile", JSON.stringify(p));
-              navigate(`/dashboard/ai?user_id=${p.user_id}`);
+              navigate(`/dashboard/overview?user_id=${p.user_id}`);
             }}
           />
         }
@@ -72,11 +73,15 @@ function AppWrapper() {
           <Navigate to="/" />
         )}
       >
-        <Route path="ai" element={<Dashboard.Chat profile={profile} />} />
+        <Route path="overview" element={<Dashboard.Overview profile={profile} />} />
         <Route path="analytics" element={<Dashboard.Analytics profile={profile} onLogout={handleLogout} />} />
         <Route path="integrations" element={<Dashboard.Integrations profile={profile} />} />
         <Route path="profile" element={<Dashboard.Profile profile={profile} />} />
         <Route path="settings" element={<Dashboard.Settings profile={profile} />} />
+
+        {/* New pages included */}
+        <Route path="trends" element={<Dashboard.Trends profile={profile} />} />
+        <Route path="security" element={<Dashboard.Security profile={profile}/>} />
       </Route>
 
       {/* Google Sheets Analysis */}
@@ -87,6 +92,7 @@ function AppWrapper() {
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />
+
     </Routes>
   );
 }

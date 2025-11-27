@@ -3,11 +3,13 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 
 // Import individual components
-import ChatPanel from "../components/ChatPanel";
 import Analytics from "./Analytics";
 import Integrations from "./Integrations";
 import Profile from "./Profile";
 import Settings from "./Settings";
+import Overview from "./Overview";
+import Trends from "./Trends";
+import Security from "./Security";
 
 export default function Dashboard({ profile, onLogout }) {
   const location = useLocation();
@@ -29,8 +31,10 @@ export default function Dashboard({ profile, onLogout }) {
 }
 
 // Attach components for nested routes
-Dashboard.Chat = ChatPanel;
+Dashboard.Overview = Overview;
 Dashboard.Analytics = Analytics;
+Dashboard.Trends = Trends;
 Dashboard.Integrations = Integrations;
+Dashboard.Security = Security;
 Dashboard.Profile = Profile;
 Dashboard.Settings = Settings;

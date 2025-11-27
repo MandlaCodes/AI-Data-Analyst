@@ -1,52 +1,90 @@
 import React from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
+import { 
+  FiPieChart, FiTrendingUp, FiDatabase, FiSettings, 
+  FiShield, FiUser, FiLogOut, FiHome 
+} from "react-icons/fi";
 
-export default function Sidebar({ profile, current, onLogout }) {
-  const navigate = useNavigate();
-
-  const items = [
-    { id: "ai", label: "AI Ask" },
-    { id: "integrations", label: "Integrations" },
-    { id: "analytics", label: "Analytics" },
-    { id: "profile", label: "Profile" },
-    { id: "settings", label: "Settings" },
-    { id: "logout", label: "Log out" },
-  ];
-
+export default function Sidebar({ current, onLogout }) {
   return (
-    <div className="w-64 p-4 bg-black/50 backdrop-blur-md border-r border-gray-800 min-h-screen text-white flex flex-col">
-      <div className="mb-6">
-        <div className="text-xl font-bold text-purple-200">
-          {profile?.businessName || "Your Business"}
-        </div>
-        <div className="text-xs text-gray-400">
-          {profile?.industry || "Industry"}
-        </div>
+    <div className="h-full w-full bg-black border-r border-purple-700 flex flex-col justify-between p-6 select-none">
+
+      {/* ==== BRAND HEADER ==== */}
+      <div>
+        <h1 className="text-purple-400 text-2xl font-bold tracking-wide">NeuraTwin</h1>
+
+        {/* === MENU TITLE === */}
+        <h3 className="mt-8 text-gray-400 text-xs uppercase font-semibold">Menu</h3>
+        
+        {/* MENU LINKS */}
+        <nav className="flex flex-col gap-3 mt-3">
+
+          {/* FIXED: Overview now uses /overview not /ai */}
+          <SidebarLink 
+            icon={<FiHome />} 
+            label="Overview" 
+            to="/dashboard/overview"
+            active={current === "overview"} 
+          />
+
+          <SidebarLink 
+            icon={<FiPieChart />} 
+            label="Analytics" 
+            to="/dashboard/analytics" 
+            active={current === "analytics"} 
+          />
+
+          <SidebarLink 
+            icon={<FiTrendingUp />} 
+            label="Trends" 
+            to="/dashboard/trends" 
+            active={current === "trends"} 
+          />
+
+          <SidebarLink 
+            icon={<FiDatabase />} 
+            label="Integrations" 
+            to="/dashboard/integrations" 
+            active={current === "integrations"} 
+          />
+        </nav>
+
+        {/* === GENERAL SECTION === */}
+        <h3 className="mt-10 text-gray-400 text-xs uppercase font-semibold">General</h3>
+
+        <nav className="flex flex-col gap-3 mt-3">
+          <SidebarLink icon={<FiSettings />} label="Settings" to="/dashboard/settings" active={current === "settings"} />
+          <SidebarLink icon={<FiShield />} label="Security" to="/dashboard/security" active={current === "security"} />
+          <SidebarLink icon={<FiUser />} label="Profile" to="/dashboard/profile" active={current === "profile"} />
+        </nav>
       </div>
 
-      <nav className="flex flex-col gap-2 flex-1">
-        {items.map((it) => (
-          <motion.button
-            key={it.id}
-            onClick={() => {
-              if (it.id === "logout") return onLogout();
-              navigate(`/dashboard/${it.id}?user_id=${profile.user_id}`);
-            }}
-            whileHover={{ x: 5, scale: 1.02 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className={`p-3 rounded-lg border border-gray-800 transition-all ${
-              current === it.id
-                ? "bg-gradient-to-r from-purple-600/50 via-indigo-600/40 to-purple-600/50 shadow-[0_0_15px_rgba(128,0,255,0.7)]"
-                : "hover:bg-gradient-to-r hover:from-purple-700/20 hover:to-indigo-700/10"
-            }`}
-          >
-            {it.label}
-          </motion.button>
-        ))}
-      </nav>
-
-      <div className="pt-6 text-xs text-gray-400">MN Web Solutions — AI Digital Twin</div>
+      {/* === LOGOUT BUTTON ==== */}
+      <button
+        onClick={onLogout}
+        className="flex items-center gap-3 w-full py-2 mt-10 text-left text-gray-300 hover:text-purple-400 transition"
+      >
+        <FiLogOut size={18} />
+        <span>Log out</span>
+      </button>
     </div>
+  );
+}
+
+
+function SidebarLink({ icon, label, to, active }) {
+  return (
+    <NavLink
+      to={to}
+      className={`flex items-center gap-3 p-2 rounded-lg transition-all
+        ${active 
+          ? "bg-purple-700 text-white font-semibold" 
+          : "text-gray-300 hover:bg-purple-900 hover:text-white"
+        }
+      `}
+    >
+      {icon}
+      {label}
+    </NavLink>
   );
 }
