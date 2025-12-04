@@ -1,6 +1,7 @@
 // src/pages/Analytics.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,11 +13,25 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler 
 } from "chart.js";
+
 import { FiDownload, FiUpload } from "react-icons/fi";
 import { MdOutlineAnalytics, MdFilterList } from "react-icons/md";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler // ✅ register filler plugin
+);
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend);
 
@@ -77,6 +92,9 @@ export default function Analytics() {
   const [aiText, setAiText] = useState("AI insights will appear here once generated.");
   const rightPanelRef = useRef(null);
   const [chartHeight, setChartHeight] = useState(220);
+
+  // small saved toast
+  const [showSavedToast, setShowSavedToast] = useState(false);
 
   function sanitizeCellValue(value) {
     if (value === null || value === undefined || value === "") return "";
@@ -290,6 +308,53 @@ export default function Analytics() {
     }
   };
 
+  // -------------------------------
+  // 🔁 Save handler — persist EXACT object Overview expects
+  // -------------------------------
+  const handleSave = () => {
+    // require data
+    if (!sheetData.length || !Object.keys(kpis).length) {
+      setAiText("No metrics available to save to Overview.");
+      return;
+    }
+
+    // Build suggestions & anomalies placeholders if not available
+    // (If you later generate suggestions/anomalies, replace these)
+    const suggestions = []; // e.g. [{ title: "...", eta: "2h", impact: "High" }]
+    const anomalies = []; // e.g. [{ column: "revenue", issue: "sudden drop", severity: "warning" }]
+
+    // meta
+    const meta = {
+      sourceName: selectedSheet || "Imported Dataset",
+      rows: Math.max(0, sheetData.length - 1),
+      columns: (sheetData[0] && sheetData[0].length) || 0,
+      savedAt: new Date().toISOString(),
+      user: profile.user_id,
+    };
+
+    // final payload structure (matches Overview expectation)
+    const payload = {
+      kpis: kpis, // keep shape as computed
+      categories: categories,
+      suggestions: suggestions,
+      anomalies: anomalies,
+      analysisText: aiText || "No summary generated.",
+      meta: meta,
+    };
+
+    try {
+      // Save to localStorage key Overview reads
+      localStorage.setItem("analytics_overview_data", JSON.stringify(payload));
+
+      // show a small toast — remain on the page
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 2000);
+    } catch (err) {
+      console.error("Failed to save overview payload:", err);
+      setAiText("Failed to save metrics to Overview.");
+    }
+  };
+
   const exportCSV = () => {
     if (!sheetData.length) return;
     const csv = sheetData.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -373,6 +438,13 @@ export default function Analytics() {
               >
                 Generate Insights
               </button>
+              <button
+                onClick={handleSave}
+                className="px-3 py-1 rounded bg-green-600 text-white text-sm"
+                title="Save calculated metrics & AI summary to Overview"
+              >
+                Save
+              </button>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{generateCharts()}</div>
@@ -439,7 +511,13 @@ export default function Analytics() {
           </div>
         </div>
       )}
+
+      {/* Saved toast (top-right) */}
+      {showSavedToast && (
+        <div className="fixed top-6 right-6 z-50 px-4 py-2 rounded-lg bg-green-600 text-white shadow-lg">
+          Saved to Overview
+        </div>
+      )}
     </div>
   );
 }
-  
