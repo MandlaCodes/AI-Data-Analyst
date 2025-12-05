@@ -447,6 +447,40 @@ export default function Analytics() {
             setAnalyses(prev => prev.map(a => a.id === activeAnalysisId ? { ...a, aiText: "Failed to save metrics to Overview." } : a));
         }
     };
+// --- Save Active Analysis to Backend ---
+const saveDashboardToBackend = async () => {
+    if (!activeAnalysis || !Object.keys(kpis).length) return;
+
+    const payload = {
+        user_id: profile.user_id,
+        layout_data: JSON.stringify({
+            kpis,
+            categories,
+            aiText,
+            sheetData,
+            numericCols,
+            sourceName: currentSourceName,
+            recentRows
+        }),
+    };
+
+    try {
+        const res = await axios.post(
+            "https://ai-data-analyst-backend-1nuw.onrender.com/api/dashboard/save",
+            payload
+        );
+        if (res.status === 200) {
+            console.log("Dashboard saved to backend:", res.data.dashboard);
+            alert("Dashboard saved successfully to your account!");
+        } else {
+            console.error("Failed to save dashboard:", res.data);
+            alert("Failed to save dashboard to backend.");
+        }
+    } catch (err) {
+        console.error("Error saving dashboard:", err);
+        alert("Error saving dashboard to backend.");
+    }
+};
 
     // --- Delete Analysis ---
     const handleDeleteAnalysis = (idToDelete) => {

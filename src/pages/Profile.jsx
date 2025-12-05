@@ -1,115 +1,108 @@
-// src/pages/Profile.jsx
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { FaGoogle, FaExchangeAlt, FaUserCircle, FaBell, FaMoon, FaSun } from "react-icons/fa";
-import axios from "axios";
+import { FiUser, FiMail, FiCalendar, FiLock, FiEdit3 } from "react-icons/fi";
 
 export default function Profile() {
-  const userId = "123"; // replace with real auth ID
+    const [profile, setProfile] = useState({
+        name: 'Analyst User',
+        email: 'analyst.user@data-corp.com',
+        role: 'Senior Data Analyst',
+        memberSince: '2025-01-15',
+        lastLogin: '2025-12-05T08:45:00Z',
+        permissions: ['Read: All Dashboards', 'Write: Analysis', 'Admin: Settings'],
+    });
 
-  const [user, setUser] = useState({ name: "Mandla Ndhlovu", email: "mandlandhlovu264@gmail.com" });
-  const [connectedApps, setConnectedApps] = useState([]);
-  const [theme, setTheme] = useState("light");
+    const [isEditing, setIsEditing] = useState(false);
 
-  // fetch connected apps
-  useEffect(() => {
-    axios
-      .get(`http://127.0.0.1:8000/connected-apps?user_id=${userId}`)
-      .then((res) => {
-        const data = res.data || {};
-        if (Array.isArray(data.apps)) {
-          setConnectedApps(data.apps.map((a) => ({ ...a })));
-        } else {
-          const apps = Object.entries(data).map(([k, v]) => ({ key: k, status: v ? "connected" : "not_connected" }));
-          setConnectedApps(apps);
-        }
-      })
-      .catch(() => setConnectedApps([]));
-  }, []);
+    useEffect(() => {
+        // In a real app, this would fetch user data from a server API.
+        // For simulation, we can just load a placeholder or mock user object.
+        const mockUser = {
+            name: 'Aurora V. Data',
+            email: 'aurora.v.data@analytics.io',
+            role: 'Lead AI Strategist',
+            memberSince: '2024-08-20',
+            lastLogin: new Date().toLocaleString(),
+            permissions: ['Read: All', 'Write: All', 'Admin: All'],
+        };
+        setProfile(mockUser);
+    }, []);
+    
+    // Simulate updating a profile field (optional)
+    const handleUpdate = () => {
+        // In a real application, send updated profile data to a backend API.
+        setIsEditing(false);
+        // Display a temporary success message here
+    };
 
-  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
-
-  const handleReconnect = (appKey) => {
-    alert(`Reconnect flow for ${appKey} (placeholder)`);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-700 text-white p-6">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <FaUserCircle className="w-16 h-16 text-gray-200" />
-          <div>
-            <h1 className="text-3xl font-bold">{user.name}</h1>
-            <p className="text-gray-300">{user.email}</p>
-          </div>
-        </div>
-
-        {/* Theme & Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="p-6 rounded-2xl bg-gradient-to-br from-indigo-700 to-purple-700 shadow-lg flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              {theme === "light" ? <FaSun /> : <FaMoon />}
-              <span>Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}</span>
-            </div>
-            <button onClick={toggleTheme} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition">
-              Toggle
-            </button>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="p-6 rounded-2xl bg-gradient-to-br from-green-700 to-teal-600 shadow-lg flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <FaBell />
-              <span>Notifications</span>
-            </div>
-            <button className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition">Manage</button>
-          </motion.div>
-        </div>
-
-        {/* Connected Apps */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold">Connected Apps</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {connectedApps.length === 0 && (
-              <p className="text-gray-300 col-span-full">No apps connected yet.</p>
-            )}
-            {connectedApps.map((app) => (
-              <motion.div
-                key={app.key}
-                whileHover={{ scale: 1.03 }}
-                className="p-6 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-700 shadow-lg flex flex-col items-center justify-center gap-3 text-center"
-              >
-                <FaGoogle className="w-10 h-10 text-white" />
-                <h3 className="text-lg font-semibold capitalize">{app.key.replace("_", " ")}</h3>
-                <p className={`text-sm ${app.status === "connected" ? "text-green-400" : "text-red-400"}`}>
-                  {app.status}
+    return (
+        <div className="min-h-screen p-8 text-white" style={{ background: "linear-gradient(180deg,#0e121e,#15082e)" }}>
+            <header className="mb-8 border-b border-gray-700/50 pb-4">
+                <h1 className="text-3xl font-bold flex items-center gap-3 text-purple-400">
+                    <FiUser size={28} className="text-pink-400"/> User Profile
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">
+                    Your account details and access level.
                 </p>
-                {app.status !== "connected" && (
-                  <button
-                    onClick={() => handleReconnect(app.key)}
-                    className="px-3 py-1 mt-2 bg-white/20 hover:bg-white/30 rounded-xl transition text-white text-sm"
-                  >
-                    Reconnect
-                  </button>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </div>
+            </header>
+            
+            <div className="max-w-3xl mx-auto bg-gray-900/50 p-8 rounded-xl border border-gray-700 shadow-xl">
+                
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <div className="text-4xl font-extrabold text-white">{profile.name}</div>
+                        <div className="text-lg text-purple-400 font-medium mt-1">{profile.role}</div>
+                    </div>
+                    <button 
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="px-4 py-2 rounded-full bg-pink-600 text-white hover:bg-pink-700 transition flex items-center gap-2 text-sm font-semibold"
+                    >
+                        <FiEdit3 size={14}/> {isEditing ? "Cancel" : "Edit Profile"}
+                    </button>
+                </div>
 
-        {/* Danger Zone */}
-        <div className="p-6 rounded-2xl bg-red-700/70 shadow-lg">
-          <h2 className="text-xl font-semibold mb-4">Danger Zone</h2>
-          <p className="mb-4 text-gray-200">You can delete your account and all associated data here. This action cannot be undone.</p>
-          <button className="px-6 py-2 bg-red-500 hover:bg-red-400 rounded-xl transition font-bold">Delete Account</button>
+                <div className="space-y-4">
+                    {/* Email */}
+                    <div className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg">
+                        <FiMail className="text-purple-400"/>
+                        <span className="font-medium">Email:</span>
+                        <span className="text-gray-300">{profile.email}</span>
+                    </div>
+
+                    {/* Member Since */}
+                    <div className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg">
+                        <FiCalendar className="text-purple-400"/>
+                        <span className="font-medium">Member Since:</span>
+                        <span className="text-gray-300">{profile.memberSince}</span>
+                    </div>
+                    
+                    {/* Last Login */}
+                    <div className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg">
+                        <FiCalendar className="text-purple-400"/>
+                        <span className="font-medium">Last Login:</span>
+                        <span className="text-gray-300">{profile.lastLogin}</span>
+                    </div>
+
+                    {/* Permissions */}
+                    <div className="pt-4 border-t border-gray-700/50">
+                        <h3 className="text-xl font-semibold mb-2 flex items-center gap-2"><FiLock/> Access Permissions</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {profile.permissions.map((p, i) => (
+                                <span key={i} className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/50">
+                                    {p}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                
+                {isEditing && (
+                    <div className="mt-6 text-right">
+                        <button onClick={handleUpdate} className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold transition">
+                            Save Changes
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
-      </motion.div>
-    </div>
-  );
+    );
 }

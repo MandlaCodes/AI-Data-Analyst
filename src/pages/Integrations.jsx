@@ -1,7 +1,6 @@
-// src/pages/Integrations.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const integrationsList = [
   {
@@ -10,6 +9,7 @@ const integrationsList = [
     description:
       "Sync your business data to allow the AI Analyst to generate insights and charts automatically.",
     connectUrl: "auth/google_sheets",
+    isOAuth: true,
   },
   {
     key: "excel",
@@ -17,6 +17,7 @@ const integrationsList = [
     description:
       "Upload or sync your Excel files from OneDrive to feed your AI Analyst with your spreadsheet data.",
     connectUrl: null,
+    isOAuth: false,
   },
   {
     key: "hubspot",
@@ -24,6 +25,7 @@ const integrationsList = [
     description:
       "Connect HubSpot to track marketing, sales, and CRM metrics automatically.",
     connectUrl: "auth/hubspot",
+    isOAuth: true,
   },
   {
     key: "stripe",
@@ -31,6 +33,7 @@ const integrationsList = [
     description:
       "Connect your Stripe account to track revenue and payment metrics in real-time.",
     connectUrl: "auth/stripe",
+    isOAuth: true,
   },
   {
     key: "airtable",
@@ -38,6 +41,7 @@ const integrationsList = [
     description:
       "Connect your Airtable bases to integrate structured data directly into your AI Analyst.",
     connectUrl: "auth/airtable",
+    isOAuth: true,
   },
   {
     key: "other",
@@ -45,38 +49,144 @@ const integrationsList = [
     description:
       "Upload CSV or JSON files from any other source to feed custom data to your AI Analyst.",
     connectUrl: null,
+    isOAuth: false,
   },
 ];
 
+const BACKEND_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+
+// Custom Modal Component to replace alert()
+const MessageModal = ({ show, title, message, onConfirm, onCancel, confirmText, isConnectFlow }) => {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 50 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 50 }}
+            className="w-full max-w-md rounded-2xl bg-gray-800 p-6 shadow-2xl border border-purple-600/50"
+          >
+            <h3 className="text-2xl font-bold text-white mb-3 border-b border-gray-700 pb-2">
+              {title}
+            </h3>
+            <p className="text-gray-300 mb-6">{message}</p>
+            <div className="flex justify-end space-x-4">
+              {onCancel && (
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-2 rounded-xl text-gray-300 bg-gray-700 hover:bg-gray-600 transition-colors"
+                >
+                  {isConnectFlow ? "Cancel" : "Close"}
+                </button>
+              )}
+              {onConfirm && (
+                <button
+                  onClick={onConfirm}
+                  className="px-4 py-2 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-md shadow-purple-500/50"
+                >
+                  {confirmText || "Confirm"}
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+
 export default function Integrations({ profile }) {
   const [connections, setConnections] = useState({});
+  const [modalState, setModalState] = useState({
+    show: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    onCancel: () => setModalState({ ...modalState, show: false }),
+    confirmText: "Confirm",
+    isConnectFlow: false,
+  });
 
-  useEffect(() => {
+  const fetchConnected = useCallback(async () => {
     if (!profile) return;
-
-    const fetchConnected = async () => {
-      try {
-        const res = await axios.get(
-          `https://ai-data-analyst-backend-1nuw.onrender.com/connected-apps?user_id=${profile.user_id}`
-        );
-        setConnections(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchConnected();
+    try {
+      const res = await axios.get(
+        `${BACKEND_BASE_URL}/connected-apps?user_id=${profile.user_id}`
+      );
+      setConnections(res.data);
+    } catch (err) {
+      console.error("Failed to fetch connected apps:", err);
+    }
   }, [profile]);
 
+  useEffect(() => {
+    fetchConnected();
+  }, [fetchConnected]);
+
   const handleConnect = (integration) => {
-    if (!integration.connectUrl)
-      return alert("Upload or manually connect this data source here.");
-    window.location.href = `https://ai-data-analyst-backend-1nuw.onrender.com/${integration.connectUrl}?user_id=${profile.user_id}`;
+    if (!profile) {
+      setModalState({
+        show: true,
+        title: "Profile Required",
+        message: "Please ensure your user profile is loaded before attempting to connect an integration.",
+        onConfirm: null,
+        onCancel: () => setModalState({ ...modalState, show: false }),
+        confirmText: "OK",
+        isConnectFlow: false,
+      });
+      return;
+    }
+
+    if (!integration.connectUrl) {
+      // For Excel/Other, where manual upload is needed
+      setModalState({
+        show: true,
+        title: "Manual Data Source",
+        message:
+          "This integration requires manual file upload (CSV, JSON, or Excel). Please use the 'Upload Data' feature on the dashboard.",
+        onConfirm: null,
+        onCancel: () => setModalState({ ...modalState, show: false }),
+        confirmText: "Got it",
+        isConnectFlow: false,
+      });
+      return;
+    }
+
+    // For OAuth Integrations
+    const confirmRedirection = () => {
+      // Actual redirection happens here after confirmation
+      window.location.href = `${BACKEND_BASE_URL}/${integration.connectUrl}?user_id=${profile.user_id}`;
+    };
+
+    setModalState({
+      show: true,
+      title: `Connect to ${integration.name}`,
+      message: `You will be redirected to ${integration.name}'s secure website to authorize this connection. This may require you to sign in to your ${integration.name} account to grant permission. You are NOT logging into the AI Analyst application again.`,
+      onConfirm: confirmRedirection,
+      onCancel: () => setModalState({ ...modalState, show: false }),
+      confirmText: "Proceed to Connect",
+      isConnectFlow: true,
+    });
   };
 
   const handleDisconnect = (key) => {
     setConnections((prev) => ({ ...prev, [key]: false }));
-    alert(`Disconnected ${key} (simulate backend token deletion)`);
+    setModalState({
+        show: true,
+        title: "Disconnected",
+        message: `Disconnected ${integrationsList.find(i => i.key === key).name}. (Simulated backend token deletion)`,
+        onConfirm: null,
+        onCancel: () => setModalState({ ...modalState, show: false }),
+        confirmText: "Close",
+        isConnectFlow: false,
+    });
   };
 
   const connectedApps = integrationsList.filter(
@@ -171,6 +281,8 @@ export default function Integrations({ profile }) {
           </div>
         )}
       </div>
+
+      <MessageModal {...modalState} />
     </div>
   );
 }

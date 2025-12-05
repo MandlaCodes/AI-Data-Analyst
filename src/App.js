@@ -1,9 +1,8 @@
-// src/App.js
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 import Landing from "./pages/Landing";
-import Onboarding from "./pages/Onboarding";
+import Login from "./pages/Login.jsx"; // FIX: Setting to .jsx. Please verify file is named 'Login.jsx'
 import Dashboard from "./pages/Dashboard";
 import GoogleSheetsAnalysis from "./pages/GoogleSheetsAnalysis";
 
@@ -13,19 +12,26 @@ function AppWrapper() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Function to handle successful login, receiving the user ID from the Login component
+  const handleLoginSuccess = (userId) => {
+    // Create a minimal profile object for session state
+    const newProfile = { user_id: userId, name: "User" }; 
+    setProfile(newProfile);
+    localStorage.setItem("adt_profile", JSON.stringify(newProfile));
+    
+    // Redirect to the dashboard
+    navigate(`/dashboard/overview?user_id=${userId}`);
+  };
+
   useEffect(() => {
+    // Check local storage for existing session data
     const saved = localStorage.getItem("adt_profile");
     if (saved) {
       setProfile(JSON.parse(saved));
-    } else {
-      const searchParams = new URLSearchParams(location.search);
-      const userId = searchParams.get("user_id");
-      if (userId) {
-        const tempProfile = { user_id: userId, name: "User" };
-        setProfile(tempProfile);
-        localStorage.setItem("adt_profile", JSON.stringify(tempProfile));
-      }
     }
+    // Note: The previous logic to extract userId from query params is now
+    // primarily handled by the Login component calling handleLoginSuccess.
+    // Keeping this simple for initial load check.
     setLoading(false);
   }, [location.search]);
 
@@ -40,31 +46,30 @@ function AppWrapper() {
   return (
     <Routes>
 
-      {/* Landing */}
+      {/* Landing Page (Now points to /login if unauthenticated) */}
       <Route
         path="/"
         element={profile ? (
           <Navigate to={`/dashboard/overview?user_id=${profile.user_id}`} />
         ) : (
-          <Landing onGetStarted={() => navigate("/onboarding")} />
+          // Landing page should now point users to the new /login route
+          <Landing onGetStarted={() => navigate("/login")} /> 
         )}
       />
 
-      {/* Onboarding */}
+      {/* Login Route (Replaces Onboarding) */}
       <Route
-        path="/onboarding"
+        path="/login" // New path
         element={
-          <Onboarding
-            onComplete={(p) => {
-              setProfile(p);
-              localStorage.setItem("adt_profile", JSON.stringify(p));
-              navigate(`/dashboard/overview?user_id=${p.user_id}`);
-            }}
-          />
+          profile ? (
+            <Navigate to={`/dashboard/overview?user_id=${profile.user_id}`} />
+          ) : (
+            <Login onLoginSuccess={handleLoginSuccess} /> // Use the Login component
+          )
         }
       />
 
-      {/* Dashboard with nested routes */}
+      {/* Dashboard with nested routes (remains unchanged) */}
       <Route
         path="/dashboard/*"
         element={profile ? (
@@ -78,8 +83,6 @@ function AppWrapper() {
         <Route path="integrations" element={<Dashboard.Integrations profile={profile} />} />
         <Route path="profile" element={<Dashboard.Profile profile={profile} />} />
         <Route path="settings" element={<Dashboard.Settings profile={profile} />} />
-
-        {/* New pages included */}
         <Route path="trends" element={<Dashboard.Trends profile={profile} />} />
         <Route path="security" element={<Dashboard.Security profile={profile}/>} />
       </Route>
