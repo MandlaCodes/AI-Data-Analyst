@@ -110,7 +110,7 @@ const styles = {
     fontFamily: "Arial, sans-serif",
   },
   card: {
-    width: 350,
+    width: 349,
     padding: 30,
     background: "#fff",
     borderRadius: 12,
