@@ -158,7 +158,7 @@ const styles = {
   switchLink: {
     color: "#007bff",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     marginLeft: 4,
   },
 };
