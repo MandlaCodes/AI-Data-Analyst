@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-// Added useNavigate for programmatic navigation (though not strictly needed here, it's good practice)
 import { useNavigate } from "react-router-dom"; 
 
 const integrationsList = [
@@ -57,7 +56,7 @@ const integrationsList = [
 
 const BACKEND_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-// Custom Modal Component to replace alert() (Keep this as is)
+// Custom Modal Component (unchanged)
 const MessageModal = ({ show, title, message, onConfirm, onCancel, confirmText, isConnectFlow }) => {
     return (
       <AnimatePresence>
@@ -105,7 +104,7 @@ const MessageModal = ({ show, title, message, onConfirm, onCancel, confirmText, 
 
 
 export default function Integrations({ profile }) {
-    const navigate = useNavigate(); // Initialize useNavigate
+    const navigate = useNavigate();
     const [connections, setConnections] = useState({});
     const [modalState, setModalState] = useState({
         show: false,
@@ -117,15 +116,19 @@ export default function Integrations({ profile }) {
         isConnectFlow: false,
     });
 
-    // CRITICAL: Get URL parameters once on load
     const [searchParams] = useState(new URLSearchParams(window.location.search));
-    const connectedStatus = searchParams.get("connected"); // "true" or null
-    const connectedType = searchParams.get("type");       // "google_sheets" or null
+    const connectedStatus = searchParams.get("connected");
+    const connectedType = searchParams.get("type");
 
+    // FIX 1: Make fetchConnected dependent on the 'profile' prop
     const fetchConnected = useCallback(async () => {
-        // Use Authorization header for authenticated requests
         const token = localStorage.getItem("adt_token"); 
-        if (!profile || !token) return;
+        
+        // Ensure we have both profile and token before fetching
+        if (!profile || !token) {
+             setConnections({}); // Reset connections if user data is missing
+             return;
+        }
 
         try {
             const res = await axios.get(
@@ -137,13 +140,14 @@ export default function Integrations({ profile }) {
             setConnections(res.data);
         } catch (err) {
             console.error("Failed to fetch connected apps:", err);
+            setConnections({});
         }
-    }, [profile]);
+    }, [profile]); // <--- CRITICAL FIX: Profile Dependency
 
     useEffect(() => {
-        // 1. Check if we just returned from a successful OAuth flow
+        // 1. Handle successful OAuth flow return
         if (connectedStatus === "true" && connectedType === "google_sheets") {
-            // Show success message
+            
             setModalState({
                 show: true,
                 title: "Google Sheets Connected!",
@@ -154,18 +158,21 @@ export default function Integrations({ profile }) {
                 isConnectFlow: false,
             });
 
-            // CRITICAL: Clean the URL parameters to prevent this block from running again
-            // and keep the user on the current /dashboard/integrations page.
+            // Clean the URL parameters
             window.history.replaceState({}, document.title, window.location.pathname); 
+            
+            // Re-fetch status immediately
+            fetchConnected();
+            
+        // 2. FIX 2: Trigger fetch if profile exists (for standard login/navigation)
+        } else if (profile) { 
+             fetchConnected();
         }
-
-        // 2. Always fetch the connection status on load or after a successful redirect
-        fetchConnected();
-    }, [fetchConnected, connectedStatus, connectedType]); // Depend on parameters and fetchConnected
+    // FIX 3: Dependency array now includes profile
+    }, [fetchConnected, connectedStatus, connectedType, profile]); 
 
     const handleConnect = (integration) => {
         if (!profile) {
-            // ... (keep profile check logic as is) ...
             setModalState({
               show: true,
               title: "Profile Required",
@@ -179,7 +186,6 @@ export default function Integrations({ profile }) {
         }
 
         if (!integration.connectUrl) {
-            // ... (keep manual data source check logic as is) ...
             setModalState({
               show: true,
               title: "Manual Data Source",
@@ -195,9 +201,6 @@ export default function Integrations({ profile }) {
 
         // For OAuth Integrations
         const confirmRedirection = () => {
-            // Actual redirection happens here after confirmation
-            // We pass the user_id via URL parameter, which the backend reads and includes 
-            // in the state parameter for the final Google OAuth URL.
             window.location.href = `${BACKEND_BASE_URL}/${integration.connectUrl}?user_id=${profile.user_id}`;
         };
 
@@ -213,7 +216,7 @@ export default function Integrations({ profile }) {
     };
 
     const handleDisconnect = (key) => {
-        // Disconnect logic (Simulation for now, until backend delete endpoint is implemented)
+        // Disconnect logic (Simulation for now)
         setConnections((prev) => ({ ...prev, [key]: false }));
         setModalState({
             show: true,
@@ -233,7 +236,7 @@ export default function Integrations({ profile }) {
         (integration) => !connections[integration.key]
     );
 
-    // ... (rest of renderCard and the main return JSX remains the same) ...
+    
     const renderCard = (integration, isConnected, index) => (
         <motion.div
           key={integration.key}
