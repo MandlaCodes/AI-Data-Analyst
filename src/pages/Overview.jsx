@@ -112,8 +112,15 @@ export default function Overview({ profile }) {
     const load = async () => {
       try {
         const res = await fetch(
-          `https://ai-data-analyst-backend-1nuw.onrender.com/api/dashboard/sessions?user_id=${profile.user_id}`
+          `https://ai-data-analyst-backend-1nuw.onrender.com/api/dashboard/sessions?user_id=${profile.user_id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "application/json",
+            },
+          }
         );
+
         const data = await res.json();
 
         if (data.sessions?.length > 0) {
