@@ -168,7 +168,7 @@ export default function Integrations({ profile }) {
       <div className="flex-1 flex flex-col gap-12 overflow-hidden">
         {connectedApps.length > 0 && (
           <div className="w-full max-w-6xl">
-            <h2 className="text-2xl font-semibold text-green-400 mb-4 tracking-wide">
+            <h2 className="text-2xl font-semibold text-blue-400 mb-4 tracking-wide">
               Connected Apps
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
