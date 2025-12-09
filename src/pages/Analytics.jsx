@@ -1,12 +1,3 @@
-My apologies for the inconvenience\! It looks like there was a formatting or display issue on your end.
-
-Here is the complete, updated content for **`Analytics.jsx`** again.
-
------
-
-### `Analytics.jsx` (Updated and Complete)
-
-```javascript
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import {
@@ -964,4 +955,3 @@ export default function Analytics() {
         </div>
     );
 }
-```
