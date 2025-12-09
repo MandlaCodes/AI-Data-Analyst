@@ -11,9 +11,10 @@ import Overview from "./Overview";
 import Trends from "./Trends";
 import Security from "./Security";
 
-export default function Dashboard({ profile, onLogout }) {
+// 🟢 MODIFIED: Accept refetchProfile
+export default function Dashboard({ profile, onLogout, refetchProfile }) { 
   const location = useLocation();
-  const currentTab = location.pathname.split("/").pop(); // last segment
+  const currentTab = location.pathname.split("/").pop(); 
 
   return (
     <div className="min-h-screen flex bg-gradient-to-b from-black via-gray-900 to-purple-900 text-white">
@@ -38,3 +39,6 @@ Dashboard.Integrations = Integrations;
 Dashboard.Security = Security;
 Dashboard.Profile = Profile;
 Dashboard.Settings = Settings;
+
+// NOTE: DashboardManager.jsx (the second code block you sent) is not needed for this fix.
+// It deals with widget layouts, not auth/integrations.

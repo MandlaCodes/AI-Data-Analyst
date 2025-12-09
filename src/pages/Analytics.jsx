@@ -1,3 +1,12 @@
+My apologies for the inconvenience\! It looks like there was a formatting or display issue on your end.
+
+Here is the complete, updated content for **`Analytics.jsx`** again.
+
+-----
+
+### `Analytics.jsx` (Updated and Complete)
+
+```javascript
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import {
@@ -16,6 +25,7 @@ import {
 import { FiDownload, FiUploadCloud, FiRefreshCw, FiSave, FiXCircle, FiGrid } from "react-icons/fi";
 import { MdOutlineAnalytics, MdDataExploration, MdDeleteForever } from "react-icons/md";
 import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
 
 // --- CHART.JS REGISTRATION ---
 ChartJS.register(
@@ -31,7 +41,9 @@ ChartJS.register(
     Filler
 );
 
-// --- COMPONENT: KPI TILE (Updated Design) ---
+const BACKEND_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+
+// --- COMPONENT: KPI TILE ---
 function KpiTile({ title, value, subtitle, sparkData, sparkType = "line" }) {
     const sparkOptions = {
         responsive: true,
@@ -69,13 +81,165 @@ function KpiTile({ title, value, subtitle, sparkData, sparkType = "line" }) {
     );
 }
 
+// --- COMPONENT: Import Modal (Completed) ---
+const ImportModal = ({
+    showModal,
+    setShowModal,
+    selectedApps,
+    setSelectedApps,
+    sheetsList,
+    selectedSheet,
+    setSelectedSheet,
+    csvToImport,
+    setCsvToImport,
+    loadingSheetValues,
+    sourceName,
+    setSourceName,
+    importSelected,
+    profile // kept for consistency, though not directly used here
+}) => {
+    // Check if the user is connected to Google Sheets (based on local storage)
+    // NOTE: This relies on the Integrations page setting this flag correctly.
+    const googleSheetsConnected = JSON.parse(localStorage.getItem('adt_profile'))?.google_sheets_connected === true;
+
+    return (
+        <AnimatePresence>
+            {showModal && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, y: 50 }}
+                        animate={{ scale: 1, y: 0 }}
+                        exit={{ scale: 0.9, y: 50 }}
+                        className="w-full max-w-lg rounded-2xl bg-gray-900 p-6 shadow-2xl border border-purple-600/50"
+                    >
+                        <h3 className="text-2xl font-bold text-white mb-4 border-b border-gray-800 pb-2">
+                            Import New Data Source
+                        </h3>
+
+                        <div className="space-y-4 mb-6">
+                            {/* Source Name Input */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Analysis Name (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={sourceName}
+                                    onChange={(e) => setSourceName(e.target.value)}
+                                    placeholder="e.g., Q3 Sales Report"
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-purple-500 focus:border-purple-500"
+                                />
+                            </div>
+
+                            {/* Source Selection */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-400">Select Source Type</label>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setSelectedApps(["google_sheets"])}
+                                        className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+                                            selectedApps.includes("google_sheets") ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        } ${!googleSheetsConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={!googleSheetsConnected}
+                                    >
+                                        Google Sheets
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedApps(["other"])}
+                                        className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+                                            selectedApps.includes("other") ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        CSV / Other
+                                    </button>
+                                </div>
+                                {!googleSheetsConnected && (
+                                    <p className="text-xs text-red-400">
+                                        Google Sheets is not connected. Go to **Integrations** to link your account.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Google Sheets Selector */}
+                            {selectedApps.includes("google_sheets") && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">Select Sheet</label>
+                                    {loadingSheetValues ? (
+                                        <p className="text-purple-400 flex items-center gap-2">
+                                            <FiRefreshCw className="animate-spin" /> Loading sheet list...
+                                        </p>
+                                    ) : sheetsList.length > 0 ? (
+                                        <select
+                                            value={selectedSheet}
+                                            onChange={(e) => setSelectedSheet(e.target.value)}
+                                            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-purple-500 focus:border-purple-500"
+                                        >
+                                            <option value="">-- Select a Spreadsheet --</option>
+                                            {sheetsList.map((sheet) => (
+                                                <option key={sheet.id} value={sheet.id}>
+                                                    {sheet.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <p className="text-red-400 text-sm">
+                                            Could not load any Google Sheets. Ensure your account has sheets and the connection is active.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* CSV Uploader */}
+                            {selectedApps.includes("other") && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">Upload CSV or JSON File</label>
+                                    <input
+                                        type="file"
+                                        accept=".csv, application/json"
+                                        onChange={(e) => setCsvToImport(e.target.files[0])}
+                                        className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                                    />
+                                    {csvToImport && <p className="text-xs text-gray-500 mt-1">Selected: {csvToImport.name}</p>}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end space-x-4 border-t border-gray-800 pt-4">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="px-4 py-2 rounded-xl text-gray-300 bg-gray-700 hover:bg-gray-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={importSelected}
+                                disabled={loadingSheetValues || (!selectedSheet && !csvToImport)}
+                                className="px-4 py-2 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-md shadow-purple-500/50 disabled:bg-gray-600 disabled:shadow-none"
+                            >
+                                {loadingSheetValues ? "Fetching Data..." : "Import Data"}
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
+
 // --- MAIN COMPONENT ---
 export default function Analytics() {
+    // Ensure we load the most current profile state, which includes the user_id
     const profile = JSON.parse(localStorage.getItem("adt_profile") || "null") || { user_id: "test-user" };
+    // CRITICAL: Get the token here for use in API calls
+    const token = localStorage.getItem("adt_token"); 
 
     // --- NEW MULTI-ANALYSIS STATE ---
-    const [analyses, setAnalyses] = useState([]); // Array to hold all imported analyses
-    const [activeAnalysisId, setActiveAnalysisId] = useState(null); // ID of the currently viewed analysis
+    const [analyses, setAnalyses] = useState([]); 
+    const [activeAnalysisId, setActiveAnalysisId] = useState(null); 
 
     // --- IMPORT MODAL STATE ---
     const [showModal, setShowModal] = useState(false);
@@ -84,7 +248,7 @@ export default function Analytics() {
     const [selectedSheet, setSelectedSheet] = useState("");
     const [csvToImport, setCsvToImport] = useState(null);
     const [loadingSheetValues, setLoadingSheetValues] = useState(false);
-    const [sourceName, setSourceName] = useState(""); // Temporary state for new import name
+    const [sourceName, setSourceName] = useState(""); 
 
     // --- UI/CHART STATE ---
     const [chartType, setChartType] = useState("line");
@@ -117,8 +281,8 @@ export default function Analytics() {
                 const loadedAnalyses = JSON.parse(savedAnalyses);
                 setAnalyses(loadedAnalyses);
                 if (loadedAnalyses.length > 0) {
-                    // Set the latest analysis as active
-                    setActiveAnalysisId(loadedAnalyses[loadedAnalyses.length - 1].id);
+                    // Set active to the last loaded analysis
+                    setActiveAnalysisId(loadedAnalyses[loadedAnalyses.length - 1].id); 
                 }
             } catch {
                 localStorage.removeItem("adt_multi_analyses");
@@ -130,13 +294,13 @@ export default function Analytics() {
         if (analyses.length > 0) {
             localStorage.setItem("adt_multi_analyses", JSON.stringify(analyses));
         } else {
-             localStorage.removeItem("adt_multi_analyses");
-             setActiveAnalysisId(null);
+            localStorage.removeItem("adt_multi_analyses");
+            setActiveAnalysisId(null);
         }
     }, [analyses]);
 
 
-    // --- HELPERS (Copied from original, using current active data) ---
+    // --- HELPERS ---
     function sanitizeCellValue(value) {
         if (value === null || value === undefined || value === "") return "";
         const str = String(value).trim();
@@ -164,7 +328,8 @@ export default function Analytics() {
         const text = await file.text();
         const rows = text.split(/\r?\n/).filter(Boolean);
         if (!rows.length) return [];
-        return rows.map((r) => r.split(",").map((c) => c.trim()));
+        // Simple CSV parser: assumes standard comma separation, handles quoted fields poorly, but works for basic data
+        return rows.map((r) => r.split(",").map((c) => c.trim().replace(/^"|"$/g, '').replace(/""/g, '"')));
     };
 
     // --- CORE LOGIC: COMPUTE KPIs & CATEGORIES ---
@@ -187,13 +352,16 @@ export default function Analytics() {
             k[colName] = { total, avg, max, min, spark };
         });
 
+        // Try to find the first non-numeric column (excluding column 0 which is often an index)
         const firstStringIndex = values[0]?.findIndex((_, i) => !numericIndexes.includes(i) && i !== 0) ?? -1;
         let cats = { labels: [], data: [] };
-        if (firstStringIndex >= 0) {
+        if (firstStringIndex >= 0 && numericIndexes.length > 0) {
             const byCat = {};
+            // Use the first numeric column as the weight
+            const weightIndex = numericIndexes[0]; 
+
             values.slice(1).forEach((r) => {
                 const cat = r[firstStringIndex] || "Unknown";
-                const weightIndex = numericIndexes[0];
                 const weight = weightIndex !== undefined ? sanitizeCellValue(r[weightIndex]) : 1;
                 byCat[cat] = (byCat[cat] || 0) + (isNaN(Number(weight)) ? 0 : Number(weight));
             });
@@ -229,33 +397,67 @@ export default function Analytics() {
     };
 
     // --- IMPORT FETCHING (Google Sheets & CSV) ---
+    // ✅ FIX 1: Corrected API path and added Auth Header for sheets list
     useEffect(() => {
-        if (!showModal || !selectedApps.includes("google_sheets")) {
+        const currentToken = localStorage.getItem("adt_token"); 
+
+        if (!showModal || !selectedApps.includes("google_sheets") || !currentToken) {
             setSheetsList([]);
             return;
         }
+        
         let cancelled = false;
+        setLoadingSheetValues(true);
         (async () => {
             try {
-                const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets-list/${profile.user_id}`);
+                // FIX: Removed {profile.user_id} from the path. Backend uses JWT for auth.
+                const res = await axios.get(
+                    `${BACKEND_BASE_URL}/sheets-list`, 
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${currentToken}` 
+                        }
+                    }
+                );
                 if (!cancelled) setSheetsList(res.data.sheets || []);
-            } catch {
+            } catch(err) {
+                console.error("Failed to fetch sheets list with token:", err);
+                // The error could be a 401/400 if the token is bad, or a network error.
                 if (!cancelled) setSheetsList([]);
+            } finally {
+                if (!cancelled) setLoadingSheetValues(false);
             }
         })();
         return () => (cancelled = true);
-    }, [showModal, selectedApps, profile.user_id]);
+    }, [showModal, selectedApps]); // Removed profile.user_id as it's not needed for the JWT authenticated endpoint
 
+
+    // ✅ FIX 2: Added Auth Header to fetch Google Sheet Data
     const importSelected = async () => {
         let importedRows = [];
         let sourceNameUsed = sourceName || "Imported Dataset";
+        
+        const currentToken = localStorage.getItem("adt_token"); 
 
         if (selectedApps.includes("google_sheets") && selectedSheet) {
+            if (!currentToken) {
+                console.error("Cannot fetch sheet data: Auth token is missing.");
+                return; 
+            }
+
             const sheet = sheetsList.find(s => s.id === selectedSheet);
             sourceNameUsed = sourceNameUsed !== "Imported Dataset" ? sourceNameUsed : (sheet ? sheet.name : "Google Sheet");
             try {
                 setLoadingSheetValues(true);
-                const res = await axios.get(`https://ai-data-analyst-backend-1nuw.onrender.com/sheets/${profile.user_id}/${selectedSheet}`);
+                // FIX: Updated endpoint path to use the sheet_id and added Auth header
+                const res = await axios.get(
+                    `${BACKEND_BASE_URL}/sheets/${selectedSheet}`, 
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${currentToken}` 
+                        }
+                    }
+                );
                 importedRows = res.data.values || [];
             } catch (err) {
                 console.error("Sheet fetch failed", err);
@@ -274,7 +476,6 @@ export default function Analytics() {
         }
 
         if (!importedRows.length) {
-            // Only clear modal state if no data was successfully imported
             setShowModal(false);
             setSelectedApps([]);
             setSelectedSheet("");
@@ -296,12 +497,17 @@ export default function Analytics() {
         setSelectedSheet("");
         setCsvToImport(null);
         setSourceName("");
+
+        // Trigger AI analysis automatically after import
+        // NOTE: We pass the data directly since the activeAnalysis state might not update immediately
+        setTimeout(() => generateAIInsights(newAnalysis), 100);
     };
 
     // --- Chart Generation (Uses activeAnalysis data) ---
     const generateCharts = () => {
         if (!sheetData.length || numericCols.length === 0) return null;
-        const labels = sheetData.slice(1).map((r) => (r[0] === undefined || r[0] === null ? "" : String(r[0])));
+        // Use column 0 for labels, assuming it's the category/time field
+        const labels = sheetData.slice(1).map((r) => (r[0] === undefined || r[0] === null ? "" : String(r[0]))); 
         
         return numericCols.map((colIndex, i) => {
             const label = sheetData[0][colIndex] || `col ${colIndex}`;
@@ -333,7 +539,7 @@ export default function Analytics() {
                         <div className="text-xs text-gray-400">values: {dataSeries.length}</div>
                     </div>
                     <div style={{ height: chartHeight }}>
-                        {chartType === "line" ? <Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} /> : <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />}
+                        {chartType === "line" ? <Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'rgb(209, 213, 219)' } } }, y: { ticks: { color: 'rgb(209, 213, 219)' } } } } /> : <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'rgb(209, 213, 219)' } }, y: { ticks: { color: 'rgb(209, 213, 219)' } } } }} />}
                     </div>
                 </div>
             );
@@ -384,26 +590,28 @@ export default function Analytics() {
                 <div style={{ height: 300 }}>
                     <Pie data={pieData} options={pieOptions} />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Distribution is based on the first categorical column found.</p>
+                <p className="text-xs text-gray-500 mt-2">Distribution is based on the first categorical column found, weighted by the first numeric column.</p>
             </div>
         );
     };
 
     // --- AI Insight Generation (Updates the active analysis) ---
-    const generateAIInsights = async () => {
-        if (!activeAnalysisId || !Object.keys(kpis).length) {
-            // No active analysis or metrics available
+    const generateAIInsights = async (analysisToAnalyze = activeAnalysis) => {
+        if (!analysisToAnalyze || !Object.keys(analysisToAnalyze.kpis).length) {
             return;
         }
+        const analysisId = analysisToAnalyze.id;
+        const { kpis, categories, sheetData } = analysisToAnalyze;
+        const rowCount = sheetData.length - 1;
 
-        setAnalyses(prev => prev.map(a => a.id === activeAnalysisId ? { ...a, aiText: "Generating insights…" } : a));
+        setAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, aiText: "Generating insights…" } : a));
 
         try {
-            const payload = { kpis, categories, rowCount: sheetData.length - 1 };
-            const res = await axios.post("https://ai-data-analyst-backend-1nuw.onrender.com/ai/analyze", payload);
+            const payload = { kpis, categories, rowCount };
+            const res = await axios.post(`${BACKEND_BASE_URL}/ai/analyze`, payload); 
             const insights = res.data.analysis || "No insights returned.";
             
-            setAnalyses(prev => prev.map(a => a.id === activeAnalysisId ? { ...a, aiText: insights } : a));
+            setAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, aiText: insights } : a));
 
             setTimeout(() => {
                 if (rightPanelRef.current) {
@@ -412,11 +620,11 @@ export default function Analytics() {
             }, 50);
         } catch (err) {
             console.error(err);
-            setAnalyses(prev => prev.map(a => a.id === activeAnalysisId ? { ...a, aiText: "Failed to generate insights from backend." } : a));
+            setAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, aiText: "Failed to generate insights from backend." } : a));
         }
     };
 
-    // --- Save to Overview (Saves the active analysis) ---
+    // --- Save to Overview ---
     const handleSave = () => {
         if (!activeAnalysis || !Object.keys(kpis).length) {
             return;
@@ -443,44 +651,50 @@ export default function Analytics() {
             setTimeout(() => setShowSavedToast(false), 2000);
         } catch (err) {
             console.error("Failed to save overview payload:", err);
-            // Set error message on the active analysis's AI text
             setAnalyses(prev => prev.map(a => a.id === activeAnalysisId ? { ...a, aiText: "Failed to save metrics to Overview." } : a));
         }
     };
-// --- Save Active Analysis to Backend ---
-const saveDashboardToBackend = async () => {
-    if (!activeAnalysis || !Object.keys(kpis).length) return;
+    
+    // --- Save Active Analysis to Backend (Dashboard Manager) ---
+    const saveDashboardToBackend = async () => {
+        if (!activeAnalysis || !Object.keys(kpis).length) return;
 
-    const payload = {
-        user_id: profile.user_id,
-        layout_data: JSON.stringify({
-            kpis,
-            categories,
-            aiText,
-            sheetData,
-            numericCols,
-            sourceName: currentSourceName,
-            recentRows
-        }),
-    };
+        const payload = {
+            name: currentSourceName, // Use source name as dashboard name
+            layout: { // Send the entire analysis object for easy reloading later
+                kpis,
+                categories,
+                aiText,
+                sheetData,
+                numericCols,
+                sourceName: currentSourceName,
+                recentRows
+            },
+        };
 
-    try {
-        const res = await axios.post(
-            "https://ai-data-analyst-backend-1nuw.onrender.com/api/dashboard/save",
-            payload
-        );
-        if (res.status === 200) {
-            console.log("Dashboard saved to backend:", res.data.dashboard);
-            alert("Dashboard saved successfully to your account!");
-        } else {
-            console.error("Failed to save dashboard:", res.data);
-            alert("Failed to save dashboard to backend.");
+        try {
+            const res = await axios.post(
+                `${BACKEND_BASE_URL}/api/dashboard/save`,
+                payload,
+                // Assuming this POST endpoint is protected and requires a token
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}` 
+                    }
+                }
+            );
+            if (res.status === 200) {
+                console.log("Dashboard saved to backend:", res.data.id);
+                alert("Dashboard saved successfully to your account!");
+            } else {
+                console.error("Failed to save dashboard:", res.data);
+                alert("Failed to save dashboard to backend.");
+            }
+        } catch (err) {
+            console.error("Error saving dashboard:", err);
+            alert("Error saving dashboard to backend.");
         }
-    } catch (err) {
-        console.error("Error saving dashboard:", err);
-        alert("Error saving dashboard to backend.");
-    }
-};
+    };
 
     // --- Delete Analysis ---
     const handleDeleteAnalysis = (idToDelete) => {
@@ -488,20 +702,20 @@ const saveDashboardToBackend = async () => {
         setAnalyses(updatedAnalyses);
 
         if (activeAnalysisId === idToDelete) {
-            // If the deleted one was active, set a new active ID (e.g., the first one)
             setActiveAnalysisId(updatedAnalyses.length > 0 ? updatedAnalyses[0].id : null);
         }
     };
 
     // --- Clear All Data ---
     const handleClearAll = () => {
-        setAnalyses([]); // Clears all
-        setActiveAnalysisId(null);
-        localStorage.removeItem("adt_multi_analyses");
-        localStorage.removeItem("analytics_page_state"); // Also clear the legacy key
+        if (window.confirm("Are you sure you want to clear ALL saved analyses? This cannot be undone.")) {
+            setAnalyses([]); 
+            setActiveAnalysisId(null);
+            localStorage.removeItem("adt_multi_analyses");
+        }
     };
 
-    // --- Export CSV (Uses activeAnalysis data) ---
+    // --- Export CSV ---
     const exportCSV = () => {
         if (!sheetData.length) return;
         const csv = sheetData.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -514,7 +728,7 @@ const saveDashboardToBackend = async () => {
         URL.revokeObjectURL(url);
     };
 
-    // --- Chart Height Adjuster (Kept original logic) ---
+    // --- Chart Height Adjuster ---
     useEffect(() => {
         const onResize = () => {
             const w = window.innerWidth;
@@ -550,245 +764,204 @@ const saveDashboardToBackend = async () => {
                             <div 
                                 key={a.id}
                                 onClick={() => setActiveAnalysisId(a.id)}
-                                className={`p-3 rounded-lg cursor-pointer transition flex justify-between items-start text-sm ${
+                                className={`flex justify-between items-center p-3 rounded-lg cursor-pointer transition border ${
                                     a.id === activeAnalysisId
-                                        ? 'bg-purple-700 border border-purple-500 font-semibold'
-                                        : 'bg-gray-800 hover:bg-gray-700'
+                                        ? 'bg-purple-700/30 border-purple-500 text-white shadow-lg'
+                                        : 'bg-gray-800/50 border-gray-800 text-gray-300 hover:bg-gray-700/50'
                                 }`}
                             >
-                                <span className="truncate">{a.sourceName}</span>
-                                <button 
+                                <span className="text-sm font-medium truncate">{a.sourceName}</span>
+                                <button
                                     onClick={(e) => { e.stopPropagation(); handleDeleteAnalysis(a.id); }}
-                                    className="p-1 text-red-300 hover:text-red-500 transition ml-2"
+                                    className="p-1 rounded-full text-gray-400 hover:text-red-400 hover:bg-gray-700"
                                     title="Delete Analysis"
                                 >
-                                    <FiXCircle size={14} />
+                                    <MdDeleteForever size={16} />
                                 </button>
                             </div>
                         ))
                     )}
                 </div>
-
+                
                 {analyses.length > 0 && (
-                    <button onClick={handleClearAll} className="mt-4 px-3 py-2 rounded-lg bg-red-700 text-white font-semibold hover:bg-red-800 transition text-sm flex items-center justify-center gap-2">
-                        <MdDeleteForever size={16}/> Clear All Analyses
+                    <button
+                        onClick={handleClearAll}
+                        className="flex items-center justify-center gap-2 px-3 py-2 mt-4 text-sm text-red-400 border border-red-800/50 rounded-lg hover:bg-red-900/20 transition"
+                    >
+                        <FiXCircle /> Clear All Data
                     </button>
                 )}
             </div>
-            
+
             {/* 2. Main Content Area */}
-            <div className="flex-1 p-6 overflow-y-auto">
-                {/* Header (Dynamic based on active analysis) */}
-                <div className="flex flex-wrap items-center justify-between mb-8 pb-4 border-b border-gray-800 gap-4">
-                    <div>
-                        <div className="text-3xl font-bold text-white flex items-center gap-3">
-                            <MdOutlineAnalytics size={28} className="text-purple-400"/> {currentSourceName}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                            Analysis Mode: **Cross-Analysis Layout** | Rows: {Math.max(0, sheetData.length - 1)} | Columns: {(sheetData[0] && sheetData[0].length) || 0}
-                        </div>
-                        {activeAnalysis && <div className="text-xs text-gray-500 mt-1">Active report: **{currentSourceName}**</div>}
-                    </div>
+            <div className="flex-grow p-6 overflow-y-auto">
+                <h1 className="text-3xl font-extrabold text-white mb-6">
+                    {currentSourceName}
+                </h1>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                        <button onClick={exportCSV} className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition flex items-center gap-2" disabled={!activeAnalysis}>
-                            <FiDownload /> Export CSV
-                        </button>
-                        <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition flex items-center gap-2" disabled={!Object.keys(kpis).length}>
-                            <FiSave /> Save to Dashboard
-                        </button>
-                    </div>
-                </div>
-
-                {/* Main Body */}
                 {activeAnalysis ? (
-                    <div className="flex gap-6">
+                    <div className="space-y-8">
                         
-                        {/* LEFT COLUMN: Data Overview and Charts */}
-                        <div className="flex-grow">
-                            
-                            {/* KPIs */}
-                            {Object.keys(kpis).length > 0 && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-                                    {Object.entries(kpis).map(([k, v]) => (
-                                        <KpiTile key={k} title={k} value={v.total} subtitle={`Avg: ${v.avg.toFixed(2)} | Max: ${v.max} | Min: ${v.min}`} sparkData={v.spark} />
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Charts */}
-                            {Object.keys(kpis).length > 0 && (
-                                <>
-                                    <div className='flex gap-4 items-center mb-4'>
-                                        <div className="text-lg font-semibold text-white">Data Visualizations</div>
-                                        <button 
-                                            onClick={() => setChartType('line')} 
-                                            className={`px-3 py-1 rounded-full text-sm ${chartType === 'line' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>Line</button>
-                                        <button 
-                                            onClick={() => setChartType('bar')} 
-                                            className={`px-3 py-1 rounded-full text-sm ${chartType === 'bar' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>Bar</button>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">{generateCharts()}</div>
-                                </>
-                            )}
-
-                            {/* Recent Rows Preview */}
-                            {recentRows.length > 0 && (
-                                <div className="p-4 rounded-xl shadow-lg text-white" style={{ background: "linear-gradient(180deg,#0c0e1a,#060812)" }}>
-                                    <div className="font-semibold mb-2">Recent Rows (last {recentRows.length})</div>
-                                    <div className="overflow-x-auto">
-                                        <table className="table-auto border-collapse border border-gray-700 text-sm w-full">
-                                            <thead>
-                                                <tr>
-                                                    {Object.keys(recentRows[0]).filter(h => h !== '_id').map((h) => (
-                                                        <th key={h} className="border border-gray-700 px-2 py-1 text-left">{h}</th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {recentRows.map((row) => (
-                                                    <tr key={row._id}>
-                                                        {Object.keys(row).filter(h => h !== '_id').map((h) => (
-                                                            <td key={h} className="border border-gray-700 px-2 py-1">{row[h]}</td>
-                                                        ))}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* RIGHT COLUMN: AI Insights and Category Pivot */}
-                        <div ref={rightPanelRef} className="w-full lg:w-96 flex-shrink-0 flex flex-col gap-6">
-                            
-                            {/* AI insights */}
-                            <div className="p-4 rounded-xl shadow-lg text-white max-h-[40vh] overflow-y-auto" style={{ background: "linear-gradient(180deg,#0c0e1a,#060812)" }}>
-                                <div className="font-semibold mb-2 flex items-center justify-between">
-                                    <span><MdDataExploration size={16} className="inline mr-1 text-pink-400"/> AI Analysis & Summary</span>
-                                    <button onClick={generateAIInsights} className="px-3 py-1 rounded bg-purple-600 text-white text-xs flex items-center gap-1 hover:bg-purple-700">
-                                        <FiRefreshCw size={10}/> {aiText.includes("Generating") ? "Processing..." : "Re-Analyze"}
-                                    </button>
-                                </div>
-                                <div className="text-sm text-gray-300 whitespace-pre-wrap">{aiText}</div>
+                        {/* 2.1. Top Bar: Actions */}
+                        <div className="flex justify-between items-center border-b border-gray-800 pb-4 sticky top-0 bg-gradient-to-b from-[#0b0f1a] to-transparent z-10 pt-2">
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => generateAIInsights(activeAnalysis)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition shadow-md shadow-purple-500/50"
+                                >
+                                    <MdOutlineAnalytics /> Re-Analyze Data
+                                </button>
+                                <button
+                                    onClick={exportCSV}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition"
+                                >
+                                    <FiDownload /> Export CSV
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition"
+                                    title="Save KPIs and AI Text to the Overview Page"
+                                >
+                                    <FiSave /> Save to Overview
+                                </button>
+                                <button
+                                    onClick={saveDashboardToBackend}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
+                                    title="Save Analysis to the Dashboard Manager"
+                                >
+                                    <FiSave /> Save Dashboard
+                                </button>
                             </div>
-
-                            {/* Category Chart */}
-                            {generateCategoryChart()}
+                            <div className="flex gap-2 text-sm text-gray-400">
+                                Chart View:
+                                <button onClick={() => setChartType("line")} className={`px-2 py-1 rounded-md ${chartType === 'line' ? 'bg-purple-600 text-white' : 'hover:bg-gray-700'}`}>Line</button>
+                                <button onClick={() => setChartType("bar")} className={`px-2 py-1 rounded-md ${chartType === 'bar' ? 'bg-purple-600 text-white' : 'hover:bg-gray-700'}`}>Bar</button>
+                            </div>
                         </div>
+
+                        {/* 2.2. KPI Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {Object.entries(kpis).map(([col, data]) => (
+                                <>
+                                    <KpiTile key={`${col}-total`} title={`${col} (Total)`} value={data.total} subtitle={`Avg: ${data.avg.toFixed(2)}`} sparkData={data.spark} sparkType="line" />
+                                    <KpiTile key={`${col}-max`} title={`${col} (Max)`} value={data.max} subtitle={`Min: ${data.min}`} sparkData={data.spark.map(v => v - data.min)} sparkType="bar" />
+                                </>
+                            ))}
+                        </div>
+
+                        {/* 2.3. Charts & Insights */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            
+                            {/* AI Insights Panel (2/3 width on large screens) */}
+                            <div className="lg:col-span-2 rounded-2xl p-6 shadow-xl" style={{ background: "linear-gradient(180deg, rgba(12,14,26,0.7), rgba(8,10,20,0.55))", border: "1px solid rgba(255,255,255,0.04)" }}>
+                                <h3 className="text-xl font-bold text-green-400 flex items-center gap-2 mb-4">
+                                    <MdDataExploration /> AI-Powered Analysis
+                                </h3>
+                                <div ref={rightPanelRef} className="text-gray-300 whitespace-pre-wrap max-h-96 overflow-y-auto custom-scrollbar">
+                                    {aiText}
+                                </div>
+                            </div>
+                            
+                            {/* Category Chart (1/3 width on large screens) */}
+                            <div className="lg:col-span-1">
+                                {generateCategoryChart() || (
+                                    <div className="rounded-2xl p-4 shadow-lg h-full flex items-center justify-center text-gray-500" style={{ background: "linear-gradient(180deg, rgba(12,14,26,0.65), rgba(6,8,18,0.45))" }}>
+                                        <p>No suitable categorical data found to generate distribution chart.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* 2.4. Detailed Charts */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {generateCharts()}
+                        </div>
+                        
+                        {/* 2.5. Recent Data Table */}
+                        <div className="rounded-2xl p-6 shadow-xl" style={{ background: "linear-gradient(180deg, rgba(12,14,26,0.7), rgba(8,10,20,0.55))", border: "1px solid rgba(255,255,255,0.04)" }}>
+                            <h3 className="text-xl font-bold text-gray-300 mb-4">
+                                Recent Data Rows ({recentRows.length} of {sheetData.length - 1})
+                            </h3>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-700">
+                                    <thead className="bg-gray-800">
+                                        <tr>
+                                            {sheetData[0].map((header, index) => (
+                                                <th
+                                                    key={index}
+                                                    className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                                                >
+                                                    {header}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800">
+                                        {recentRows.map((row) => (
+                                            <tr key={row._id} className="hover:bg-gray-800/50 transition">
+                                                {Object.values(row).slice(0, -1).map((cell, index) => (
+                                                    <td
+                                                        key={index}
+                                                        className={`px-6 py-4 whitespace-nowrap text-sm ${typeof cell === 'number' ? 'text-green-300 font-mono' : 'text-gray-300'}`}
+                                                    >
+                                                        {typeof cell === 'number' ? cell.toLocaleString() : cell}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 ) : (
-                    <div className="p-10 text-center rounded-xl bg-gray-900/50 border border-purple-900/50">
-                        <h2 className="text-2xl font-bold text-purple-400 mb-2">Cross-Analysis Workspace</h2>
-                        <p className="text-gray-400 mb-4">You have no active reports. Import your first Google Sheet or CSV file to begin your analysis.</p>
-                        <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition flex items-center gap-2 mx-auto">
-                            <FiUploadCloud /> Start New Import
+                    <div className="text-center py-20 border border-dashed border-gray-700 rounded-2xl">
+                        <FiUploadCloud size={48} className="mx-auto text-gray-600 mb-4" />
+                        <p className="text-xl text-gray-400 font-semibold">Ready to Analyze Data?</p>
+                        <p className="text-gray-500 mt-2">Import a Google Sheet or upload a CSV file to begin your AI analysis.</p>
+                        <button
+                            onClick={() => { setShowModal(true); setSourceName(""); setSelectedSheet(""); setCsvToImport(null); setSelectedApps([]); }}
+                            className="mt-6 flex items-center gap-2 mx-auto px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition shadow-lg shadow-purple-500/30"
+                        >
+                            <FiUploadCloud /> Import Data
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* saved toast */}
-            {showSavedToast && <div className="fixed bottom-4 right-4 px-4 py-2 bg-green-600 rounded shadow text-white text-sm">Overview saved successfully!</div>}
+            {/* 3. Import Modal */}
+            <ImportModal
+                showModal={showModal}
+                setShowModal={setShowModal}
+                selectedApps={selectedApps}
+                setSelectedApps={setSelectedApps}
+                sheetsList={sheetsList}
+                selectedSheet={selectedSheet}
+                setSelectedSheet={setSelectedSheet}
+                csvToImport={csvToImport}
+                setCsvToImport={setCsvToImport}
+                loadingSheetValues={loadingSheetValues}
+                sourceName={sourceName}
+                setSourceName={setSourceName}
+                importSelected={importSelected}
+                profile={profile}
+            />
 
-            {/* Import Modal (Completed) */}
-            {showModal && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
-                    <div className="bg-gray-900 p-8 rounded-xl max-w-lg w-full shadow-2xl border border-purple-700">
-                        <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2"><FiUploadCloud /> Select Data Source</h3>
-                        
-                        <div className="flex flex-col gap-4">
-                            
-                            {/* Source Selection - Google Sheets */}
-                            <div>
-                                <label className="text-gray-300 flex items-center gap-2 mb-2 cursor-pointer">
-                                    <input type="checkbox" value="google_sheets" checked={selectedApps.includes("google_sheets")} onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSelectedApps((prev) => prev.includes(val) ? prev.filter((p) => p !== val) : [...prev, val]);
-                                        setCsvToImport(null); // Deselect CSV on Sheets selection
-                                    }} className="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" /> 
-                                    <span className="text-base font-medium">Google Sheets</span>
-                                </label>
-                                {selectedApps.includes("google_sheets") && (
-                                    <div className="pl-6">
-                                        <select 
-                                            value={selectedSheet} 
-                                            onChange={(e) => setSelectedSheet(e.target.value)} 
-                                            className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:ring-indigo-500 focus:border-indigo-500"
-                                            disabled={loadingSheetValues || sheetsList.length === 0}
-                                        >
-                                            <option value="">{sheetsList.length === 0 ? "Loading sheets..." : "Select a Sheet"}</option>
-                                            {sheetsList.map((sheet) => (
-                                                <option key={sheet.id} value={sheet.id}>{sheet.name}</option>
-                                            ))}
-                                        </select>
-                                        {sheetsList.length === 0 && !loadingSheetValues && <p className="text-xs text-red-400 mt-1">Error: No accessible sheets found. Ensure connection is valid.</p>}
-                                        {loadingSheetValues && <p className="text-xs text-indigo-400 mt-1">Fetching sheet list...</p>}
-                                    </div>
-                                )}
-                            </div>
-
-                            <hr className="border-gray-700" />
-                            
-                            {/* Source Selection - CSV Upload */}
-                            <div>
-                                <label className="text-gray-300 flex items-center gap-2 mb-2 cursor-pointer">
-                                    <input type="checkbox" value="other" checked={selectedApps.includes("other")} onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSelectedApps((prev) => prev.includes(val) ? prev.filter((p) => p !== val) : [...prev, val]);
-                                        setSelectedSheet(""); // Deselect Sheet on CSV selection
-                                    }} className="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300" /> 
-                                    <span className="text-base font-medium">Upload CSV File</span>
-                                </label>
-                                {selectedApps.includes("other") && (
-                                    <div className="pl-6">
-                                        <input 
-                                            type="file" 
-                                            accept=".csv" 
-                                            onChange={(e) => setCsvToImport(e.target.files[0])} 
-                                            className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500 file:text-white hover:file:bg-indigo-600 transition"
-                                        />
-                                        {csvToImport && <p className="text-xs text-gray-400 mt-1">Selected: **{csvToImport.name}**</p>}
-                                    </div>
-                                )}
-                            </div>
-
-                            <hr className="border-gray-700" />
-                            
-                            {/* Analysis Name Input */}
-                            <div>
-                                <label htmlFor="sourceName" className="text-sm font-medium text-gray-300 mb-1 block">Analysis Name (Optional)</label>
-                                <input 
-                                    id="sourceName"
-                                    type="text" 
-                                    value={sourceName} 
-                                    onChange={(e) => setSourceName(e.target.value)}
-                                    placeholder="e.g., Q3 Sales Report"
-                                    className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Modal Actions */}
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button 
-                                onClick={() => setShowModal(false)} 
-                                className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={importSelected} 
-                                className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition flex items-center gap-2"
-                                disabled={loadingSheetValues || (selectedApps.includes("google_sheets") && !selectedSheet) || (selectedApps.includes("other") && !csvToImport) || selectedApps.length === 0 || selectedApps.length > 1}
-                            >
-                                {loadingSheetValues ? "Loading Data..." : "Import & Analyze"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* 4. Saved Toast */}
+            <AnimatePresence>
+                {showSavedToast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 50 }}
+                        className="fixed bottom-6 right-6 p-4 rounded-xl bg-green-600 text-white shadow-xl z-50"
+                    >
+                        <FiSave className="inline mr-2" /> Metrics saved to Overview page!
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
+```
