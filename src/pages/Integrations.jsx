@@ -1,216 +1,419 @@
-// src/components/integrations.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { Database, CheckCircle, Plus, ArrowRight, Zap, RefreshCw, ExternalLink } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 
 // --- Configuration ---
-const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com'; 
+const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
+const AUTH_TOKEN_KEY = 'adt_token'; 
+const PROFILE_KEY = 'adt_profile'; 
 
-// NOTE: Ensure your parent component passes userId and a function to handle logout.
-const Integrations = ({ userId, onLogout }) => {
-    const [searchParams] = useSearchParams();
-    const location = useLocation(); 
-    const [connectedApps, setConnectedApps] = useState({ google_sheets: false, google_sheets_last_sync: null });
-    const [sheetsList, setSheetsList] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [statusMessage, setStatusMessage] = useState(null); 
-    
-    // Helper function to clear local storage and force a global logout
-    const handleUnauthorized = useCallback(() => {
-        console.error("401 Unauthorized: Session expired or invalid token.");
-        
-        if (onLogout) {
-            onLogout();
-        } else {
-            localStorage.removeItem('adt_token');
-            localStorage.removeItem('adt_profile');
-            window.location.reload(); 
-        }
-        setStatusMessage({ text: 'Your session has expired. Please log in again.', type: 'error' });
-    }, [onLogout]);
+const IntegrationsPage = () => {
+    const [searchParams] = useSearchParams();
+    const [connectedApps, setConnectedApps] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [connecting, setConnecting] = useState(null);
+    const [statusMessage, setStatusMessage] = useState(null); 
 
+    // Suggested integrations with realistic data sources
+    const suggestedIntegrations = [
+        { id: 'google_sheets', name: 'Google Sheets', description: 'Import spreadsheet data for instant analysis', icon: '📊', category: 'Spreadsheets', color: 'from-green-500 to-emerald-600', popularity: 'Most Popular', isImplemented: true },
+        { id: 'excel', name: 'Microsoft Excel', description: 'Connect Excel files from OneDrive or local storage', icon: '📈', category: 'Spreadsheets', color: 'from-green-600 to-teal-600', popularity: 'Popular', comingSoon: true },
+        { id: 'stripe', name: 'Stripe', description: 'Analyze payment data and revenue metrics', icon: '💳', category: 'Payments', color: 'from-purple-500 to-indigo-600', popularity: 'Popular', comingSoon: true },
+        { id: 'salesforce', name: 'Salesforce', description: 'Connect CRM data for sales analytics', icon: '☁️', category: 'CRM', color: 'from-blue-500 to-cyan-600', comingSoon: true },
+        { id: 'hubspot', name: 'HubSpot', description: 'Marketing and sales pipeline insights', icon: '🎯', category: 'CRM', color: 'from-orange-500 to-red-600', comingSoon: true },
+        { id: 'postgres', name: 'PostgreSQL', description: 'Direct database connection for custom queries', icon: '🐘', category: 'Databases', color: 'from-indigo-500 to-blue-600', comingSoon: true },
+        { id: 'mysql', name: 'MySQL', description: 'Connect to MySQL databases securely', icon: '🗄️', category: 'Databases', color: 'from-blue-600 to-cyan-600', comingSoon: true },
+        { id: 'shopify', name: 'Shopify', description: 'E-commerce sales and inventory analytics', icon: '🛍️', category: 'E-commerce', color: 'from-green-500 to-lime-600', comingSoon: true },
+        { id: 'quickbooks', name: 'QuickBooks', description: 'Financial data and accounting insights', icon: '💰', category: 'Finance', color: 'from-green-600 to-emerald-600', comingSoon: true },
+        { id: 'slack', name: 'Slack', description: 'Team communication analytics and metrics', icon: '💬', category: 'Communication', color: 'from-purple-600 to-pink-600', comingSoon: true },
+        { id: 'airtable', name: 'Airtable', description: 'Flexible database and project management data', icon: '🔷', category: 'Databases', color: 'from-yellow-500 to-orange-600', comingSoon: true },
+        { id: 'zendesk', name: 'Zendesk', description: 'Customer support tickets and satisfaction metrics', icon: '🎧', category: 'Support', color: 'from-teal-500 to-cyan-600', comingSoon: true }
+    ];
 
-    // --- Helper to get JWT from localStorage ---
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('adt_token'); 
-        return { token, headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    };
-
-    const fetchSheetsList = async (headers) => {
-        try {
-            const response = await axios.get(`${API_BASE_URL}/sheets-list`, { headers });
-            setSheetsList(response.data.sheets || []);
-        } catch (err) {
-            if (err.response && err.response.status === 401) {
-                handleUnauthorized();
-                return;
-            }
-            console.error('Error fetching sheets list:', err);
-            setStatusMessage({ text: 'Failed to retrieve your Google Sheets files. You may need to re-connect.', type: 'error' });
-        }
-    };
-
-    // --- Core Data Fetching ---
-    const fetchConnectedApps = useCallback(async () => {
-        setLoading(true);
-        // Do not reset statusMessage here, as it might be a success message from the redirect.
-        
-        if (!userId) {
-            setLoading(false);
-            setStatusMessage({ text: 'User profile is missing. Please log in.', type: 'error' }); 
-            return; 
-        }
-        
-        const { token, headers } = getAuthHeaders();
-        if (!token) {
-            setLoading(false);
-            handleUnauthorized();
-            return;
-        }
-
-        try {
-            const response = await axios.get(`${API_BASE_URL}/connected-apps`, { headers });
-            
-            setConnectedApps(response.data);
-            
-            if (response.data.google_sheets) {
-                await fetchSheetsList(headers); 
-            }
-        } catch (err) {
-            if (err.response && err.response.status === 401) {
-                handleUnauthorized();
-                return;
-            }
-            // Catch generic network or server (500) errors
-            console.error('Error fetching connected apps:', err);
-            setStatusMessage({ text: 'Failed to connect to the backend. Please check your network.', type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    }, [userId, handleUnauthorized]); 
-
-    // --- Google Sheets Connection Handlers ---
-    const handleConnectGoogleSheets = () => {
-        if (!userId) {
-            setStatusMessage({ text: "Error: User ID not found. Please log in again.", type: 'error' });
-            return;
-        }
-
-        const returnPath = location.pathname; 
-
-        // Redirect to the backend for the OAuth flow
-        window.location.href = 
-            `${API_BASE_URL}/auth/google_sheets?user_id=${userId}&return_path=${encodeURIComponent(returnPath)}`;
-    };
-
-    // --- Initial Load and URL Callback Handling (OAuth Success) ---
-    useEffect(() => {
-        const connectedStatus = searchParams.get('connected');
-        const type = searchParams.get('type');
-
-        if (connectedStatus === 'true' && type === 'google_sheets') {
-            // 🔑 FIX: Set SUCCESS message *before* re-fetching.
-            setStatusMessage({ text: 'Google Sheets connected successfully! Fetching your files...', type: 'success' });
-            
-            // Clean the URL parameters immediately
-            window.history.replaceState(null, '', window.location.pathname); 
-            
-            // Re-fetch data to update the UI
-            fetchConnectedApps(); 
-        } 
-        // Always fetch on load if we have a user ID (and if not already handled by redirect logic)
-        else if (userId) {
-            fetchConnectedApps();
-        }
-
-        // Clear the success message after 5 seconds
-        if (statusMessage?.type === 'success') {
-            const timer = setTimeout(() => setStatusMessage(null), 5000);
-            return () => clearTimeout(timer);
-        }
-
-    }, [fetchConnectedApps, searchParams, userId, statusMessage, location.pathname]); // Added location.pathname to dependencies
-
-    // Helper for status message styling
-    const getStatusMessageClasses = (type) => {
-        switch (type) {
-            case 'error': return "bg-red-100 border-red-400 text-red-700";
-            case 'success': return "bg-green-100 border-green-400 text-green-700";
-            case 'info': return "bg-blue-100 border-blue-400 text-blue-700";
-            default: return "bg-gray-100 border-gray-400 text-gray-700";
+    // --- Helper for fetching profile data ---
+    const getProfile = () => {
+        try {
+            const profileJson = localStorage.getItem(PROFILE_KEY);
+            return profileJson ? JSON.parse(profileJson) : null;
+        } catch (e) {
+            console.error("Error parsing user profile from local storage:", e);
+            return null;
         }
     };
+
+    // --- Core Backend Logic (Memoized) ---
+
+    // Fetch connected apps from backend
+    const fetchConnectedApps = useCallback(async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem(AUTH_TOKEN_KEY);
+            if (!token) {
+                setLoading(false);
+                setStatusMessage({ text: 'You must be logged in to view your integrations.', type: 'info' });
+                return;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/connected-apps`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const connected = [];
+                
+                // Only Google Sheets status is checked
+                if (data.google_sheets) {
+                    connected.push({
+                        id: 'google_sheets',
+                        name: 'Google Sheets',
+                        connectedAt: data.google_sheets_last_sync,
+                        status: 'active'
+                    });
+                }
+                
+                setConnectedApps(connected);
+            } else if (response.status === 401) {
+                setStatusMessage({ text: 'Session expired. Please log in again.', type: 'error' });
+            }
+        } catch (error) {
+            console.error('Error fetching connected apps:', error);
+            setStatusMessage({ text: 'Network error. Could not reach the backend.', type: 'error' });
+        } finally {
+            setLoading(false); // ALWAYS set loading to false here
+        }
+    }, []); // Empty dependency array means this function is stable
+
+
+    const handleConnect = async (integrationId) => {
+        if (integrationId !== 'google_sheets') {
+            return; 
+        }
+
+        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        if (!token) {
+            setStatusMessage({ text: 'Please log in first before connecting any service.', type: 'error' });
+            return;
+        }
+
+        const profile = getProfile();
+        const userId = profile?.user_id;
+        
+        if (!userId) {
+            setStatusMessage({ text: 'Error: User ID not found in session. Please re-log.', type: 'error' });
+            return;
+        }
+
+        setConnecting(integrationId);
+        
+        try {
+            // Redirect to Google OAuth using the user_id
+            const returnPath = window.location.pathname; 
+            const authUrl = `${API_BASE_URL}/auth/google_sheets?user_id=${userId}&return_path=${encodeURIComponent(returnPath)}`;
+            window.location.href = authUrl;
+        } catch (error) {
+            console.error('Error connecting:', error);
+            setStatusMessage({ text: 'Connection error: ' + error.message, type: 'error' });
+            setConnecting(null);
+        }
+    };
+
+    const handleDisconnect = async (integrationId) => {
+        // Placeholder for future disconnect API call
+        setStatusMessage({ text: `Disconnecting ${integrationId} is not yet implemented on the backend.`, type: 'info' });
+        console.log('Disconnect placeholder:', integrationId);
+    };
+
+    // --- 1. Initial Data Fetch ---
+    useEffect(() => {
+        // Run once on mount to get the current connection status
+        fetchConnectedApps();
+    }, [fetchConnectedApps]); 
     
-    const renderSheetList = () => {
-        if (loading) return <p className="text-blue-500">Loading sheets...</p>;
-        if (sheetsList.length === 0) return <p className="text-yellow-600">No Google Sheets found in your Drive or an error occurred.</p>;
-        
-        return (
-            <ul className="mt-4 space-y-2 max-h-60 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50">
-                {sheetsList.map((sheet) => (
-                    <li key={sheet.id} className="p-3 border-b hover:bg-gray-100 flex justify-between items-center transition duration-150">
-                        <span className="font-medium text-gray-800 truncate" title={sheet.name}>{sheet.name}</span>
-                        <button 
-                            onClick={() => setStatusMessage({ text: `Sheet ID: ${sheet.id} selected for analysis.`, type: 'info' })}
-                            className="text-sm bg-green-600 text-white py-1 px-3 rounded hover:bg-green-700 transition duration-150 shadow-md"
-                        >
-                            Select
-                        </button>
-                    </li>
-                ))}
-            </ul>
-        );
-    };
+    // --- 2. OAuth Redirect and Status Handling ---
+    useEffect(() => {
+        // Handle OAuth redirect success/failure messages
+        const connectedStatus = searchParams.get('connected');
+        const type = searchParams.get('type');
+        
+        if (connectedStatus === 'true' && type === 'google_sheets') {
+            setStatusMessage({ text: 'Google Sheets connected successfully! Fetching status...', type: 'success' });
+            // Clean the URL parameters and refetch status
+            window.history.replaceState(null, '', window.location.pathname);
+            fetchConnectedApps();
+        } else if (connectedStatus === 'false' && type === 'google_sheets') {
+            setStatusMessage({ text: 'Google Sheets connection failed. Please try again.', type: 'error' });
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+        
+        // Status message timeout
+        if (statusMessage?.type === 'success' || statusMessage?.type === 'info') {
+            const timer = setTimeout(() => setStatusMessage(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [searchParams, fetchConnectedApps, statusMessage]);
 
-    return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">🔗 Data Integrations</h1>
-            
-            {statusMessage && (
-                <div className={`p-3 mb-4 border rounded ${getStatusMessageClasses(statusMessage.type)}`}>
-                    {statusMessage.text}
-                </div>
-            )}
 
-            <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-700">Google Sheets</h2>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Connect your Google Drive to analyze data from your spreadsheets.
-                        </p>
-                    </div>
-                    
-                    {connectedApps.google_sheets ? (
-                        <div className="text-center">
-                            <span className="inline-flex items-center px-3 py-1 text-sm font-medium leading-4 bg-green-100 text-green-800 rounded-full">
-                                ✅ Connected
-                            </span>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Last Sync: {connectedApps.google_sheets_last_sync ? new Date(connectedApps.google_sheets_last_sync).toLocaleDateString() : 'N/A'}
-                            </p>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={handleConnectGoogleSheets}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150"
-                            disabled={loading}
-                        >
-                            Connect Google Sheets
-                        </button>
-                    )}
-                </div>
+    const isConnected = (id) => connectedApps.some(app => app.id === id);
 
-                {connectedApps.google_sheets && (
-                    <div className="mt-6 border-t pt-4">
-                        <h3 className="text-lg font-semibold text-gray-700 mb-3">Your Available Sheets</h3>
-                        {renderSheetList()}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+    // Helper for status message styling
+    const getStatusMessageClasses = (type) => {
+        switch (type) {
+            case 'error': return "bg-red-900 border-red-700 text-red-300";
+            case 'success': return "bg-green-900 border-green-700 text-green-300";
+            case 'info': return "bg-blue-900 border-blue-700 text-blue-300";
+            default: return "bg-gray-800 border-gray-600 text-gray-400";
+        }
+    };
+
+    // --- UI Components ---
+    const IntegrationCard = ({ integration, connected = false, connectedData = null }) => (
+        <div className="group relative bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-300" 
+                style={{ backgroundImage: `linear-gradient(135deg, ${integration.color.split(' ')[1]} ${integration.color.split(' ')[2]})` }}></div>
+            
+            {/* Status badge */}
+            {connected && (
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-green-500/20 border border-green-500/50 rounded-full px-3 py-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-xs font-medium text-green-400">Connected</span>
+                </div>
+            )}
+            
+            {integration.popularity && !connected && (
+                <div className="absolute top-4 right-4 bg-cyan-500/20 border border-cyan-500/50 rounded-full px-3 py-1">
+                    <span className="text-xs font-medium text-cyan-400">{integration.popularity}</span>
+                </div>
+            )}
+
+            {integration.comingSoon && !connected && (
+                <div className="absolute top-4 right-4 bg-purple-500/20 border border-purple-500/50 rounded-full px-3 py-1">
+                    <span className="text-xs font-medium text-purple-400">Coming Soon</span>
+                </div>
+            )}
+
+            <div className="relative">
+                {/* Icon */}
+                <div className={`w-16 h-16 bg-gradient-to-br ${integration.color} rounded-xl flex items-center justify-center text-3xl mb-4 shadow-lg`}>
+                    {integration.icon}
+                </div>
+
+                {/* Content */}
+                <div className="mb-4">
+                    <h3 className="text-xl font-bold text-white mb-1">{integration.name}</h3>
+                    <p className="text-sm text-gray-400 mb-2">{integration.description}</p>
+                    <span className="inline-block text-xs font-medium text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md">
+                        {integration.category}
+                    </span>
+                </div>
+
+                {/* Connected info */}
+                {connected && connectedData && (
+                    <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                        <p className="text-xs text-gray-400">
+                            Last synced: {connectedData.connectedAt ? new Date(connectedData.connectedAt).toLocaleDateString() : 'N/A'}
+                        </p>
+                    </div>
+                )}
+
+                {/* Action button */}
+                {connected ? (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => handleDisconnect(integration.id)}
+                            className="flex-1 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg font-medium transition-all duration-200 text-sm"
+                        >
+                            Disconnect
+                        </button>
+                        <button 
+                            onClick={fetchConnectedApps} 
+                            className="px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 text-gray-300 rounded-lg font-medium transition-all duration-200 text-sm flex items-center gap-2"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            Sync
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => handleConnect(integration.id)}
+                        disabled={integration.comingSoon || connecting === integration.id || !integration.isImplemented}
+                        className={`w-full px-4 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                            integration.comingSoon || !integration.isImplemented
+                                ? 'bg-gray-700/30 border border-gray-700 text-gray-500 cursor-not-allowed'
+                                : connecting === integration.id
+                                ? 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400'
+                                : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40'
+                        }`}
+                    >
+                        {connecting === integration.id ? (
+                            <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                Connecting...
+                            </>
+                        ) : integration.comingSoon ? (
+                            <>
+                                <Zap className="w-4 h-4" />
+                                Coming Soon
+                            </>
+                        ) : (
+                            <>
+                                <Plus className="w-4 h-4" />
+                                Connect
+                            </>
+                        )}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    // --- Main Render ---
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+                <div className="text-center">
+                    <RefreshCw className="w-12 h-12 text-cyan-400 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-400">Loading integrations...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+            {/* Animated background */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-1/4 -left-48 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            </div>
+
+            <div className="relative max-w-7xl mx-auto px-6 py-12">
+                {/* Header */}
+                <div className="mb-12">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25">
+                            <Database className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl font-bold text-white">Integrations</h1>
+                            <p className="text-gray-400 mt-1">Connect your data sources for powerful analytics</p>
+                        </div>
+                    </div>
+                    
+                    {/* Status Message */}
+                    {statusMessage && (
+                        <div className={`p-4 mt-6 border rounded-xl shadow-lg flex items-center ${getStatusMessageClasses(statusMessage.type)}`}>
+                            <Zap className="mr-3 w-5 h-5" /> 
+                            <span className="font-medium">{statusMessage.text}</span>
+                        </div>
+                    )}
+                    
+                    {/* Stats bar */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                        <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-1">Connected Apps</p>
+                                    <p className="text-3xl font-bold text-white">{connectedApps.length}</p>
+                                </div>
+                                <CheckCircle className="w-8 h-8 text-green-400" />
+                            </div>
+                        </div>
+                        <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-1">Available</p>
+                                    <p className="text-3xl font-bold text-white">{suggestedIntegrations.length}</p>
+                                </div>
+                                <Database className="w-8 h-8 text-cyan-400" />
+                            </div>
+                        </div>
+                        <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-1">Coming Soon</p>
+                                    <p className="text-3xl font-bold text-white">
+                                        {suggestedIntegrations.filter(i => i.comingSoon).length}
+                                    </p>
+                                </div>
+                                <Zap className="w-8 h-8 text-purple-400" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Connected Apps Section */}
+                {connectedApps.length > 0 && (
+                    <div className="mb-12">
+                        <div className="flex items-center gap-2 mb-6">
+                            <CheckCircle className="w-6 h-6 text-green-400" />
+                            <h2 className="text-2xl font-bold text-white">Connected Apps</h2>
+                            <span className="bg-green-500/20 border border-green-500/50 rounded-full px-3 py-1 text-sm font-medium text-green-400">
+                                {connectedApps.length} Active
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {connectedApps.map(app => {
+                                const integration = suggestedIntegrations.find(i => i.id === app.id);
+                                return integration ? (
+                                    <IntegrationCard
+                                        key={app.id}
+                                        integration={integration}
+                                        connected={true}
+                                        connectedData={app}
+                                    />
+                                ) : null;
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Suggested Integrations */}
+                <div>
+                    <div className="flex items-center gap-2 mb-6">
+                        <Plus className="w-6 h-6 text-cyan-400" />
+                        <h2 className="text-2xl font-bold text-white">
+                            {connectedApps.length > 0 ? 'Available Integrations' : 'Get Started'}
+                        </h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {suggestedIntegrations
+                            .filter(integration => !isConnected(integration.id))
+                            .map(integration => (
+                                <IntegrationCard
+                                    key={integration.id}
+                                    integration={integration}
+                                    connected={false}
+                                />
+                            ))}
+                    </div>
+                </div>
+
+                {/* Help section */}
+                <div className="mt-12 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-8">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <ExternalLink className="w-6 h-6 text-cyan-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-white mb-2">Need help connecting?</h3>
+                            <p className="text-gray-400 mb-4">
+                                Check our documentation for step-by-step guides on setting up integrations and managing your data sources.
+                            </p>
+                            <button className="px-6 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-400 rounded-lg font-medium transition-all duration-200 flex items-center gap-2">
+                                View Documentation
+                                <ArrowRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
-export default Integrations;
+export default IntegrationsPage;
