@@ -183,7 +183,7 @@ export default function Landing({ onGetStarted }) {
             {/* CTA Buttons */}
             <div className="flex gap-4 items-center justify-center mb-16 reveal-on-scroll" style={{ transitionDelay: '200ms' }}>
               <button onClick={onGetStarted} className="px-6 py-3 rounded-xl btn-primary font-semibold text-white">
-                Start Analyzing 
+                Get started today
               </button>
               <a href="#solutions" className="px-6 py-3 rounded-xl border border-white/20 text-gray-300 hover:text-white transition">
                 <span className="mr-2">ⓘ</span> See Core Features
