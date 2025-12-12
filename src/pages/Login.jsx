@@ -1,3 +1,5 @@
+// src/pages/Login.jsx
+
 import React, { useState } from "react";
 import { FiLogIn, FiUserPlus, FiAlertCircle, FiCheckCircle, FiLoader, FiMail, FiLock, FiTerminal } from "react-icons/fi";
 
@@ -12,6 +14,7 @@ export default function Login({ onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus({ message: "Loading...", type: "info" });
+    const isLoading = true; // Use a local variable to manage immediate disable state
 
     try {
       const endpoint = isSignup ? "/auth/signup" : "/auth/login";
@@ -34,12 +37,12 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem("adt_token", data.token);
       localStorage.setItem(
         "adt_profile",
-        JSON.stringify({ user_id: data.user_id, email })
+        JSON.stringify({ user_id: data.user_id, email: email }) // Store email for welcome message
       );
 
       setStatus({ message: "Success! Redirecting to dashboard...", type: "success" });
       
-      // 2. 🔑 CRITICAL FIX: Pass BOTH user_id and token to the parent handler
+      // 2. Pass userId and token to the parent handler (App.js)
       onLoginSuccess(data.user_id, data.token); 
       
     } catch (err) {
@@ -70,6 +73,8 @@ export default function Login({ onLoginSuccess }) {
         border: status.type === "error" ? "1px solid #f87171" : status.type === "success" ? "1px solid #34d399" : "1px solid #a78bfa",
       }
     : {};
+  
+  const isLoading = status && status.type === 'info';
 
   return (
     <div style={styles.container}>
@@ -98,13 +103,17 @@ export default function Login({ onLoginSuccess }) {
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3);
         }
-        .button-primary:hover {
+        .button-primary:hover:not(:disabled) {
             background: linear-gradient(90deg, #a78bfa, #fbcfe8) !important;
             box-shadow: 0 6px 20px rgba(147, 51, 234, 0.5) !important; 
             transform: translateY(-1px) !important;
         }
-        .button-primary:active {
+        .button-primary:active:not(:disabled) {
           transform: scale(0.98) !important;
+        }
+        .button-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .link-hover:hover {
@@ -123,7 +132,7 @@ export default function Login({ onLoginSuccess }) {
         `}
       </style>
       
-      <div className="vibe-background"></div>
+      <div className="vibe-background min-h-screen overflow-x-hidden"></div>
 
       <div style={styles.card}>
         <div style={styles.header}>
@@ -132,14 +141,12 @@ export default function Login({ onLoginSuccess }) {
             <span style={{ color: '#e5e7eb' }}>Neura</span>
             <span style={{ color: '#a78bfa' }}>Twin</span>
           </h1>
+          <p style={styles.subtitle}>AI-Powered Data Analyst Platform</p>
         </div>
 
         <h2 style={styles.title}>
           {isSignup ? "Create Your AI Analyst Account" : "Access Your Data Dashboard"}
         </h2>
-        <p style={styles.subtitle}>
-          {isSignup ? "Unlock predictive modeling and automated reports." : "Log in securely to continue your analysis."}
-        </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
@@ -152,6 +159,7 @@ export default function Login({ onLoginSuccess }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -165,6 +173,7 @@ export default function Login({ onLoginSuccess }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           
@@ -174,8 +183,14 @@ export default function Login({ onLoginSuccess }) {
             )}
           </div>
 
-          <button type="submit" style={styles.button} className="button-primary">
+          <button 
+            type="submit" 
+            style={styles.button} 
+            className="button-primary"
+            disabled={isLoading} // 🔑 Disabled when loading
+          >
             {isSignup ? <><FiUserPlus style={{ marginRight: 8 }} /> Sign Up</> : <><FiLogIn style={{ marginRight: 8 }} /> Log In</>}
+            {isLoading && <FiLoader style={{ marginLeft: 8 }} className="animate-spin" />}
           </button>
         </form>
 

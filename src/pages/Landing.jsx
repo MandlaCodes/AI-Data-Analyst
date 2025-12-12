@@ -91,52 +91,9 @@ export default function Landing({ onGetStarted }) {
   }, []);
 
   return (
-    <div className="relative bg-[#0A0711] text-white min-h-screen overflow-x-hidden font-sans">
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
 
-      {/* Custom CSS for the purple/pink glow, focus ring, and subtle background grid */}
-      <style>{`
-        :root{
-          --c1:#9333ea; /* Purple */ 
-          --c2:#e91e63; /* Pink */
-          --c-mid: #c084fc; /* Tailwind purple-400 equivalent */
-          --muted: rgba(255,255,255,0.06);
-        }
-        .glow-grad{ 
-          background: linear-gradient(90deg, var(--c-mid), var(--c1)); 
-          -webkit-background-clip:text; 
-          background-clip:text; 
-          -webkit-text-fill-color:transparent; 
-        }
-        .reveal-on-scroll { opacity:0; transform: translateY(20px); transition: all 700ms cubic-bezier(.2,.9,.2,1); }
-        .reveal-on-scroll.revealed { opacity:1; transform: translateY(0); }
-        .neon-grid { 
-          background-image: linear-gradient(rgba(147,51,234,0.06) 1px, transparent 1px), 
-                          linear-gradient(90deg, rgba(233,30,99,0.04) 1px, transparent 1px); 
-          background-size: 40px 40px, 40px 40px; 
-          opacity:0.3; 
-          filter: blur(4px) saturate(1.2); 
-          transform: translateZ(0); 
-        }
-        .new-badge {
-            background: linear-gradient(90deg, #9333ea, #e91e63);
-            border-radius: 9999px;
-            padding: 2px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            box-shadow: 0 0 15px rgba(147, 51, 234, 0.4);
-        }
-        .btn-primary {
-            background: linear-gradient(90deg, #9333ea, #e91e63);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-primary:hover {
-            box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4);
-            transform: translateY(-1px);
-        }
-      `}</style>
+    <div className="relative  text-white min-h-screen overflow-x-hidden font-sans">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
 
       {/* Background particle layer (far) */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
