@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 // --- Configuration ---
 const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
 const AUTH_TOKEN_KEY = 'adt_token'; 
-const PROFILE_KEY = 'adt_profile'; 
+// const PROFILE_KEY = 'adt_profile'; // <-- REMOVED: No longer storing profile locally
 
 const IntegrationsPage = () => {
     const [searchParams] = useSearchParams();
@@ -13,7 +13,7 @@ const IntegrationsPage = () => {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState(null);
     const [statusMessage, setStatusMessage] = useState(null); 
-    const [disconnecting, setDisconnecting] = useState(null); // New state for disconnect loading
+    const [disconnecting, setDisconnecting] = useState(null);
 
     // Suggested integrations with realistic data sources
     const suggestedIntegrations = [
@@ -31,16 +31,7 @@ const IntegrationsPage = () => {
         { id: 'zendesk', name: 'Zendesk', description: 'Customer support tickets and satisfaction metrics', icon: '🎧', category: 'Support', color: 'from-teal-500 to-cyan-600', comingSoon: true }
     ];
 
-    // --- Helper for fetching profile data ---
-    const getProfile = () => {
-        try {
-            const profileJson = localStorage.getItem(PROFILE_KEY);
-            return profileJson ? JSON.parse(profileJson) : null;
-        } catch (e) {
-            console.error("Error parsing user profile from local storage:", e);
-            return null;
-        }
-    };
+    // NOTE: Removed getProfile() helper
 
     // --- Core Backend Logic (Memoized) ---
 
@@ -77,6 +68,7 @@ const IntegrationsPage = () => {
                 
                 setConnectedApps(connected);
             } else if (response.status === 401) {
+                // If the token is invalid or expired
                 setStatusMessage({ text: 'Session expired. Please log in again.', type: 'error' });
             }
         } catch (error) {
@@ -95,36 +87,58 @@ const IntegrationsPage = () => {
 
         const token = localStorage.getItem(AUTH_TOKEN_KEY);
         if (!token) {
-            setStatusMessage({ text: 'Please log in first before connecting any service.', type: 'error' });
-            return;
-        }
-
-        const profile = getProfile();
-        const userId = profile?.user_id;
-        
-        if (!userId) {
-            setStatusMessage({ text: 'Error: User ID not found in session. Please re-log.', type: 'error' });
+            // FIX: Relying only on the JWT token check
+            setStatusMessage({ text: 'Authentication required. Please log in before connecting a service.', type: 'error' });
             return;
         }
 
         setConnecting(integrationId);
         
         try {
-            // Redirect to Google OAuth using the user_id
             const returnPath = window.location.pathname; 
-            const authUrl = `${API_BASE_URL}/auth/google_sheets?user_id=${userId}&return_path=${encodeURIComponent(returnPath)}`;
-            window.location.href = authUrl;
+            
+            // 1. Call the backend endpoint, passing the JWT token in the Authorization header.
+            const response = await fetch(
+                // We only need to send the return_path as a query param now.
+                `${API_BASE_URL}/auth/google_sheets?return_path=${encodeURIComponent(returnPath)}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}` // <-- CRITICAL: Send the token
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                // Handle 401 Unauthorized (token expired/invalid) or other server-side errors
+                let detail = 'Server error during connection initiation.';
+                try {
+                    const errorData = await response.json();
+                    detail = errorData.detail || detail;
+                } catch (e) {
+                    detail = response.statusText || detail;
+                }
+                
+                setStatusMessage({ text: `Connection failed: ${detail}`, type: 'error' });
+                setConnecting(null);
+                return;
+            }
+
+            // 2. Get the final Google OAuth URL from the backend response
+            const data = await response.json();
+            
+            // 3. Redirect the user to the Google OAuth page
+            window.location.href = data.auth_url;
+            
         } catch (error) {
             console.error('Error connecting:', error);
-            setStatusMessage({ text: 'Connection error: ' + error.message, type: 'error' });
+            setStatusMessage({ text: 'Network or internal connection error.', type: 'error' });
             setConnecting(null);
         }
     };
 
     /**
      * Implementation for disconnecting an integration.
-     * Requires a corresponding API endpoint on the backend (e.g., /disconnect/google_sheets)
-     * to revoke and delete the stored tokens.
      */
     const handleDisconnect = useCallback(async (integrationId) => {
         if (integrationId !== 'google_sheets') return;
@@ -161,7 +175,7 @@ const IntegrationsPage = () => {
         } finally {
             setDisconnecting(null);
         }
-    }, [fetchConnectedApps]); // Include fetchConnectedApps as a dependency
+    }, [fetchConnectedApps]);
 
     // --- 1. Initial Data Fetch ---
     useEffect(() => {

@@ -10,7 +10,10 @@ const ACCENT_COLOR = "#c026d3"; // Bright Magenta/Fuchsia
 const DARK_BG = "#0a0118"; // Deep dark purple
 const CARD_BG = "#1a0b2e"; // Dark purple
 
-// ... (HERO_STATS, SOLUTIONS, ABSOLUTE_ADVANTAGE, IMAGE CONSTANTS remain the same) ...
+// ** VIDEO FILE PATH CONSTANT - Ensure this path is correct for your 'public' folder **
+const BACKGROUND_VIDEO_URL = "/3163534-uhd_3840_2160_30fps.mp4"; 
+
+// --- CONSTANTS ---
 const HERO_STATS = [
     { value: '4.9+', label: 'Analyst Rating', sub: 'Verified Reviews' },
     { value: '20K+', label: 'Data Sets Processed', sub: 'Validated by AI' },
@@ -33,8 +36,10 @@ const ABSOLUTE_ADVANTAGE = [
 ];
 
 const AI_HEAD_HERO = "/background1.jpg";
-const AI_IMAGE_SERVICE = "https://images.unsplash.com/photo-1516110833965-cccd8aa052f9?q=80&w=1500&auto=format&fit=crop";
-const AI_IMAGE_BOTTOM = "frontend/public/pexels-jakubzerdzicki-30572289.jpg";
+const AI_IMAGE_SERVICE = "/photo-1666875753105-c63a6f3bdc86.avif";
+const AI_IMAGE_BOTTOM = "/pexels-jakubzerdzicki-30572289.jpg";
+
+// --- HOOKS AND UTILS ---
 
 function useScrollReveal() {
     useEffect(() => {
@@ -93,9 +98,51 @@ const customStyles = `
     }
     
     .landing-page-container {
-        background: linear-gradient(135deg, ${DARK_BG} 0%, #1a0b2e 40%, #2d1b4e 100%);
+        /* Set to transparent to reveal the video */
+        background-color: transparent; 
+        min-height: 100vh;
+        width: 100%;
+        position: relative;
+    }
+
+    /* * 🎯 FIX: The key to responsive, full-bleed background video 
+    * Uses a combination of fixed position, min-width/min-height 
+    * to ensure it always covers the viewport without stretching.
+    */
+    .video-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        /* Use 100% of viewport width/height for the container */
+        width: 100vw; 
+        height: 100vh;
+        overflow: hidden; /* Hide excess video when aspect ratio doesn't match viewport */
+        z-index: -1; 
+        filter: brightness(0.6); /* FIX: Made video darker (0.6) for contrast */
+        opacity: 1; 
     }
     
+    .video-background video {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        /* Center the video */
+        transform: translate(-50%, -50%); 
+        /* The magic: Ensure it is always wide or tall enough to cover the viewport */
+        min-width: 100%;
+        min-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: cover; /* Fallback/belt and suspenders */
+    }
+    
+    /* Retaining overlay for non-hero sections where readability is crucial */
+    .bg-content-overlay {
+        /* A dark, semi-transparent background for content sections */
+        background-color: rgba(10, 1, 24, 0.7); /* DARK_BG with 70% opacity */
+        backdrop-filter: blur(8px);
+    }
+
     .reveal-on-scroll {
         opacity: 0;
         transform: translateY(30px);
@@ -132,14 +179,14 @@ const customStyles = `
     }
     
     .glass-card {
-        background: rgba(30, 41, 59, 0.4);
+        background: rgba(30, 41, 59, 0.2);
         backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         transition: all 0.3s ease;
     }
     
     .glass-card:hover {
-        background: rgba(30, 41, 59, 0.6);
+        background: rgba(30, 41, 59, 0.4);
         border-color: rgba(168, 85, 247, 0.4);
         transform: translateY(-4px);
     }
@@ -242,6 +289,23 @@ const customStyles = `
     }
 `;
 
+// --- PAYMENT PLAN CONSTANT ---
+const PRO_PLAN = {
+    title: 'Executive Insight Plan',
+    price: 59,
+    features: [
+        'Unlimited Data Pipelines',
+        'Predictive Modeling (Tier 2)',
+        'Automated Executive Summaries',
+        'Dedicated Cloud Compute (500 units)',
+        '24/7 Priority Support',
+        'Data Governance & Compliance Suite',
+    ],
+};
+
+
+// --- MAIN COMPONENT ---
+
 export default function Landing({ onGetStarted }) {
     useScrollReveal();
 
@@ -258,8 +322,21 @@ export default function Landing({ onGetStarted }) {
         <div className="relative text-white min-h-screen overflow-x-hidden landing-page-container">
             <style>{customStyles}</style>
 
+            {/* --- WRAPPER FOR VIDEO (Full Viewport) --- */}
+            <div className="video-background">
+                {/* --- VIDEO ELEMENT --- */}
+                <video 
+                    src={BACKGROUND_VIDEO_URL} 
+                    autoPlay 
+                    loop 
+                    muted 
+                    playsInline 
+                >
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+
             {/* Background particles */}
-            {/* ... (Particles code remains the same) ... */}
             <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
                 <Particles id="bg-particles" init={particlesInit} options={particlesOptionsBg} style={{ position: "absolute", inset: 0 }} />
             </div>
@@ -269,8 +346,7 @@ export default function Landing({ onGetStarted }) {
                 <Particles id="fg-particles" init={particlesInit} options={particlesOptionsFront} style={{ position: "absolute", inset: 0, transform: `translateY(${scrollY * 0.02}px)` }} />
             </div>
 
-            {/* Header */}
-            {/* ... (Header code remains the same) ... */}
+            {/* Header - Remains semi-dark for fixed nav readability */}
             <header className="fixed top-0 left-0 right-0 z-20 bg-[#0a0118]/80 backdrop-blur-md border-b border-purple-500/10">
                 <nav className="max-w-[1400px] mx-auto px-6 md:px-10 py-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -295,12 +371,12 @@ export default function Landing({ onGetStarted }) {
                 </nav>
             </header>
 
-            {/* HERO SECTION */}
+            {/* HERO SECTION - Background removed from content, now visible over video */}
             <main className="pt-20 relative z-10">
                 <section id="hero" className="min-h-screen flex items-center justify-start px-6 md:px-10 relative overflow-hidden">
                     <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center py-20">
                         
-                        {/* Left Content */}
+                        {/* Left Content - REMOVED bg-content-overlay wrapper */}
                         <div className="z-10 reveal-on-scroll">
                             <h1 className="text-7xl md:text-8xl font-black leading-none mb-6">
                                 Mand<span className="gradient-text neon-heading">Sight</span>
@@ -338,7 +414,7 @@ export default function Landing({ onGetStarted }) {
                             </a>
                         </div>
 
-                        {/* Right Image - NOW ANIMATED */}
+                        {/* Right Image */}
                         <div className="relative z-10 hero-image-glow reveal-on-scroll">
                             <div className="moving-border-container"> 
                                 <div className="moving-border-content">
@@ -357,9 +433,8 @@ export default function Landing({ onGetStarted }) {
                     </div>
                 </section>
                 
-                {/* STATS STRIP */}
-                {/* ... (Stats strip code remains the same) ... */}
-                <section id="stats" className="py-16 px-6 md:px-10 bg-black/30 backdrop-blur-sm border-y border-white/5">
+                {/* STATS STRIP - Retained bg-content-overlay */}
+                <section id="stats" className="py-16 px-6 md:px-10 border-y border-white/5 bg-content-overlay">
                     <div className="max-w-[1400px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 reveal-on-scroll">
                         {HERO_STATS.map((stat, i) => (
                             <div key={i} className="text-center">
@@ -371,9 +446,8 @@ export default function Landing({ onGetStarted }) {
                     </div>
                 </section>
 
-                {/* SOLUTIONS SECTION */}
-                {/* ... (Solutions section remains the same) ... */}
-                <section id="solutions" className="py-24 px-6 md:px-10 relative">
+                {/* SOLUTIONS SECTION - Retained bg-content-overlay */}
+                <section id="solutions" className="py-24 px-6 md:px-10 relative bg-content-overlay">
                     <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
                         
                         {/* Left Side: Image Block */}
@@ -384,7 +458,7 @@ export default function Landing({ onGetStarted }) {
                                 className="w-full h-full object-cover object-center rounded-2xl"
                                 style={{ filter: 'brightness(60%) saturate(120%)' }}
                             />
-                            <div className="absolute inset-0 flex items-end p-8 rounded-2xl" style={{ background: 'linear-gradient(to top, #000000e0 0%, transparent 60%)' }}>
+                            <div className="absolute inset-0 flex items-end p-8 rounded-2xl">
                                 <h3 className="text-3xl font-extrabold text-white leading-tight">
                                     Predictive Analysis <span className="text-gray-400">→</span>
                                 </h3>
@@ -412,9 +486,8 @@ export default function Landing({ onGetStarted }) {
                     </div>
                 </section>
                 
-                {/* ADVANTAGE SECTION */}
-                {/* ... (Advantage section remains the same) ... */}
-                <section id="advantage" className="py-24 px-6 md:px-10 bg-black/20">
+                {/* ADVANTAGE SECTION - Retained bg-content-overlay */}
+                <section id="advantage" className="py-24 px-6 md:px-10 bg-content-overlay">
                     <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                         
                         <div className="reveal-on-scroll">
@@ -443,7 +516,7 @@ export default function Landing({ onGetStarted }) {
                                 className="w-full h-auto rounded-2xl"
                                 style={{ filter: 'brightness(70%) saturate(120%)' }}
                             />
-                            <div className="absolute inset-0 flex items-end p-8 rounded-2xl" style={{ background: 'linear-gradient(to top, #000000e0 0%, transparent 60%)' }}>
+                            <div className="absolute inset-0 flex items-end p-8 rounded-2xl">
                                 <h3 className="text-3xl font-extrabold text-white leading-tight">
                                     Maximize Your ROI <span className="text-gray-400">→</span>
                                 </h3>
@@ -452,8 +525,53 @@ export default function Landing({ onGetStarted }) {
                     </div>
                 </section>
                 
+                {/* --- NEW PAYMENT PLAN SECTION --- */}
+                <section id="pricing" className="py-24 px-6 md:px-10 bg-content-overlay">
+                    <div className="max-w-[1000px] mx-auto text-center reveal-on-scroll">
+                        <span className="text-sm font-bold uppercase tracking-widest text-purple-400">PRICING & ACCESS</span>
+                        <h2 className="text-4xl md:text-5xl font-black mt-4 mb-12 leading-tight">
+                            Unlock Full <span className="gradient-text">AI Capability</span>
+                        </h2>
+                        
+                        {/* Pricing Card Wrapper */}
+                        <div className="moving-border-container max-w-lg mx-auto shadow-2xl shadow-purple-900/50">
+                            <div className="moving-border-content p-8 md:p-10 text-left bg-[#1a0b2e]/90 backdrop-blur-xl">
+                                
+                                <p className="text-xl font-bold mb-4 flex items-center gap-3">
+                                    <FaBolt className="text-3xl text-yellow-300" />
+                                    {PRO_PLAN.title}
+                                </p>
+
+                                <div className="text-6xl md:text-7xl font-extrabold gradient-text mb-8 border-b border-white/10 pb-4">
+                                    ${PRO_PLAN.price}
+                                    <span className="text-base font-medium text-gray-400">/month</span>
+                                </div>
+                                
+                                <ul className="space-y-4 mb-10 text-lg">
+                                    {PRO_PLAN.features.map((feature, i) => (
+                                        <li key={i} className="flex items-center gap-3 text-gray-200">
+                                            <FaCheck className="text-lg text-fuchsia-400 shrink-0" />
+                                            <span>{feature}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                {/* Link to Login Page */}
+                                <Link 
+                                    to="/auth/login" 
+                                    className="w-full flex items-center justify-center gap-3 px-8 py-4 rounded-full btn-primary-modern font-semibold text-lg hover:bg-white/90"
+                                >
+                                    Activate Plan & Log In
+                                    <FaArrowRight />
+                                </Link>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
                 {/* Social Links */}
-                {/* ... (Social links remain the same) ... */}
                 <div className="fixed right-8 bottom-8 flex gap-3 z-20">
                     <div className="social-icon">
                         <span className="text-white font-bold">𝕏</span>
@@ -466,9 +584,8 @@ export default function Landing({ onGetStarted }) {
                     </div>
                 </div>
 
-                {/* FOOTER */}
-                {/* ... (Footer remains the same) ... */}
-                <footer className="py-12 text-center bg-black/50 border-t border-white/5">
+                {/* FOOTER - Retained bg-content-overlay */}
+                <footer className="py-12 text-center border-t border-white/5 bg-content-overlay">
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="flex justify-center items-center gap-3 mb-4">
                             <FaBrain className="text-2xl text-purple-400" />
