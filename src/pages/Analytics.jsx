@@ -16,9 +16,11 @@ import {
 import { FiDownload, FiUploadCloud, FiSave, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { MdOutlineAnalytics, MdOutlineTableChart, MdOutlineInsights } from "react-icons/md";
 import axios from "axios";
+// Assuming you have this component in the correct path
 import { AIAnalysisPanel } from '../components/AIAnalysisPanel'; 
 import { FaBrain, FaSpinner } from 'react-icons/fa';
 
+// Register Chart.js components
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -34,8 +36,8 @@ ChartJS.register(
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-// ** LOCAL STORAGE KEY FOR PERSISTENCE **
-const DATASET_STORAGE_KEY = "analytics_persisted_datasets";
+// ** LOCAL STORAGE KEY FOR FALLBACK (REMOVED FROM PRIMARY LOGIC) **
+const DATASET_STORAGE_KEY = "analytics_persisted_datasets"; 
 
 /* ---------- Data Processing Helpers (kept for completeness) ---------- */
 
@@ -131,7 +133,7 @@ const computeMetrics = (values, numericIndexes) => {
     return metrics;
 };
 
-/* ---------- UI Components ---------- */
+/* ---------- UI Components (kept for completeness) ---------- */
 
 const IconButton = ({ icon: Icon, onClick, className = "", children, disabled = false, title = "" }) => (
     <button
@@ -330,7 +332,7 @@ function SheetsDropdown({ sheetsList, selectedSheet, setSelectedSheet }) {
             >
                 <div className="max-h-56 overflow-y-auto">
                     {!sheetsList.length ? (
-                           <div className="p-3 text-center text-gray-500 text-sm">No sheets found. Check connection.</div>
+                                             <div className="p-3 text-center text-gray-500 text-sm">No sheets found. Check connection.</div>
                     ) : (
                         sheetsList.map(sheet => (
                             <div
@@ -355,9 +357,11 @@ function SheetsDropdown({ sheetsList, selectedSheet, setSelectedSheet }) {
 /* ---------- Main Analytics Component ---------- */
 
 export default function Analytics() {
+    // SECURITY NOTE: Ensure profile and token are correctly retrieved.
     const profile = JSON.parse(localStorage.getItem("adt_profile") || '{"user_id":"test-user"}');
     const userToken = localStorage.getItem("adt_token");
-    const userId = profile.user_id;
+    // Use the actual ID from the profile object
+    const userId = profile.id || profile.user_id; 
 
     const [showModal, setShowModal] = useState(false);
     const [selectedApps, setSelectedApps] = useState([]);
@@ -375,95 +379,124 @@ export default function Analytics() {
     
     const [isAnalysisPanelOpen, setIsAnalysisPanelOpen] = useState(false); 
     
-    // State for Flawless Transition
+    // State for Flawless Transition & Initial Load
     const [isImporting, setIsImporting] = useState(false); 
+    const [isInitializing, setIsInitializing] = useState(true); // <-- Blocks UI until load completes
     const [staggerState, setStaggerState] = useState(0); 
 
     const datasetColors = ["#A78BFA","#22C55E","#F97316","#EAB308"];
 
     const parseCSVFile = async (file) => {
         const text = await file.text();
+        // Simple CSV parsing for this example
         const rows = text.split(/\r?\n/).filter(Boolean);
-        return rows.map(r => r.split(",").map(c => c.trim()));
+        // Clean up quotes and trim
+        return rows.map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, '').replace(/""/g, '"')));
     };
     
     // ---------------------------------------------
-    // 1. **EFFECT: LOAD DATASETS ON MOUNT (Account & Fallback)** - MODIFIED
+    // 1. **EFFECT: INITIAL LOAD FROM DATABASE** - CRITICALLY MODIFIED
+    // This loads the user's *current* working session from the database.
     // ---------------------------------------------
     useEffect(() => {
         let cancelled = false;
         
-        const loadData = async () => {
-            if (!userId || userId === "test-user") {
-                // Load from local storage if no valid user ID (fallback for logged out/test)
-                const savedData = localStorage.getItem(DATASET_STORAGE_KEY);
-                if (savedData) {
-                    const parsed = JSON.parse(savedData);
-                    setAllDatasets(parsed);
-                    setActiveDatasets(parsed); 
-                }
+        const loadCurrentSession = async () => {
+            setIsInitializing(true); 
+            setStaggerState(0);
+            
+            // Only attempt to load if the user is logged in
+            if (!userId || userId === "test-user" || !userToken) {
+                console.log("Not logged in. Starting a fresh local session.");
+                setIsInitializing(false);
                 return;
             }
-
+            
             try {
-                // 1. Attempt to load from the server using the user's ID
-                const res = await axios.get(`${API_BASE_URL}/api/datasets/${userId}`, { 
+                // Fetch the most recent working session from the server
+                const res = await axios.get(`${API_BASE_URL}/analysis/current`, { 
                     headers: { Authorization: `Bearer ${userToken}` }
                 });
 
-                if (!cancelled && res.data?.datasets) {
-                    const loadedDatasets = res.data.datasets;
+                if (cancelled || !res.data) return;
+
+                const { allDatasets: loadedDatasets = [], config = {} } = res.data.results || {};
+                const { activeDatasetIds = [], chartType: loadedChartType = "line" } = config;
+
+                if (loadedDatasets.length > 0) {
                     setAllDatasets(loadedDatasets);
-                    setActiveDatasets(loadedDatasets); 
-                    // Overwrite local storage with server data
-                    localStorage.setItem(DATASET_STORAGE_KEY, JSON.stringify(loadedDatasets));
+                    
+                    // Restore active state based on saved IDs
+                    const restoredActive = loadedDatasets.filter(d => activeDatasetIds.includes(d.id));
+                    setActiveDatasets(restoredActive);
+                    setChartType(loadedChartType);
                 }
+
+                console.log(`Loaded ${loadedDatasets.length} datasets from server session.`);
+
             } catch (error) {
-                console.warn("Failed to load user datasets from server. Falling back to local storage.", error);
-                
-                // 2. Fallback to local storage if server load fails 
-                try {
-                    const savedData = localStorage.getItem(DATASET_STORAGE_KEY);
-                    if (savedData) {
-                        const parsed = JSON.parse(savedData);
-                        setAllDatasets(parsed);
-                        setActiveDatasets(parsed); 
-                    }
-                } catch (localError) {
-                    console.error("Failed to load datasets from localStorage:", localError);
-                    localStorage.removeItem(DATASET_STORAGE_KEY);
+                if (error.response && error.response.status === 404) {
+                    console.log("No current analysis session found in the database. Starting fresh.");
+                } else {
+                    console.error("Failed to load user session from server:", error.response?.data || error);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsInitializing(false); 
                 }
             }
         };
         
-        loadData();
+        loadCurrentSession();
 
         return () => { cancelled = true; };
     }, [userId, userToken]); 
 
     // ---------------------------------------------
-    // 2. **EFFECT: SAVE DATASETS ON CHANGE (Local Persistence & Stagger)** - MODIFIED
+    // 2. **EFFECT: AUTOSAVE ON UNMOUNT & STAGGER** - CRITICALLY MODIFIED
+    // This handles persistence when the user navigates away.
     // ---------------------------------------------
     useEffect(() => {
-        if (allDatasets.length > 0) {
-            try {
-                // Only saving to local storage here. Account save is handled in handleSave().
-                localStorage.setItem(DATASET_STORAGE_KEY, JSON.stringify(allDatasets));
-            } catch (error) {
-                console.error("Failed to save datasets to localStorage:", error);
-            }
-        } else if (allDatasets.length === 0 && localStorage.getItem(DATASET_STORAGE_KEY)) {
-            // Clear storage if the dataset array becomes empty
-            localStorage.removeItem(DATASET_STORAGE_KEY);
-        }
-        
-        // Handle staggered transition trigger on load/import if data is present
+        if (isInitializing || !userId || userId === "test-user" || !userToken) return;
+
+        // --- Stagger Transition Logic (Visual Only) ---
         if (allDatasets.length > 0 && staggerState === 0) {
             setTimeout(() => setStaggerState(1), 100); 
             setTimeout(() => setStaggerState(2), 500); 
             setTimeout(() => setStaggerState(3), 900);
+        } else if (allDatasets.length === 0) {
+            setStaggerState(0);
         }
-    }, [allDatasets, staggerState]); 
+        
+        // --- Autosave on Unmount Logic (Cleanup Function) ---
+        const handleAutosave = async () => {
+            if (allDatasets.length === 0) return; // Don't save if there's nothing to save
+
+            const autosavePayload = {
+                source: allDatasets.map(d => d.name).join(" & "), 
+                config: {
+                    chartType: chartType,
+                    activeDatasetIds: activeDatasets.map(d => d.id) 
+                },
+                results: {
+                    allDatasets: allDatasets,
+                }
+            };
+
+            try {
+                await axios.post(`${API_BASE_URL}/analysis/autosave`, autosavePayload, {
+                    headers: { Authorization: `Bearer ${userToken}` }
+                });
+                console.log("Autosave successful during unmount/cleanup.");
+            } catch (error) {
+                console.error("Autosave failed:", error.response?.data || error);
+            }
+        };
+
+        // This function runs when the component unmounts
+        return handleAutosave;
+
+    }, [allDatasets, activeDatasets, chartType, isInitializing, staggerState, userId, userToken]); 
 
     // Fetch Sheets List for Modal
     useEffect(() => {
@@ -472,16 +505,20 @@ export default function Analytics() {
         (async () => {
             try {
                 const token = localStorage.getItem("adt_token");
-                const res = await axios.get(`${API_BASE_URL}/sheets-list/${userId}`, { headers: { Authorization: `Bearer ${token}` }});
+                // FIX: sheets-list should be `/sheets-list`
+                const res = await axios.get(`${API_BASE_URL}/sheets-list`, { 
+                    headers: { Authorization: `Bearer ${token}` }
+                });
                 if (!cancelled) setSheetsList(res.data.sheets || []);
-            } catch { if (!cancelled) setSheetsList([]); }
+            } catch(e) { 
+                console.error("Failed to fetch sheets list:", e);
+                if (!cancelled) setSheetsList([]); 
+            }
         })();
         return () => { cancelled = true; };
-    }, [showModal, selectedApps, userId]);
+    }, [showModal, selectedApps]); // Removed userId from dependency list as it's not needed for the sheets-list endpoint
 
     const importSelected = async () => {
-        // ... (Import logic remains the same) ...
-
         // 1. START: Set Importing State & Close Modal
         setShowModal(false);
         setIsImporting(true);
@@ -502,12 +539,16 @@ export default function Analytics() {
                 setLoadingSheetValues(true); 
                 try {
                     const token = localStorage.getItem("adt_token"); 
+                    // FIX: Sheet endpoint is assumed to be correct
                     const res = await axios.get(
-                        `${API_BASE_URL}/sheets/${userId}/${selectedSheet}`,
+                        `${API_BASE_URL}/sheets/${selectedSheet}`,
                         { headers: { Authorization: `Bearer ${token}` } } 
                     );
-                    if (res.data?.values?.length) {
-                        importedRows.push(...res.data.values);
+                    if (res.data?.data?.rows?.length) {
+                         // Data structure assumption adjustment for importedRows
+                         const headers = res.data.data.headers || [];
+                         const rows = res.data.data.rows || [];
+                         importedRows.push([headers, ...rows]);
                     }
                 } catch (err) { console.error("Google Sheets Fetch Error:", err); }
                 setLoadingSheetValues(false);
@@ -516,26 +557,37 @@ export default function Analytics() {
                 try {
                     const values = await parseCSVFile(csvToImport);
                     if (values.length) {
-                        importedRows.push(...values);
+                        importedRows.push(values);
                     }
                 } catch (err) { console.error("CSV Parse Error:", err); }
             }
         }
-
+        
+        // Merge multiple imported datasets into one giant set for simplicity in this example
         if (!importedRows.length) {
             setSelectedApps([]); setSelectedSheet(""); setCsvToImport(null);
             setIsImporting(false);
             return;
         }
 
+        // --- Data Merging Logic (Simplified) ---
+        const firstDataset = importedRows[0];
+        const headers = firstDataset[0];
+        let combinedData = [...firstDataset];
+        
+        for (let i = 1; i < importedRows.length; i++) {
+            // Simple merge: assumes same headers or ignores headers for subsequent files
+            combinedData.push(...importedRows[i].slice(1));
+        }
+
         // 2. DATA PROCESSING
-        const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
+        const cleaned = combinedData.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
         const numeric = detectNumericColumns(cleaned);
         const metrics = computeMetrics(cleaned, numeric);
         const categoryColumn = detectCategoryColumn(cleaned, numeric); 
 
         const newDataset = {
-            id: Date.now(),
+            id: Date.now(), // Unique ID based on timestamp
             name: sourceName,
             // Assign a color based on the current length of ALL datasets, including existing ones
             color: datasetColors[allDatasets.length % datasetColors.length],
@@ -551,9 +603,8 @@ export default function Analytics() {
         setActiveDatasets(prev => [...prev, newDataset]);
         setSelectedApps([]); setSelectedSheet(""); setCsvToImport(null);
         
-        // 3. END: Release Block & Trigger Staggered Reveal
+        // 3. END: Release Block
         setIsImporting(false); 
-        
         // Staggered transitions will be handled by the second useEffect now
     };
 
@@ -566,18 +617,33 @@ export default function Analytics() {
         setActiveDatasets(prev => prev.filter(d => d.id !== id));
     };
 
-    const handleClearAll = () => {
-        if (window.confirm("Are you sure you want to clear ALL imported datasets? This action cannot be undone and will be removed from your account on next save.")) {
+    const handleClearAll = async () => {
+        if (window.confirm("Are you sure you want to clear ALL imported datasets? This action cannot be undone.")) {
             setAllDatasets([]);
             setActiveDatasets([]);
-            // This ensures immediate clearance even before the useEffect runs
-            localStorage.removeItem(DATASET_STORAGE_KEY); 
             setStaggerState(0);
+            
+            // CRITICAL: Autosave with empty payload to clear the working session in the DB
+            if (userId && userId !== "test-user" && userToken) {
+                 const emptyPayload = {
+                    source: "Cleared Session", 
+                    config: { chartType: "line", activeDatasetIds: [] },
+                    results: { allDatasets: [] }
+                };
+                try {
+                    await axios.post(`${API_BASE_URL}/analysis/autosave`, emptyPayload, {
+                        headers: { Authorization: `Bearer ${userToken}` }
+                    });
+                    console.log("Database session cleared successfully via autosave.");
+                } catch (error) {
+                    console.error("Failed to clear DB session on /analysis/autosave:", error.response?.data || error);
+                }
+            }
         }
     };
     
-    // ** SAVES DATASETS TO THE USER'S BACKEND ACCOUNT ** - MODIFIED
-    const handleSave = async () => {
+    // ** SAVES DATASETS TO THE USER'S BACKEND ACCOUNT (EXPLICIT SAVE) **
+    const handleSave = async () => { 
         if (!userId || userId === "test-user") {
             alert("Please log in to save datasets to your account.");
             return;
@@ -585,19 +651,40 @@ export default function Analytics() {
 
         setShowSavedToast(true); 
         
+        // 1. CONSTRUCT THE PAYLOAD (Uses /analysis/save, which requires a name)
+        const savePayload = {
+            // A descriptive name for the overall session
+            name: prompt("Enter a name for this analysis session:", "My Saved Analysis") || "Untitled Session", 
+            // A generic source since it might be multiple files/sheets
+            source: allDatasets.map(d => d.name).join(" & "), 
+            
+            // Configuration/Settings for the UI/App state
+            config: {
+                chartType: chartType,
+                // Save the IDs of the currently active datasets to restore the view
+                activeDatasetIds: activeDatasets.map(d => d.id) 
+            },
+            
+            // The actual data (datasets) and computed results (metrics)
+            results: {
+                allDatasets: allDatasets, // The full array of data to be reloaded
+            }
+        };
+        
+        // Stop if user cancels the prompt
+        if (savePayload.name === "Untitled Session" && !prompt) return;
+
         try {
-            // Send the complete list of all datasets for this user
-            await axios.post(`${API_BASE_URL}/api/datasets/save`, {
-                userId: userId,
-                datasets: allDatasets, // Send all datasets saved in state
-                savedAt: new Date().toISOString()
-            }, {
+            // 2. USE THE CORRECT BACKEND ENDPOINT
+            await axios.post(`${API_BASE_URL}/analysis/save`, savePayload, {
                 headers: { Authorization: `Bearer ${userToken}` }
             });
-            // Update local storage for quick access/persistence
-            localStorage.setItem(DATASET_STORAGE_KEY, JSON.stringify(allDatasets));
+            
+            // NOTE: Local storage persistence is now obsolete for primary persistence but can be kept as a fallback cache
+            // localStorage.setItem(DATASET_STORAGE_KEY, JSON.stringify(allDatasets));
+
         } catch (error) {
-            console.error("Failed to save datasets to account:", error);
+            console.error("Failed to save datasets to account:", error.response?.data || error);
             alert("Error saving data to your account. Check your connection or console for details.");
         } finally {
             // Close toast after 2 seconds
@@ -652,260 +739,479 @@ export default function Analytics() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {dataset.data.slice(1, maxPreviewRows).map((row, rowIndex) => (
-                                    <tr key={rowIndex} className="hover:bg-gray-800/50 even:bg-gray-900/50">
+                                {dataset.data.slice(1, maxPreviewRows + 1).map((row, rowIndex) => (
+                                    <tr key={rowIndex} className="even:bg-gray-900/50 hover:bg-gray-800/70 transition-colors">
                                         {row.map((cell, cellIndex) => (
                                             <td 
                                                 key={cellIndex} 
-                                                className={`px-3 py-1.5 whitespace-nowrap truncate max-w-[150px] ${dataset.numericCols.includes(cellIndex) ? 'text-right font-mono' : 'text-left'}`}
+                                                className={`px-3 py-2 whitespace-nowrap ${dataset.numericCols.includes(cellIndex) ? 'text-right font-mono' : 'text-left'}`}
                                             >
-                                                {String(cell)}
+                                                <div className="max-w-[150px] truncate" title={String(cell)}>
+                                                    {String(cell)}
+                                                </div>
                                             </td>
                                         ))}
                                     </tr>
                                 ))}
+                                {dataset.data.length > maxPreviewRows + 1 && (
+                                    <tr>
+                                        <td colSpan={dataset.data[0].length} className="px-3 py-1 text-center text-gray-500">
+                                            ... {dataset.data.length - 1 - maxPreviewRows} more rows ...
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                {/* Charts Container */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"> 
-                    {dataset.numericCols.slice(0, 4).map((colIdx, i) => { 
-                        const colName = dataset.data[0][colIdx] || `Col ${colIdx}`;
-                        const data = dataset.data.slice(1).map(r => Number(r[colIdx])).filter(n => !isNaN(n));
+                {/* Metrics Summary Row */}
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                    {dataset.numericCols.map((colIndex, idx) => {
+                        const colName = dataset.data[0][colIndex];
+                        const metrics = dataset.metrics[colName];
+                        return metrics ? (
+                            <div key={colIndex} className="flex-shrink-0 w-[400px]">
+                                <MetricSummaryCard 
+                                    colName={colName} 
+                                    datasetName={dataset.name} 
+                                    metrics={metrics} 
+                                    color={dataset.color} 
+                                />
+                            </div>
+                        ) : null;
+                    })}
+                </div>
+                
+                {/* Individual Numeric Column Charts (Bars for categories, Lines for date/index) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {dataset.numericCols.map((colIndex, idx) => {
+                        const colName = dataset.data[0][colIndex];
+                        const isDateOrCategory = dataset.categoryCol && (dataset.categoryCol.isDate || dataset.categoryCol.colIndex === 0);
+                        
+                        // Decide Chart Type for Internal Plot (Force Bar if true categorical, Line if time-series)
+                        const internalChartType = dataset.categoryCol && !dataset.categoryCol.isDate && dataset.rows <= 100 ? 'bar' : 'line';
                         
                         const chartData = {
-                            labels: labels.slice(0, 20), 
+                            labels: labels.slice(0, 100), // Limit samples for performance
                             datasets: [{
                                 label: colName,
-                                data: data.slice(0, 20),
+                                data: dataset.data.slice(1, 101).map(r => r[colIndex]),
+                                backgroundColor: internalChartType === 'bar' ? `${dataset.color}99` : 'transparent',
                                 borderColor: dataset.color,
-                                backgroundColor: dataset.color + "33",
-                                fill: chartType==="line",
-                                tension:0.3
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: internalChartType === 'line',
+                                pointRadius: internalChartType === 'line' ? 2 : 0,
+                                pointBackgroundColor: dataset.color,
+                                order: 1,
                             }]
                         };
-                        const options = { 
-                            responsive:true, 
-                            maintainAspectRatio:false, 
-                            plugins:{ legend:{ labels:{ color:"#9ca3af" } } },
-                            scales: {
-                                x: { 
-                                    grid: { color: "rgba(75, 85, 99, 0.18)", drawBorder: false }, 
-                                    ticks: { color: "#9ca3af", maxRotation: labels.length > 10 ? 45 : 0 } 
-                                },
-                                y: { grid: { color: "rgba(75, 85, 99, 0.18)", drawBorder: false }, ticks: { color: "#9ca3af" } }
-                            }
-                        };
+
+                        const ChartComponent = internalChartType === 'bar' ? Bar : Line;
+
                         return (
-                            <div key={i} className="bg-gray-900/40 rounded-xl border border-gray-800 p-3 transition-all duration-700" style={{ height: 250 }}> 
-                                <h3 className="text-xs text-gray-400 mb-1 truncate">{colName} - {dataset.categoryCol?.header || labels[0] ? `Trend over ${dataset.categoryCol?.header}` : 'Raw Distribution'}</h3>
-                                {chartType==="line" ? <Line data={chartData} options={options} /> : <Bar data={chartData} options={options} />}
+                            <div key={colIndex} className="bg-gray-900/40 p-4 rounded-xl shadow-inner border border-gray-800">
+                                <h4 className="text-md font-semibold text-white mb-2">{colName} vs {dataset.categoryCol ? dataset.categoryCol.header : 'Index'} ({internalChartType.toUpperCase()})</h4>
+                                <div className="h-64">
+                                    <ChartComponent 
+                                        data={chartData} 
+                                        options={{
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            plugins: {
+                                                legend: { display: false },
+                                                tooltip: { mode: 'index', intersect: false }
+                                            },
+                                            scales: {
+                                                x: {
+                                                    ticks: {
+                                                        color: '#9CA3AF',
+                                                        autoSkip: true,
+                                                        maxRotation: 0,
+                                                        minRotation: 0,
+                                                        maxTicksLimit: 10
+                                                    },
+                                                    grid: { color: 'rgba(55, 65, 81, 0.2)' },
+                                                    title: { display: true, text: dataset.categoryCol ? dataset.categoryCol.header : 'Index', color: '#9CA3AF' }
+                                                },
+                                                y: {
+                                                    ticks: { color: '#9CA3AF' },
+                                                    grid: { color: 'rgba(55, 65, 81, 0.2)' },
+                                                    title: { display: true, text: colName, color: '#9CA3AF' }
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
                         );
                     })}
                 </div>
+
             </div>
         );
     };
-    
-    const consolidatedMetrics = activeDatasets.flatMap(ds => {
-        return Object.keys(ds.metrics || {}).map(colName => ({
-            id: `${ds.id}-${colName}`,
-            datasetName: ds.name,
-            colName: colName,
-            metrics: ds.metrics[colName],
-            color: ds.color
-        }));
-    });
 
-    const hasData = allDatasets.length > 0;
-    
+    const generateComparisonChart = () => {
+        if (activeDatasets.length === 0) return null;
+
+        // 1. Determine a common Category Column (X-axis)
+        // For simplicity, we use the category column of the first active dataset.
+        const primaryDataset = activeDatasets[0];
+        const primaryCategoryCol = primaryDataset.categoryCol;
+
+        if (!primaryCategoryCol || primaryDataset.numericCols.length === 0) {
+            return <div className="text-gray-400 text-center p-8 text-lg">Cannot compare: Primary dataset needs a numeric and a category/date column.</div>;
+        }
+
+        // We choose the first numeric column of the primary dataset as the default Y-axis metric
+        const primaryMetricColIndex = primaryDataset.numericCols[0];
+        const primaryMetricColName = primaryDataset.data[0][primaryMetricColIndex];
+        
+        // 2. Map data
+        const comparisonDatasets = activeDatasets.map(ds => {
+            // Find the index of the metric with the same name, or the first numeric one if name match fails
+            let metricIndex = ds.data[0].findIndex((h, i) => i !== primaryCategoryCol.colIndex && h === primaryMetricColName && ds.numericCols.includes(i));
+            if (metricIndex === -1) {
+                metricIndex = ds.numericCols[0];
+            }
+            
+            // Generate data points for the comparison. 
+            // NOTE: This assumes datasets are aligned or the category labels can be correctly compared/sorted.
+            // For a robust app, a proper data join/alignment based on categoryCol would be needed.
+            const dataPoints = ds.data.slice(1).map(r => ({
+                x: primaryCategoryCol.isDate ? new Date(r[primaryCategoryCol.colIndex]).getTime() : String(r[primaryCategoryCol.colIndex]),
+                y: r[metricIndex]
+            }));
+
+            return {
+                label: ds.name,
+                data: dataPoints.map(p => p.y).slice(0, 100), // Only take first 100 points for chart data
+                backgroundColor: ds.color,
+                borderColor: ds.color,
+                borderWidth: chartType === 'line' ? 2 : 1,
+                tension: chartType === 'line' ? 0.4 : 0,
+                fill: false,
+                pointRadius: chartType === 'line' ? 3 : 0,
+                type: chartType,
+                yAxisID: 'y'
+            };
+        });
+
+        // Use labels from the primary dataset's category column
+        const labels = primaryDataset.data.slice(1, 101).map(r => primaryCategoryCol.isDate ? new Date(r[primaryCategoryCol.colIndex]).toLocaleDateString() : String(r[primaryCategoryCol.colIndex]));
+
+        const ChartComponent = chartType === 'line' ? Line : Bar;
+        
+        return (
+            <div className="h-[400px] w-full p-4 rounded-xl shadow-xl border border-gray-800 bg-gray-900/40">
+                <h3 className="text-xl font-bold text-white mb-4">
+                    Comparison: <span className="text-purple-400">{primaryMetricColName}</span> across Datasets
+                </h3>
+                <div className="h-full">
+                    <ChartComponent
+                        data={{ labels, datasets: comparisonDatasets }}
+                        options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { 
+                                    position: 'bottom', 
+                                    labels: { color: '#D1D5DB', usePointStyle: true, boxHeight: 6 } 
+                                },
+                                title: { display: false },
+                                tooltip: { mode: 'index', intersect: false }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'category',
+                                    ticks: {
+                                        color: '#9CA3AF',
+                                        autoSkip: true,
+                                        maxRotation: 0,
+                                        minRotation: 0,
+                                        maxTicksLimit: 10
+                                    },
+                                    grid: { color: 'rgba(55, 65, 81, 0.2)' },
+                                    title: { display: true, text: primaryCategoryCol.header, color: '#9CA3AF' }
+                                },
+                                y: {
+                                    ticks: { color: '#9CA3AF' },
+                                    grid: { color: 'rgba(55, 65, 81, 0.2)' },
+                                    title: { display: true, text: primaryMetricColName, color: '#9CA3AF' }
+                                }
+                            },
+                            // Custom options for Bar/Line mixing
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    };
+
+    if (isInitializing || isImporting) {
+        return <FlawlessLoadingOverlay />;
+    }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#070D18] to-[#050510] relative">
-            
-            {/* Flawless Loading Overlay */}
-            {isImporting && <FlawlessLoadingOverlay />}
-            
-            <div className="p-4 sm:p-6 lg:p-10">
-            
-                <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 pb-4 border-b border-gray-800 transition-all duration-700">
-                    <h1 className="text-4xl font-extrabold text-white flex items-center gap-3"><MdOutlineAnalytics size={32} className="text-purple-400" /> Data Comparison Engine</h1>
-                    
-                    {/* Header Controls */}
-                    <div className={`flex gap-3 mt-4 sm:mt-0 transition-opacity duration-1000 ${hasData && !isImporting ? 'opacity-100' : 'opacity-0'}`}>
-                        {hasData && (
-                            <>
-                                <select value={chartType} onChange={(e)=>setChartType(e.target.value)} className="bg-gray-800 text-white p-2 rounded-lg">
-                                    <option value="line">Line</option>
-                                    <option value="bar">Bar</option>
-                                </select>
-                                <IconButton icon={FiSave} onClick={handleSave} className="bg-purple-600 hover:bg-purple-700 text-white" title={userId === "test-user" ? "Login to save to account" : "Save to Account"}>Save</IconButton>
-                                <IconButton icon={FiDownload} onClick={exportActive} disabled={!activeDatasets.length} className="bg-gray-800 hover:bg-gray-700 text-gray-300">Export</IconButton>
-                                {/* NEW CLEAR ALL BUTTON */}
-                                <IconButton icon={FiTrash2} onClick={handleClearAll} disabled={!hasData} className="bg-red-700 hover:bg-red-800 text-white">Clear All</IconButton>
-                            </>
-                        )}
-                        <IconButton icon={FiUploadCloud} onClick={()=>setShowModal(true)} className="bg-cyan-600 hover:bg-cyan-700 text-white">Import Data</IconButton>
-                    </div>
-                </header>
-
-                {/* Conditional Rendering: Only render dashboard content if not importing */}
-                {!hasData && !isImporting ? (
-                    <LandingView onImportClick={() => setShowModal(true)} />
-                ) : hasData && !isImporting ? (
-                    <>
-                        {/* 1. *** TOP ROW: DATA SOURCES (Dataset Cards) *** */}
-                        <section className={`mb-8 transition-opacity duration-700 transform ${staggerState >= 1 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <h2 className="text-2xl font-semibold text-white mb-4">Data Sources ({allDatasets.length})</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {allDatasets.map((ds) => (
-                                    <DatasetCard
-                                        key={ds.id}
-                                        dataset={ds}
-                                        isActive={activeDatasets.some(d => d.id === ds.id)}
-                                        onToggle={() => toggleDataset(ds)}
-                                        onRemove={() => removeDataset(ds.id)}
-                                    />
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* 2. *** MIDDLE ROW: KEY METRICS OVERVIEW *** */}
-                        <section className={`mb-8 transition-opacity duration-700 transform ${staggerState >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-2xl font-semibold text-white">Key Metrics Overview ({consolidatedMetrics.length} columns)</h2>
-                                <IconButton icon={FaBrain} onClick={() => setIsAnalysisPanelOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
-                                    AI Insights
-                                </IconButton>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {consolidatedMetrics.length === 0 ? (
-                                    <p className="text-gray-500 col-span-4">Select datasets above to see metric summaries.</p>
-                                ) : (
-                                    consolidatedMetrics.slice(0, 12).map((metricData) => (
-                                        <MetricSummaryCard key={metricData.id} {...metricData} />
-                                    ))
-                                )}
-                            </div>
-                        </section>
-
-                        {/* 3. *** BOTTOM ROW: VISUALIZATION DETAIL *** */}
-                        <section className={`mb-8 transition-opacity duration-700 transform ${staggerState >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <h2 className="text-2xl font-semibold text-white mb-4">Detailed Visualization</h2>
-                            <div className="space-y-10">
-                                {activeDatasets.length === 0 ? (
-                                    <div className="text-center p-12 bg-gray-900/40 rounded-xl border border-gray-800">
-                                        <MdOutlineInsights size={40} className="text-gray-600 mx-auto mb-3" />
-                                        <p className="text-gray-500">Select one or more datasets above to view detailed charts and data previews.</p>
-                                    </div>
-                                ) : (
-                                    activeDatasets.map((ds) => (
-                                        <div key={ds.id} className="p-6 rounded-2xl border-t-4" style={{ borderColor: ds.color + '80', background: "rgba(10, 10, 15, 0.7)" }}>
-                                            <div className="flex items-center justify-between mb-4">
-                                                <h3 className="text-2xl font-bold" style={{ color: ds.color }}>{ds.name} Analysis</h3>
-                                                <button onClick={() => removeDataset(ds.id)} className="text-red-500 hover:text-red-400 p-2 rounded-full transition"><FiTrash2 size={18} /></button>
-                                            </div>
-                                            {generateChartsForDataset(ds)}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </section>
-                    </>
-                ) : null}
-
-                {/* Save Success Toast */}
-                {showSavedToast && (
-                    <div className="fixed bottom-6 right-6 p-4 rounded-xl bg-green-600 shadow-xl text-white flex items-center gap-3 z-50 transition-all duration-300 transform animate-pulse">
-                        <FiCheckCircle size={20} />
-                        Data saved to your account!
-                    </div>
-                )}
-            </div>
-
-            {/* Import Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-sm flex items-center justify-center z-40 transition-opacity duration-300">
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-2xl transform transition-transform duration-300 scale-100">
-                        <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
-                            <h2 className="text-3xl font-bold text-white flex items-center gap-3"><FiUploadCloud size={24} className="text-cyan-400" /> Import New Data</h2>
-                            <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition-colors"><FiX size={24} /></button>
+        <div className="min-h-screen bg-[#0A0D18] text-white p-8 font-sans">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className={`transition-all duration-700 ${staggerState >= 1 ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5'}`}>
+                    <h1 className="text-4xl font-extrabold text-white mb-2 flex items-center gap-3">
+                        <MdOutlineAnalytics className="text-purple-500" size={32} />
+                        Data Comparison Engine
+                    </h1>
+                    <p className="text-gray-400 mb-6">Analyze and compare multiple datasets instantly.</p>
+                </div>
+                
+                {/* Action Bar */}
+                {allDatasets.length > 0 && (
+                    <div className={`flex justify-between items-center bg-gray-900/50 p-3 rounded-xl border border-gray-800 mb-6 transition-all duration-700 ${staggerState >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+                        <div className="flex gap-3">
+                            <IconButton 
+                                icon={FiSave} 
+                                onClick={handleSave} 
+                                className="bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-900/50"
+                                title="Save current analysis session to your account"
+                                disabled={!userToken || allDatasets.length === 0}
+                            >
+                                Save Session
+                            </IconButton>
+                            <IconButton 
+                                icon={FiDownload} 
+                                onClick={exportActive} 
+                                className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-md shadow-cyan-900/50"
+                                title="Export combined active datasets to CSV"
+                                disabled={activeDatasets.length === 0}
+                            >
+                                Export Active Data
+                            </IconButton>
+                            <IconButton 
+                                icon={FiTrash2} 
+                                onClick={handleClearAll} 
+                                className="bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-900/50"
+                                title="Clear all datasets and reset the session"
+                                disabled={allDatasets.length === 0}
+                            >
+                                Clear All
+                            </IconButton>
                         </div>
-                        
-                        <h3 className="text-lg font-semibold text-gray-300 mb-3">Select Data Source</h3>
-                        <div className="space-y-4 mb-6">
-                            <SourceCard
-                                icon={MdOutlineTableChart}
-                                title="Google Sheets"
-                                description="Connect a spreadsheet from your Google Drive."
-                                isSelected={selectedApps.includes("google_sheets")}
-                                onClick={() => setSelectedApps(["google_sheets"])}
-                            />
-                            {selectedApps.includes("google_sheets") && (
-                                <div className="p-4 bg-gray-800/50 rounded-lg space-y-3">
-                                    {loadingSheetValues ? (
-                                        <div className="text-center text-gray-400 flex items-center justify-center gap-2">
-                                            <FaSpinner className="animate-spin" /> Loading available sheets...
-                                        </div>
-                                    ) : (
-                                        <SheetsDropdown sheetsList={sheetsList} selectedSheet={selectedSheet} setSelectedSheet={setSelectedSheet} />
-                                    )}
-                                    <p className="text-xs text-gray-500">You must be logged in and have granted permissions for Google Sheets access.</p>
-                                </div>
-                            )}
-
-                            <SourceCard
-                                icon={FiDownload}
-                                title="Local CSV Upload"
-                                description="Upload a comma-separated values (.csv) file from your computer."
-                                isSelected={selectedApps.includes("other")}
-                                onClick={() => setSelectedApps(["other"])}
-                            />
-                            {selectedApps.includes("other") && (
-                                <div className="p-4 bg-gray-800/50 rounded-lg">
-                                    <label className="block w-full cursor-pointer p-3 text-center border-2 border-dashed rounded-lg text-gray-400 border-gray-600 hover:border-cyan-500 hover:text-white transition-colors">
-                                        {csvToImport ? `File Selected: ${csvToImport.name}` : "Click to select CSV file"}
-                                        <input 
-                                            type="file" 
-                                            accept=".csv" 
-                                            onChange={(e) => setCsvToImport(e.target.files[0])} 
-                                            className="hidden"
-                                        />
-                                    </label>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="flex justify-end pt-4 border-t border-gray-800">
+                        <div className="flex gap-3 items-center">
+                            {/* Chart Type Selector */}
+                            <select 
+                                value={chartType} 
+                                onChange={(e) => setChartType(e.target.value)} 
+                                className="p-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition duration-300"
+                            >
+                                <option value="line">Line Chart</option>
+                                <option value="bar">Bar Chart</option>
+                            </select>
+                            
+                            <IconButton 
+                                icon={FaBrain} 
+                                onClick={() => setIsAnalysisPanelOpen(prev => !prev)} 
+                                className={`font-extrabold ${isAnalysisPanelOpen ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'} text-white shadow-md shadow-purple-900/50`}
+                                title="Get AI-powered insights on active datasets"
+                                disabled={activeDatasets.length === 0}
+                            >
+                                <MdOutlineInsights size={18} />
+                                AI Insights {isAnalysisPanelOpen ? 'ON' : 'OFF'}
+                            </IconButton>
+                            
                             <IconButton 
                                 icon={FiPlus} 
-                                onClick={importSelected} 
+                                onClick={() => setShowModal(true)} 
+                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                            >
+                                Add Dataset
+                            </IconButton>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Dataset Selector / Landing View */}
+                <div className="grid grid-cols-1 gap-6">
+                    {allDatasets.length === 0 && (
+                        <LandingView onImportClick={() => setShowModal(true)} />
+                    )}
+                    
+                    {allDatasets.length > 0 && (
+                        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-4 transition-all duration-700 ${staggerState >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5'}`}>
+                            {allDatasets.map((dataset) => (
+                                <DatasetCard 
+                                    key={dataset.id} 
+                                    dataset={dataset} 
+                                    isActive={activeDatasets.some(d => d.id === dataset.id)}
+                                    onToggle={() => toggleDataset(dataset)}
+                                    onRemove={() => removeDataset(dataset.id)}
+                                />
+                            ))}
+                            {/* "Add New" Card */}
+                            <div 
+                                className="rounded-xl p-4 cursor-pointer border-2 border-dashed border-gray-700 hover:border-purple-500 transition-all duration-300 flex items-center justify-center bg-gray-900/50"
+                                onClick={() => setShowModal(true)}
+                            >
+                                <div className="text-center text-gray-400 hover:text-purple-400">
+                                    <FiPlus size={24} className="mx-auto mb-1" />
+                                    <span className="text-sm font-medium">Add New Data</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* AI Analysis Panel */}
+                <div className={`transition-all duration-500 overflow-hidden ${isAnalysisPanelOpen && activeDatasets.length > 0 ? 'max-h-[1000px] opacity-100 mb-6' : 'max-h-0 opacity-0 mb-0'}`}>
+                    <AIAnalysisPanel 
+                        activeDatasets={activeDatasets} 
+                        userToken={userToken} 
+                        apiBaseUrl={API_BASE_URL} 
+                    />
+                </div>
+                
+                {/* Comparison View */}
+                {activeDatasets.length > 1 && (
+                    <div className={`mb-10 transition-all duration-1000 ${staggerState >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5'}`}>
+                        {generateComparisonChart()}
+                    </div>
+                )}
+                
+                {/* Individual Dataset Detail Views */}
+                {activeDatasets.length > 0 && (
+                    <div className="space-y-12">
+                        {activeDatasets.map((dataset, idx) => (
+                            <div 
+                                key={dataset.id} 
+                                className={`p-6 rounded-2xl border transition-all duration-1000`}
+                                style={{ 
+                                    borderColor: dataset.color,
+                                    background: `linear-gradient(135deg, ${dataset.color}05, rgba(10, 10, 15, 0.95))`
+                                }}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-2xl font-extrabold text-white">
+                                        <span style={{ color: dataset.color }}>{dataset.name}</span> Details
+                                    </h2>
+                                    <span className="text-sm text-gray-400">{dataset.rows} rows, {dataset.cols} columns</span>
+                                </div>
+                                {generateChartsForDataset(dataset)}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                
+            </div>
+            
+            {/* Modal for Import/Connection */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowModal(false)}>
+                    <div className="bg-gray-900/95 rounded-2xl p-8 max-w-2xl w-full shadow-2xl border border-purple-900" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                            <h3 className="text-3xl font-bold text-white flex items-center gap-3">
+                                <FiUploadCloud className="text-cyan-400" />
+                                Import New Dataset
+                            </h3>
+                            <button onClick={() => setShowModal(false)} className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition">
+                                <FiX size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <h4 className="text-lg font-semibold text-gray-300">Choose a Data Source:</h4>
+                            
+                            <SourceCard
+                                icon={({ size, className }) => <img src="/icons/google-sheets.svg" alt="Google Sheets" width={size} height={size} className={className} />}
+                                title="Google Sheets"
+                                description="Connect to a shared Google Sheet (requires prior OAuth connection)."
+                                isSelected={selectedApps.includes("google_sheets")}
+                                onClick={() => {
+                                    setSelectedApps(["google_sheets"]);
+                                    setSelectedSheet(""); // Reset sheet selection on source change
+                                    setCsvToImport(null);
+                                }}
+                                disabled={!userToken} // Disable if user is not logged in/token available
+                            />
+                            
+                            {selectedApps.includes("google_sheets") && (
+                                <div className="space-y-3 p-4 border border-purple-500/50 rounded-lg bg-gray-800/50">
+                                    {loadingSheetValues ? (
+                                        <div className="text-center text-purple-400 flex items-center justify-center gap-2">
+                                            <FaSpinner className="animate-spin" /> Fetching Sheets...
+                                        </div>
+                                    ) : (
+                                        <SheetsDropdown 
+                                            sheetsList={sheetsList} 
+                                            selectedSheet={selectedSheet} 
+                                            setSelectedSheet={setSelectedSheet} 
+                                        />
+                                    )}
+                                    <p className="text-xs text-gray-400">Select the specific sheet you want to import data from.</p>
+                                </div>
+                            )}
+                            
+                            <SourceCard
+                                icon={FiUploadCloud}
+                                title="Upload CSV File"
+                                description="Upload a local CSV file directly from your computer."
+                                isSelected={selectedApps.includes("other")}
+                                onClick={() => {
+                                    setSelectedApps(["other"]);
+                                    setSelectedSheet(""); // Reset sheet selection on source change
+                                }}
+                            />
+                            
+                            {selectedApps.includes("other") && (
+                                <div className="space-y-3 p-4 border border-cyan-500/50 rounded-lg bg-gray-800/50">
+                                    <input
+                                        type="file"
+                                        accept=".csv"
+                                        onChange={(e) => setCsvToImport(e.target.files[0])}
+                                        className="block w-full text-sm text-gray-500
+                                        file:mr-4 file:py-2 file:px-4
+                                        file:rounded-full file:border-0
+                                        file:text-sm file:font-semibold
+                                        file:bg-cyan-50 file:text-cyan-700
+                                        hover:file:bg-cyan-100"
+                                    />
+                                    {csvToImport && <p className="text-sm text-gray-300">File selected: <span className="font-medium text-cyan-400">{csvToImport.name}</span></p>}
+                                </div>
+                            )}
+
+                        </div>
+                        
+                        <div className="mt-8 pt-4 border-t border-gray-700 flex justify-end">
+                            <IconButton 
+                                icon={FiPlus} 
+                                onClick={importSelected}
                                 disabled={
                                     (selectedApps.includes("google_sheets") && !selectedSheet) || 
-                                    (selectedApps.includes("other") && !csvToImport) || 
-                                    selectedApps.length === 0
+                                    (selectedApps.includes("other") && !csvToImport) ||
+                                    selectedApps.length === 0 || 
+                                    loadingSheetValues
                                 }
-                                className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                                className="bg-purple-600 hover:bg-purple-700 text-white text-lg px-6 py-2"
                             >
-                                Import and Analyze
+                                Import Data
                             </IconButton>
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* AI Analysis Panel */}
-            <AIAnalysisPanel 
-                isOpen={isAnalysisPanelOpen} 
-                onClose={() => setIsAnalysisPanelOpen(false)} 
-                datasets={activeDatasets} 
-                userId={userId}
-                userToken={userToken}
-                API_BASE_URL={API_BASE_URL}
-            />
+            
+            {/* Save Toast Notification */}
+            {showSavedToast && (
+                <div className="fixed bottom-5 right-5 p-4 rounded-xl bg-green-600 shadow-2xl shadow-green-900 flex items-center gap-2 transition-opacity duration-300 z-50">
+                    <FiCheckCircle size={20} className="text-white" />
+                    <span className="font-medium text-white">Session Saved Successfully!</span>
+                </div>
+            )}
+            
         </div>
     );
 }

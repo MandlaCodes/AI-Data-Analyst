@@ -1,288 +1,486 @@
-// src/pages/Landing.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Contact from "./Contact";
-import { FaChartLine, FaLightbulb, FaDesktop, FaQuestionCircle, FaStar, FaPlus, FaCodeBranch, FaServer, FaCogs, FaBrain, FaWrench } from "react-icons/fa"; // Updated icons for data focus
+import { FaChartLine, FaBrain, FaServer, FaCogs, FaCheck, FaLock, FaBolt, FaWrench, FaArrowRight, FaAngleDown, FaUser, FaDatabase } from "react-icons/fa"; 
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
 
-/* ---------- Configs ---------- */
-const PRODUCT_IMAGES = [
-  "https://images.unsplash.com/photo-1535223289827-42f1e9919769?auto=format&fit=crop&w=1400&q=80",
-  "https://images.unsplash.com/photo-1508780709619-79562169bc64?auto=format&fit=crop&w=1400&q=80",
-  "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1400&q=80",
+// Dark neon purple theme
+const PRIMARY_COLOR = "#a855f7"; // Neon Purple
+const ACCENT_COLOR = "#c026d3"; // Bright Magenta/Fuchsia
+const DARK_BG = "#0a0118"; // Deep dark purple
+const CARD_BG = "#1a0b2e"; // Dark purple
+
+// ... (HERO_STATS, SOLUTIONS, ABSOLUTE_ADVANTAGE, IMAGE CONSTANTS remain the same) ...
+const HERO_STATS = [
+    { value: '4.9+', label: 'Analyst Rating', sub: 'Verified Reviews' },
+    { value: '20K+', label: 'Data Sets Processed', sub: 'Validated by AI' },
+    { value: '15+', label: 'Integrations', sub: 'CRMs, ERPs, APIs' },
+    { value: '10X', label: 'Faster Insights', sub: 'Avg. Time Reduction' },
 ];
 
-// ************************************************
-// TRANSFORMED CONFIGS: Focused on AI Data Analysis
-// ************************************************
 const SOLUTIONS = [
-  { icon: <FaBrain className="text-white/20 text-3xl mb-4" />, title: 'Predictive Modeling', description: 'Forecast future trends and identify high-value opportunities before they materialize using advanced ML models.' },
-  { icon: <FaChartLine className="text-white/20 text-3xl mb-4" />, title: 'Automated Reporting Engine', description: 'Generate executive-ready dashboards and reports in real-time, eliminating manual data compilation.' },
-  { icon: <FaServer className="text-white/20 text-3xl mb-4" />, title: 'Omni-Data Integration', description: 'Connect all your data silos (CRM, ERP, Spreadsheets) into a single, unified analytical twin.' },
-  { icon: <FaCodeBranch className="text-white/20 text-3xl mb-4" />, title: 'Root Cause Analysis', description: 'Leverage AI to instantly drill down into complex data to pinpoint the true source of performance issues.' },
-  { icon: <FaCogs className="text-white/20 text-3xl mb-4" />, title: 'Data Quality & Governance', description: 'Automatically clean, validate, and normalize datasets, ensuring your insights are always based on reliable data.' },
-  { icon: <FaWrench className="text-white/20 text-3xl mb-4" />, title: 'Natural Language Query', description: 'Ask complex business questions in plain English and receive instant, visualized answers and explanations.' },
+    { icon: <FaBrain className="text-3xl text-purple-400" />, title: 'Predictive Modeling', description: 'Forecast future trends and identify high-value opportunities before they materialize using advanced ML models.' },
+    { icon: <FaChartLine className="text-3xl text-purple-400" />, title: 'Automated Reporting Engine', description: 'Generate executive-ready dashboards and reports in real-time, eliminating manual data compilation.' },
+    { icon: <FaServer className="text-3xl text-purple-400" />, title: 'Omni-Data Integration', description: 'Connect all your data silos (CRM, ERP, Spreadsheets) into a single, unified analytical twin.' },
+    { icon: <FaWrench className="text-3xl text-purple-400" />, title: 'Natural Language Query (NLQ)', description: 'Ask complex business questions in plain English and receive instant, visualized answers and explanations.' },
 ];
 
+const ABSOLUTE_ADVANTAGE = [
+    'Zero Code Analytics: Deployment in Minutes',
+    'Root Cause Analysis with Instant Drill-down',
+    'Data Quality & Governance Automation',
+    'End-to-End Encryption and Compliance',
+];
 
-/* ---------- Helper: fade-in on scroll (Kept for continuity) ---------- */
+const AI_HEAD_HERO = "/background1.jpg";
+const AI_IMAGE_SERVICE = "https://images.unsplash.com/photo-1516110833965-cccd8aa052f9?q=80&w=1500&auto=format&fit=crop";
+const AI_IMAGE_BOTTOM = "frontend/public/pexels-jakubzerdzicki-30572289.jpg";
+
 function useScrollReveal() {
-  // Existing implementation remains unchanged
-  useEffect(() => {
-    const els = document.querySelectorAll(".reveal-on-scroll");
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.classList.add("revealed");
-            io.unobserve(e.target);
-          }
-        });
-      },
-      { threshold: 0.18 }
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, []);
+    useEffect(() => {
+        const els = document.querySelectorAll(".reveal-on-scroll");
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((e) => {
+                    if (e.isIntersecting) {
+                        e.target.classList.add("revealed");
+                        io.unobserve(e.target);
+                    }
+                });
+            },
+            { threshold: 0.18 }
+        );
+        els.forEach((el) => io.observe(el));
+        return () => io.disconnect();
+    }, []);
 }
 
-/* ---------- Particle layers config (Kept) ---------- */
 const particlesOptionsBg = {
-  fullScreen: { enable: false },
-  particles: {
-    number: { value: 30 },
-    color: { value: ["#223344", "#1b2b3a"] },
-    opacity: { value: 0.06 },
-    size: { value: { min: 1, max: 3 } },
-    move: { enable: true, speed: 0.3, random: true, outModes: "out" },
-    links: { enable: true, distance: 160, color: "#223344", opacity: 0.04, width: 1 },
-  },
+    fullScreen: { enable: false },
+    particles: {
+        number: { value: 25 },
+        color: { value: ["#2d1b4e", "#3b1f5c"] },
+        opacity: { value: 0.05 },
+        size: { value: { min: 1, max: 2 } },
+        move: { enable: true, speed: 0.2, random: true, outModes: "out" },
+        links: { enable: true, distance: 150, color: "#3b1f5c", opacity: 0.03, width: 1 },
+    },
 };
 
 const particlesOptionsFront = {
-  fullScreen: { enable: false },
-  particles: {
-    number: { value: 50 },
-    color: { value: ["#9333ea", "#e91e63", "#d8b4fe"] }, 
-    opacity: { value: 0.14 },
-    size: { value: { min: 1, max: 3 } },
-    move: { enable: true, speed: 0.8, random: true, outModes: "out" },
-    links: { enable: true, distance: 120, color: "#9333ea", opacity: 0.08, width: 1 },
-  },
-  interactivity: {
-    events: {
-      onHover: { enable: true, mode: "grab" },
-      onClick: { enable: true, mode: "repulse" },
+    fullScreen: { enable: false },
+    particles: {
+        number: { value: 40 },
+        color: { value: [PRIMARY_COLOR, ACCENT_COLOR] }, 
+        opacity: { value: 0.1 },
+        size: { value: { min: 1, max: 2.5 } },
+        move: { enable: true, speed: 0.6, random: true, outModes: "out" },
+        links: { enable: true, distance: 100, color: PRIMARY_COLOR, opacity: 0.06, width: 1 },
     },
-  },
+    interactivity: {
+        events: {
+            onHover: { enable: true, mode: "grab" },
+            onClick: { enable: true, mode: "repulse" },
+        },
+    },
 };
 
-/* ---------- Main Component ---------- */
+const customStyles = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    
+    .landing-page-container {
+        background: linear-gradient(135deg, ${DARK_BG} 0%, #1a0b2e 40%, #2d1b4e 100%);
+    }
+    
+    .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+    }
+    
+    .reveal-on-scroll.revealed {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    .btn-primary-modern {
+        background: white;
+        color: ${DARK_BG};
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+    }
+    
+    .btn-primary-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn-secondary-modern {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary-modern:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .glass-card {
+        background: rgba(30, 41, 59, 0.4);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .glass-card:hover {
+        background: rgba(30, 41, 59, 0.6);
+        border-color: rgba(168, 85, 247, 0.4);
+        transform: translateY(-4px);
+    }
+    
+    .gradient-text {
+        background: linear-gradient(135deg, ${ACCENT_COLOR}, #a855f7, #7c3aed);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* Animation for the Main Hero Heading */
+    @keyframes neon-flicker {
+        0%, 100% { 
+            text-shadow: 0 0 5px ${PRIMARY_COLOR}, 0 0 10px ${PRIMARY_COLOR}, 0 0 15px ${ACCENT_COLOR}; 
+        }
+        50% { 
+            text-shadow: none;
+        }
+    }
+
+    .neon-heading {
+        animation: neon-flicker 1.5s infinite alternate;
+    }
+
+    .hero-image-glow {
+        position: relative;
+    }
+    
+    .hero-image-glow::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 120%;
+        height: 120%;
+        background: radial-gradient(circle, rgba(168, 85, 247, 0.3), transparent 70%);
+        filter: blur(60px);
+        z-index: -1;
+    }
+
+    /* Animation for the moving border */
+    @keyframes border-glow-move {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+    }
+
+    .moving-border-container {
+        padding: 3px; /* Border thickness */
+        background: ${CARD_BG};
+        border-radius: 26px; /* 3xl border radius - 2px padding */
+        position: relative;
+        overflow: hidden;
+    }
+
+    .moving-border-container::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 26px;
+        background: linear-gradient(
+            45deg,
+            ${PRIMARY_COLOR},
+            ${ACCENT_COLOR},
+            ${PRIMARY_COLOR},
+            #7c3aed
+        );
+        background-size: 400% 400%;
+        animation: border-glow-move 6s ease-in-out infinite alternate;
+        z-index: 1;
+        opacity: 0.8;
+        filter: blur(10px); /* Add a slight blur to the glow */
+    }
+
+    .moving-border-content {
+        position: relative;
+        z-index: 2;
+        border-radius: 24px;
+        overflow: hidden;
+    }
+
+    .social-icon {
+        width: 45px;
+        height: 45px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .social-icon:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-3px);
+    }
+`;
+
 export default function Landing({ onGetStarted }) {
-  useScrollReveal();
+    useScrollReveal();
 
-  // parallax scroll
-  const [scrollY, setScrollY] = useState(0);
-  useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY || window.pageYOffset || 0);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const [scrollY, setScrollY] = useState(0);
+    useEffect(() => {
+        const onScroll = () => setScrollY(window.scrollY || window.pageYOffset || 0);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
 
-  return (
+    const particlesInit = (engine) => loadSlim(engine);
 
-    <div className="relative  text-white min-h-screen overflow-x-hidden font-sans">
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    return (
+        <div className="relative text-white min-h-screen overflow-x-hidden landing-page-container">
+            <style>{customStyles}</style>
 
-      {/* Background particle layer (far) */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        <Particles id="bg-particles" init={loadSlim} options={particlesOptionsBg} style={{ position: "absolute", inset: 0 }} />
-        <div className="absolute inset-0 top-[-50vh] h-[100vh] w-full" style={{ background: 'radial-gradient(circle at center top, rgba(147, 51, 234, 0.1) 0%, rgba(10, 7, 17, 0) 60%)' }} />
-      </div>
-
-      {/* Foreground particles (parallaxed slightly, in front) */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 5, pointerEvents: "none" }}>
-        <Particles id="fg-particles" init={loadSlim} options={particlesOptionsFront} style={{ position: "absolute", inset: 0, transform: `translateY(${scrollY * 0.02}px)` }} />
-      </div>
-
-      {/* Header (using NeuraTwin branding) */}
-      <header className="fixed top-0 left-0 right-0 z-20">
-        <nav className="max-w-[1400px] mx-auto px-6 md:px-10 py-4 flex items-center justify-center">
-          <div className="px-4 py-2 text-xs font-semibold rounded-lg border border-white/20 bg-black/50 hover:bg-black/70 transition cursor-pointer flex items-center gap-2">
-            <FaStar className="text-pink-400" />
-            NEURATWIN ANALYTICS
-          </div>
-        </nav>
-      </header>
-
-      {/* HERO (Transformed for AI Data Analyst focus) */}
-      <main className="pt-20 relative z-10">
-        <section id="home" className="min-h-[84vh] flex flex-col items-center justify-center text-center px-6 md:px-10">
-          <div className="max-w-4xl mx-auto w-full">
-            
-            {/* NEW App Badge (changed text) */}
-            <div className="new-badge inline-block text-white mb-6">
-                Meet NeuraTwin: Your Digital Analyst <span className="ml-2">→</span>
+            {/* Background particles */}
+            {/* ... (Particles code remains the same) ... */}
+            <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+                <Particles id="bg-particles" init={particlesInit} options={particlesOptionsBg} style={{ position: "absolute", inset: 0 }} />
             </div>
 
-            {/* Title (Transformed) */}
-            <h1 className="text-5xl md:text-7xl font-extrabold leading-tight mb-6 reveal-on-scroll">
-              <span className="block text-white">Transforming</span>
-              <span className="block glow-grad">Data into Actionable Insights.</span>
-            </h1>
-
-            {/* Subtext (Transformed) */}
-            <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-10 reveal-on-scroll" style={{ transitionDelay: '100ms' }}>
-              Harness the power of AI to ingest, clean, and analyze your complex business data. NeuraTwin delivers precise, predictive analytics, not just reports.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex gap-4 items-center justify-center mb-16 reveal-on-scroll" style={{ transitionDelay: '200ms' }}>
-              <button onClick={onGetStarted} className="px-6 py-3 rounded-xl btn-primary font-semibold text-white">
-                Get started today
-              </button>
-              <a href="#solutions" className="px-6 py-3 rounded-xl border border-white/20 text-gray-300 hover:text-white transition">
-                <span className="mr-2">ⓘ</span> See Core Features
-              </a>
+            {/* Foreground particles */}
+            <div style={{ position: "fixed", inset: 0, zIndex: 5, pointerEvents: "none" }}>
+                <Particles id="fg-particles" init={particlesInit} options={particlesOptionsFront} style={{ position: "absolute", inset: 0, transform: `translateY(${scrollY * 0.02}px)` }} />
             </div>
 
-            {/* Ratings & Stats (Kept for visual density) */}
-            <div className="flex justify-center gap-12 text-center text-gray-300 mb-16 reveal-on-scroll" style={{ transitionDelay: '300ms' }}>
-                <div className="border-r border-white/10 pr-12">
-                    <span className="block text-4xl font-bold text-white">4.9+</span>
-                    <span className="block text-sm text-gray-500 mt-1">Analyst Rating</span>
+            {/* Header */}
+            {/* ... (Header code remains the same) ... */}
+            <header className="fixed top-0 left-0 right-0 z-20 bg-[#0a0118]/80 backdrop-blur-md border-b border-purple-500/10">
+                <nav className="max-w-[1400px] mx-auto px-6 md:px-10 py-5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-fuchsia-600 rounded flex items-center justify-center">
+                            <FaBrain className="text-white text-sm" />
+                        </div>
+                        <span className="text-xl font-extrabold tracking-tight">
+                            MAND<span className="gradient-text">SIGHT</span>
+                        </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                        <Link to="/auth/login" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition text-sm font-medium">
+                            <FaUser className="text-sm" />
+                            Sign In
+                        </Link>
+                        <button className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 transition text-sm font-semibold">
+                            <span>Menu</span>
+                            <span className="text-lg">☰</span>
+                        </button>
+                    </div>
+                </nav>
+            </header>
+
+            {/* HERO SECTION */}
+            <main className="pt-20 relative z-10">
+                <section id="hero" className="min-h-screen flex items-center justify-start px-6 md:px-10 relative overflow-hidden">
+                    <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center py-20">
+                        
+                        {/* Left Content */}
+                        <div className="z-10 reveal-on-scroll">
+                            <h1 className="text-7xl md:text-8xl font-black leading-none mb-6">
+                                Mand<span className="gradient-text neon-heading">Sight</span>
+                            </h1>
+                            <p className="text-lg md:text-xl text-gray-300 max-w-xl mb-8 leading-relaxed">
+                                Transforming Data into Actionable Insights
+                            </p>
+
+                            {/* Checklist */}
+                            <div className="flex flex-col gap-3 mb-10">
+                                <div className="flex items-center gap-3 text-gray-300">
+                                    <FaCheck className="text-lg text-purple-400" />
+                                    <span className="font-medium">No-Code Predictive Modeling</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-gray-300">
+                                    <FaCheck className="text-lg text-purple-400" />
+                                    <span className="font-medium">Automated Reporting Engine</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-5 mb-12">
+                                <button onClick={onGetStarted} className="flex items-center gap-3 px-8 py-4 rounded-full btn-primary-modern font-semibold text-base">
+                                    Get Started
+                                    <FaArrowRight />
+                                </button>
+                                <a href="#contact" className="flex items-center gap-3 px-8 py-4 rounded-full btn-secondary-modern font-semibold text-base text-white">
+                                    <FaDatabase className="text-lg" />
+                                    Connect With Us
+                                </a>
+                            </div>
+                            
+                            <a href="#solutions" className="flex items-center gap-2 text-gray-400 hover:text-white transition text-sm uppercase tracking-widest font-medium">
+                                <FaAngleDown className="text-base" />
+                                SCROLL TO EXPLORE
+                            </a>
+                        </div>
+
+                        {/* Right Image - NOW ANIMATED */}
+                        <div className="relative z-10 hero-image-glow reveal-on-scroll">
+                            <div className="moving-border-container"> 
+                                <div className="moving-border-content">
+                                    <img
+                                        src={AI_HEAD_HERO} 
+                                        alt="AI Neural Network"
+                                        className="w-full h-auto object-cover rounded-2xl"
+                                        style={{
+                                            filter: 'brightness(80%) saturate(130%)',
+                                            mixBlendMode: 'screen'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                {/* STATS STRIP */}
+                {/* ... (Stats strip code remains the same) ... */}
+                <section id="stats" className="py-16 px-6 md:px-10 bg-black/30 backdrop-blur-sm border-y border-white/5">
+                    <div className="max-w-[1400px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 reveal-on-scroll">
+                        {HERO_STATS.map((stat, i) => (
+                            <div key={i} className="text-center">
+                                <div className="text-4xl md:text-5xl font-black gradient-text mb-2">{stat.value}</div>
+                                <div className="text-sm font-semibold text-white mb-1">{stat.label}</div>
+                                <div className="text-xs text-gray-400">{stat.sub}</div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* SOLUTIONS SECTION */}
+                {/* ... (Solutions section remains the same) ... */}
+                <section id="solutions" className="py-24 px-6 md:px-10 relative">
+                    <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        
+                        {/* Left Side: Image Block */}
+                        <div className="relative h-96 min-h-[400px] reveal-on-scroll hero-image-glow">
+                            <img
+                                src={AI_IMAGE_SERVICE}
+                                alt="Visualized Data Network"
+                                className="w-full h-full object-cover object-center rounded-2xl"
+                                style={{ filter: 'brightness(60%) saturate(120%)' }}
+                            />
+                            <div className="absolute inset-0 flex items-end p-8 rounded-2xl" style={{ background: 'linear-gradient(to top, #000000e0 0%, transparent 60%)' }}>
+                                <h3 className="text-3xl font-extrabold text-white leading-tight">
+                                    Predictive Analysis <span className="text-gray-400">→</span>
+                                </h3>
+                            </div>
+                        </div>
+
+                        {/* Right Side: Services List */}
+                        <div className="reveal-on-scroll">
+                            <span className="text-sm font-bold uppercase tracking-widest text-purple-400">OUR CORE CAPABILITIES</span>
+                            <h2 className="text-4xl md:text-5xl font-black mt-4 mb-10 leading-tight">
+                                <span className="gradient-text">AI-Powered</span> Solutions for Your Enterprise
+                            </h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                {SOLUTIONS.map((service, i) => (
+                                    <div key={i} className="glass-card p-6 rounded-xl">
+                                        {service.icon}
+                                        <h3 className="text-xl font-bold my-3">{service.title}</h3>
+                                        <p className="text-gray-400 text-sm leading-relaxed">
+                                            {service.description}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                {/* ADVANTAGE SECTION */}
+                {/* ... (Advantage section remains the same) ... */}
+                <section id="advantage" className="py-24 px-6 md:px-10 bg-black/20">
+                    <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                        
+                        <div className="reveal-on-scroll">
+                            <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight">
+                                The <span className="gradient-text">MandSight</span> Advantage for Your Business
+                            </h2>
+                            
+                            <div className="space-y-4 mb-10">
+                                {ABSOLUTE_ADVANTAGE.map((item, i) => (
+                                    <div key={i} className="flex items-start gap-4 p-5 glass-card rounded-xl">
+                                        <FaCheck className="text-xl text-purple-500 mt-1 shrink-0" />
+                                        <span className="text-base font-medium">{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <button onClick={onGetStarted} className="px-8 py-4 rounded-full btn-primary-modern font-semibold text-base">
+                                Start Predictive Analysis Now
+                            </button>
+                        </div>
+
+                        <div className="relative reveal-on-scroll hero-image-glow">
+                            <img
+                                src={AI_IMAGE_BOTTOM}
+                                alt="AI Dashboard"
+                                className="w-full h-auto rounded-2xl"
+                                style={{ filter: 'brightness(70%) saturate(120%)' }}
+                            />
+                            <div className="absolute inset-0 flex items-end p-8 rounded-2xl" style={{ background: 'linear-gradient(to top, #000000e0 0%, transparent 60%)' }}>
+                                <h3 className="text-3xl font-extrabold text-white leading-tight">
+                                    Maximize Your ROI <span className="text-gray-400">→</span>
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                {/* Social Links */}
+                {/* ... (Social links remain the same) ... */}
+                <div className="fixed right-8 bottom-8 flex gap-3 z-20">
+                    <div className="social-icon">
+                        <span className="text-white font-bold">𝕏</span>
+                    </div>
+                    <div className="social-icon">
+                        <span className="text-white text-lg">⚡</span>
+                    </div>
+                    <div className="social-icon">
+                        <span className="text-white text-sm font-semibold">in</span>
+                    </div>
                 </div>
-                <div>
-                    <span className="block text-4xl font-bold text-white">20K+</span>
-                    <span className="block text-sm text-gray-500 mt-1">Data Sets Processed</span>
-                </div>
-            </div>
 
-            {/* Subtle Partner Logos (Data Sources) */}
-            <div className="flex items-center justify-center gap-6 text-gray-500 text-lg reveal-on-scroll" style={{ transitionDelay: '400ms' }}>
-                <span className="font-bold">Salesforce</span>
-                <FaPlus className="text-white/10" />
-                <span className="font-bold">Google Sheets</span>
-                <FaPlus className="text-white/10" />
-                <span className="font-bold">MySQL</span>
-                <FaPlus className="text-white/10" />
-                <span className="font-bold">HubSpot</span>
-                <FaPlus className="text-white/10" />
-                <span className="font-bold">Stripe</span>
-                <FaPlus className="text-white/10" />
-                <span className="font-bold">APIs</span>
-            </div>
-
-          </div>
-        </section>
-
-        {/* SOLUTIONS SECTION (Transformed to show specific data analyst tools) */}
-        <section id="solutions" className="py-24 px-6 md:px-12 bg-black/10 relative">
-          <div className="absolute inset-0 neon-grid pointer-events-none opacity-5" />
-          <div className="max-w-6xl mx-auto relative z-10">
-            <h2 className="text-4xl md:text-5xl font-extrabold text-center mb-4 text-white reveal-on-scroll">
-              Core Capabilities for Faster
-            </h2>
-             <h2 className="text-4xl md:text-5xl font-extrabold text-center mb-4 text-white reveal-on-scroll">
-              Data-Driven Decisions
-            </h2>
-            <p className="text-lg text-gray-400 max-w-3xl mx-auto text-center mb-16 reveal-on-scroll" style={{ transitionDelay: '100ms' }}>
-              NeuraTwin’s modular design provides the precise tools needed to integrate, analyze, and act on your business intelligence instantly.
-            </p>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              {SOLUTIONS.map((solution, i) => (
-                <article
-                  key={i}
-                  className="p-8 rounded-2xl border border-white/10 bg-[#120D1A]/70 shadow-2xl reveal-on-scroll"
-                  style={{ transitionDelay: `${i * 100}ms` }}
-                >
-                  {solution.icon} 
-                  <h3 className="text-xl font-bold mb-3 text-white">
-                    {solution.title}
-                  </h3>
-                  <p className="text-gray-400 text-sm">
-                    {solution.description}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* MID-SECTION CTA (Transformed to Data/Insight Focus) */}
-        <section id="cta-mid" className="py-20 px-6 md:px-12 bg-[#0A0711] relative">
-          <div className="max-w-4xl mx-auto text-center reveal-on-scroll">
-            <h2 className="text-4xl md:text-5xl font-extrabold leading-tight mb-4">
-              <span className="block text-white">Move from Raw Data to</span>
-              <span className="block glow-grad">High-Impact Decisions with</span>
-              <span className="block glow-grad">Zero Code Analytics</span>
-            </h2>
-
-            <p className="text-gray-400 max-w-2xl mx-auto mb-8">
-              NeuraTwin simplifies the entire BI lifecycle: automatically connect systems, detect trends, and predict market outcomes in one platform.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex gap-4 items-center justify-center">
-              <button onClick={onGetStarted} className="px-6 py-3 rounded-xl btn-primary font-semibold text-white">
-                Try NeuraTwin Today
-              </button>
-              <a href="#solutions" className="px-6 py-3 rounded-xl border border-white/20 text-gray-300 hover:text-white transition">
-                <span className="mr-2">ⓘ</span> Request a Data Demo
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {/* FINAL CTA / FOOTER BLOCK (Transformed to Data Focus) */}
-        <section id="cta-final" className="py-24 px-6 md:px-12 bg-black relative overflow-hidden">
-          <div className="max-w-6xl mx-auto relative z-10 grid grid-cols-1 md:grid-cols-2 gap-10">
-            {/* Left Content */}
-            <div className="reveal-on-scroll left">
-              <div className="text-pink-500 uppercase text-sm font-bold mb-2">LIMITED TIME OFFER</div>
-              <h2 className="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
-                Unlock the Full Power of Your Business Data
-              </h2>
-              <p className="text-gray-400 max-w-md mb-8">
-                Start your free trial now and gain instant access to predictive analytics, automated reports, and unlimited data sources.
-              </p>
-              
-              {/* CTA Buttons */}
-              <div className="flex gap-4 items-center">
-                <button onClick={onGetStarted} className="px-6 py-3 rounded-xl btn-primary font-semibold text-white">
-                  Get Started
-                </button>
-              </div>
-            </div>
-
-            {/* Right Image/Visualization (Kept structure, implied data visualization) */}
-            <div className="relative h-96 reveal-on-scroll right">
-                {/* The visualization with the pink upward arrow */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <img
-                        src="https://images.unsplash.com/photo-1551288258-2089d41d1d86?auto=format&fit=crop&q=80&w=1400" // New image for data visualization
-                        alt="AI Growth Visualization"
-                        className="w-full h-full object-cover rounded-2xl opacity-60"
-                        style={{ filter: 'grayscale(100%) brightness(50%)' }}
-                    />
-                    {/* Placeholder for the pink arrow and glow effect */}
-                    <div className="absolute bottom-[-15%] right-0 w-3/4 h-3/4" style={{ background: 'radial-gradient(circle at 100% 100%, rgba(233, 30, 99, 0.4) 0%, transparent 70%)' }} />
-                    <div className="absolute w-32 h-64 bg-pink-500/80 rounded-full" style={{ right: '15%', top: '25%', transform: 'rotate(-45deg)', boxShadow: '0 0 50px #e91e63' }} />
-                </div>
-            </div>
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="py-12 text-center text-gray-500 bg-black/50">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="mb-4">&copy; {new Date().getFullYear()} NeuraTwin — MN Web Solutions</div>
-            <div className="text-sm">Instant insights. Powered by AI.</div>
-          </div>
-        </footer>
-      </main>
-    </div>
-  );
+                {/* FOOTER */}
+                {/* ... (Footer remains the same) ... */}
+                <footer className="py-12 text-center bg-black/50 border-t border-white/5">
+                    <div className="max-w-6xl mx-auto px-6">
+                        <div className="flex justify-center items-center gap-3 mb-4">
+                            <FaBrain className="text-2xl text-purple-400" />
+                            <span className="text-xl font-extrabold tracking-tight">
+                                MandSight <span className="text-gray-500">Analytics</span>
+                            </span>
+                        </div>
+                        <div className="text-sm text-gray-400 mb-2">© {new Date().getFullYear()} MandSight — MN Web Solutions</div>
+                        <div className="text-xs text-gray-500">The APEX of Data Intelligence.</div>
+                    </div>
+                </footer>
+            </main>
+        </div>
+    );
 }

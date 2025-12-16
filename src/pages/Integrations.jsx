@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Database, CheckCircle, Plus, ArrowRight, Zap, RefreshCw, ExternalLink } from 'lucide-react';
+import { Database, CheckCircle, Plus, ArrowRight, Zap, RefreshCw, ExternalLink, XCircle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
 // --- Configuration ---
@@ -13,6 +13,7 @@ const IntegrationsPage = () => {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState(null);
     const [statusMessage, setStatusMessage] = useState(null); 
+    const [disconnecting, setDisconnecting] = useState(null); // New state for disconnect loading
 
     // Suggested integrations with realistic data sources
     const suggestedIntegrations = [
@@ -82,9 +83,9 @@ const IntegrationsPage = () => {
             console.error('Error fetching connected apps:', error);
             setStatusMessage({ text: 'Network error. Could not reach the backend.', type: 'error' });
         } finally {
-            setLoading(false); // ALWAYS set loading to false here
+            setLoading(false); 
         }
-    }, []); // Empty dependency array means this function is stable
+    }, []); 
 
 
     const handleConnect = async (integrationId) => {
@@ -120,11 +121,47 @@ const IntegrationsPage = () => {
         }
     };
 
-    const handleDisconnect = async (integrationId) => {
-        // Placeholder for future disconnect API call
-        setStatusMessage({ text: `Disconnecting ${integrationId} is not yet implemented on the backend.`, type: 'info' });
-        console.log('Disconnect placeholder:', integrationId);
-    };
+    /**
+     * Implementation for disconnecting an integration.
+     * Requires a corresponding API endpoint on the backend (e.g., /disconnect/google_sheets)
+     * to revoke and delete the stored tokens.
+     */
+    const handleDisconnect = useCallback(async (integrationId) => {
+        if (integrationId !== 'google_sheets') return;
+        
+        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        if (!token) {
+            setStatusMessage({ text: 'Authentication token missing. Please log in.', type: 'error' });
+            return;
+        }
+        
+        setDisconnecting(integrationId);
+
+        try {
+            // Assuming the backend has a POST or DELETE endpoint for revoking tokens
+            const response = await fetch(`${API_BASE_URL}/disconnect/${integrationId}`, {
+                method: 'POST', 
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                setStatusMessage({ text: `${integrationId.replace('_', ' ')} disconnected successfully.`, type: 'success' });
+                fetchConnectedApps(); // Refresh the list to remove the card
+            } else {
+                // Read error message from backend if possible
+                const errorData = await response.json().catch(() => ({ message: 'Server error' }));
+                setStatusMessage({ text: `Failed to disconnect ${integrationId.replace('_', ' ')}: ${errorData.message || response.statusText}.`, type: 'error' });
+            }
+        } catch (error) {
+            console.error('Error disconnecting:', error);
+            setStatusMessage({ text: 'Network error during disconnect.', type: 'error' });
+        } finally {
+            setDisconnecting(null);
+        }
+    }, [fetchConnectedApps]); // Include fetchConnectedApps as a dependency
 
     // --- 1. Initial Data Fetch ---
     useEffect(() => {
@@ -147,13 +184,17 @@ const IntegrationsPage = () => {
             setStatusMessage({ text: 'Google Sheets connection failed. Please try again.', type: 'error' });
             window.history.replaceState(null, '', window.location.pathname);
         }
-        
-        // Status message timeout
-        if (statusMessage?.type === 'success' || statusMessage?.type === 'info') {
-            const timer = setTimeout(() => setStatusMessage(null), 5000);
+    }, [searchParams, fetchConnectedApps]);
+
+    // --- 3. Status message timeout (Cleaned up) ---
+    useEffect(() => {
+        if (statusMessage) {
+            const timer = setTimeout(() => {
+                setStatusMessage(null);
+            }, 6000); // 6 seconds for better visibility
             return () => clearTimeout(timer);
         }
-    }, [searchParams, fetchConnectedApps, statusMessage]);
+    }, [statusMessage]);
 
 
     const isConnected = (id) => connectedApps.some(app => app.id === id);
@@ -224,12 +265,28 @@ const IntegrationsPage = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => handleDisconnect(integration.id)}
-                            className="flex-1 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg font-medium transition-all duration-200 text-sm"
+                            disabled={disconnecting === integration.id}
+                            className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 text-sm flex items-center justify-center gap-2 ${
+                                disconnecting === integration.id
+                                    ? 'bg-red-500/20 border border-red-500/50 text-red-400 cursor-wait'
+                                    : 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-400'
+                            }`}
                         >
-                            Disconnect
+                            {disconnecting === integration.id ? (
+                                <>
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                    Disconnecting...
+                                </>
+                            ) : (
+                                <>
+                                    <XCircle className="w-4 h-4" />
+                                    Disconnect
+                                </>
+                            )}
                         </button>
                         <button 
                             onClick={fetchConnectedApps} 
+                            disabled={disconnecting === integration.id}
                             className="px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 text-gray-300 rounded-lg font-medium transition-all duration-200 text-sm flex items-center gap-2"
                         >
                             <RefreshCw className="w-4 h-4" />
@@ -244,7 +301,7 @@ const IntegrationsPage = () => {
                             integration.comingSoon || !integration.isImplemented
                                 ? 'bg-gray-700/30 border border-gray-700 text-gray-500 cursor-not-allowed'
                                 : connecting === integration.id
-                                ? 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400'
+                                ? 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 cursor-wait'
                                 : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40'
                         }`}
                     >
