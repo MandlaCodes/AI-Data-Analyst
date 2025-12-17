@@ -33,6 +33,7 @@ ChartJS.register(
 );
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+const AUTH_TOKEN_KEY = "adt_token"; // Synchronized with Integrations.jsx
 
 /* ---------- Data Processing Helpers ---------- */
 const isDate = (value) => {
@@ -235,7 +236,7 @@ function SheetsDropdown({ sheetsList, selectedSheet, setSelectedSheet }) {
             <div className={`absolute left-0 right-0 mt-1 rounded-lg bg-gray-900 shadow-2xl border border-purple-900/50 overflow-hidden z-20 transition-all duration-300 ${isOpen ? 'opacity-100 max-h-60 translate-y-0' : 'opacity-0 max-h-0 -translate-y-2 pointer-events-none'}`}>
                 <div className="max-h-56 overflow-y-auto">
                     {!sheetsList.length ? (
-                        <div className="p-3 text-center text-gray-500 text-sm">No sheets found. Check connection.</div>
+                        <div className="p-3 text-center text-gray-500 text-sm italic">Searching for spreadsheets...</div>
                     ) : (
                         sheetsList.map(sheet => (
                             <div key={sheet.id} onClick={() => { setSelectedSheet(sheet.id); setIsOpen(false); }} className={`p-3 text-sm cursor-pointer transition-colors duration-200 truncate ${sheet.id === selectedSheet ? 'bg-purple-700/50 text-white font-semibold' : 'text-gray-300 hover:bg-gray-800'}`}>{sheet.name}</div>
@@ -249,8 +250,10 @@ function SheetsDropdown({ sheetsList, selectedSheet, setSelectedSheet }) {
 
 /* ---------- Main Analytics Component ---------- */
 export default function Analytics() {
-    const profile = JSON.parse(localStorage.getItem("adt_profile") || '{"user_id":"test-user"}');
-    const userToken = localStorage.getItem("adt_token");
+    // UPDATED: Standardizing how we grab the token and ID
+    const userToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    const profileStr = localStorage.getItem("adt_profile");
+    const profile = profileStr ? JSON.parse(profileStr) : { user_id: "test-user" };
     const userId = profile.id || profile.user_id; 
 
     const [showModal, setShowModal] = useState(false);
@@ -296,17 +299,33 @@ export default function Analytics() {
         return () => { cancelled = true; };
     }, [userId, userToken]);
 
+    // FETCH GOOGLE SHEETS EFFECT - SYNCHRONIZED WITH INTEGRATIONS.JSX
     useEffect(() => {
         if (!showModal || !selectedApps.includes("google_sheets") || !userToken) return;
         let cancelled = false;
         (async () => {
             try {
-                const res = await axios.get(`${API_BASE_URL}/google/sheets`, { 
-                    headers: { Authorization: `Bearer ${userToken}` }
+                // First verify connection like IntegrationsPage does
+                const verifyRes = await fetch(`${API_BASE_URL}/connected-apps`, {
+                    headers: { 'Authorization': `Bearer ${userToken}` }
                 });
-                if (!cancelled) setSheetsList(res.data.files || []);
+                const verifyData = await verifyRes.json();
+                
+                // Only fetch if backend confirms google_sheets is connected
+                if (verifyData.google_sheets) {
+                    const res = await axios.get(`${API_BASE_URL}/google/sheets`, { 
+                        headers: { Authorization: `Bearer ${userToken}` }
+                    });
+                    if (!cancelled) {
+                        const list = res.data.files || res.data.sheets || (Array.isArray(res.data) ? res.data : []);
+                        setSheetsList(list);
+                    }
+                } else {
+                    console.warn("Analytics: Google Sheets not connected in integrations.");
+                    if (!cancelled) setSheetsList([]);
+                }
             } catch(e) { 
-                console.error("Failed to fetch sheets:", e);
+                console.error("Analytics: Failed to fetch sheets:", e);
                 if (!cancelled) setSheetsList([]); 
             }
         })();
