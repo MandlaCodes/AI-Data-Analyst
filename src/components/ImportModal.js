@@ -1,130 +1,87 @@
-import React from "react";
-import { FiX, FiUploadCloud, FiChevronDown, FiCheckCircle } from "react-icons/fi";
-import { MdOutlineTableChart } from "react-icons/md";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { FiX, FiCloud, FiChevronRight } from "react-icons/fi";
+import { FaGoogleDrive, FaSpinner } from "react-icons/fa";
 
-const SourceCard = ({ icon: Icon, title, description, isSelected, onClick, disabled }) => (
-    <div 
-        onClick={onClick} 
-        className={`p-5 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-4 border-2 ${
-            disabled ? 'opacity-50 cursor-not-allowed bg-gray-900/50 border-gray-800' : 
-            isSelected ? 'border-purple-500 bg-purple-900/10 shadow-lg shadow-purple-900/50' : 
-            'border-gray-800 hover:border-cyan-500/50 bg-gray-900/60'
-        }`} 
-        style={{ backdropFilter: 'blur(4px)' }}
-    >
-        <Icon size={32} className={isSelected ? "text-purple-400" : "text-gray-400"} />
-        <div className="flex-1">
-            <h4 className="font-semibold text-white">{title}</h4>
-            <p className="text-xs text-gray-400">{description}</p>
-        </div>
-        {isSelected && <FiCheckCircle size={20} className="text-cyan-400" />}
-    </div>
-);
+export function ImportModal({ 
+    onClose, selectedApps, setSelectedApps, selectedSheet, 
+    setSelectedSheet, setCsvToImport, csvToImport, onImport 
+}) {
+    const [sheets, setSheets] = useState([]); 
+    const [loading, setLoading] = useState(false);
 
-const SheetsDropdown = ({ sheetsList, selectedSheet, setSelectedSheet }) => {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const selectedName = selectedSheet ? (sheetsList.find(s => s.id === selectedSheet)?.name || "-- Choose Sheet --") : "-- Choose Sheet --";
-    
+    useEffect(() => {
+        if (selectedApps?.includes("google_sheets")) {
+            const fetchSheets = async () => {
+                setLoading(true);
+                try {
+                    const res = await axios.get("https://ai-data-analyst-backend-1nuw.onrender.com/google/sheets", {
+                        headers: { Authorization: `Bearer ${localStorage.getItem("adt_token")}` }
+                    });
+                    // FIX: Your backend returns { "files": [...] }
+                    setSheets(res.data?.files || []); 
+                } catch (err) {
+                    console.error("Fetch error:", err);
+                    setSheets([]); 
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchSheets();
+        }
+    }, [selectedApps]);
+
     return (
-        <div className="relative">
-            <button 
-                type="button" 
-                onClick={() => setIsOpen(!isOpen)} 
-                className={`w-full p-3 flex justify-between items-center rounded-lg text-left transition duration-300 ${
-                    isOpen ? 'bg-gray-700 border-purple-500' : 'bg-gray-800 border-gray-700 hover:border-purple-500/50'
-                } border text-white`}
-            >
-                <span className={`truncate ${selectedSheet ? 'text-white' : 'text-gray-400'}`}>{selectedName}</span>
-                <FiChevronDown size={18} className={`ml-2 transform transition-transform ${isOpen ? 'rotate-180 text-purple-400' : 'rotate-0 text-gray-400'}`} />
-            </button>
-            
-            {isOpen && (
-                <div className="absolute left-0 right-0 mt-2 rounded-lg bg-slate-800 shadow-2xl border border-purple-500/50 z-[100] animate-in fade-in zoom-in-95 duration-200">
-                    <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
-                        {sheetsList.length > 0 ? (
-                            sheetsList.map(sheet => (
-                                <div 
-                                    key={sheet.id} 
-                                    onClick={() => { setSelectedSheet(sheet.id); setIsOpen(false); }} 
-                                    className={`p-3 text-sm rounded-md mb-1 cursor-pointer transition-colors ${
-                                        sheet.id === selectedSheet ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                    }`}
-                                >
-                                    {sheet.name}
-                                </div>
-                            ))
-                        ) : (
-                            <div className="p-4 text-center text-xs text-gray-500 italic">No sheets found in account</div>
-                        )}
-                    </div>
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="bg-[#05070A] w-full max-w-xl rounded-[3rem] border border-white/10 p-10 shadow-2xl">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="font-black italic uppercase text-white tracking-widest text-lg">Ingestion_Center</h2>
+                    <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2"><FiX size={24} /></button>
                 </div>
-            )}
-        </div>
-    );
-};
 
-export const ImportModal = ({ onClose, selectedApps, setSelectedApps, sheetsList, selectedSheet, setSelectedSheet, setCsvToImport, csvToImport, onImport }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        {/* Removed overflow-hidden from here to allow dropdown to pop out */}
-        <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-3xl shadow-2xl relative">
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-white">Import Data</h3>
-                <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                    <FiX size={24} />
-                </button>
-            </div>
-            
-            <div className="p-8 space-y-6">
-                <div className="space-y-4">
-                    <SourceCard 
-                        icon={MdOutlineTableChart} 
-                        title="Google Sheets" 
-                        description="Import from your connected drive"
-                        isSelected={selectedApps.includes("google_sheets")} 
-                        onClick={() => setSelectedApps(prev => prev.includes("google_sheets") ? [] : ["google_sheets"])} 
-                    />
-                    
-                    {selectedApps.includes("google_sheets") && (
-                        <div className="animate-in slide-in-from-top-2 duration-300">
-                            <SheetsDropdown 
-                                sheetsList={sheetsList} 
-                                selectedSheet={selectedSheet} 
-                                setSelectedSheet={setSelectedSheet} 
-                            />
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <button onClick={() => setSelectedApps(["google_sheets"])} 
+                            className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center ${selectedApps?.includes("google_sheets") ? "border-purple-500 bg-purple-500/10" : "border-white/5 bg-white/5"}`}>
+                            <FaGoogleDrive size={30} className="mb-2 text-green-500" />
+                            <div className="text-[10px] font-black uppercase text-white">Google Sheets</div>
+                        </button>
+                        <button onClick={() => setSelectedApps(["other"])} 
+                            className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center ${selectedApps?.includes("other") ? "border-purple-500 bg-purple-500/10" : "border-white/5 bg-white/5"}`}>
+                            <FiCloud size={30} className="mb-2 text-blue-500" />
+                            <div className="text-[10px] font-black uppercase text-white">Local CSV</div>
+                        </button>
+                    </div>
+
+                    {selectedApps?.includes("google_sheets") && (
+                        <div className="space-y-3 animate-in fade-in duration-300">
+                            <label className="text-[10px] font-black text-slate-500 uppercase px-2">Select Spreadsheet</label>
+                            {loading ? (
+                                <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    <FaSpinner className="animate-spin text-purple-500" />
+                                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter">Syncing Drive...</span>
+                                </div>
+                            ) : (
+                                <select value={selectedSheet} onChange={(e) => setSelectedSheet(e.target.value)} 
+                                    className="w-full bg-[#0F111A] border border-white/10 p-4 rounded-2xl text-white outline-none focus:border-purple-500 transition-all">
+                                    <option value="" className="bg-black text-slate-500">-- Choose a File --</option>
+                                    {sheets.map(s => <option key={s.id} value={s.id} className="bg-black">{s.name}</option>)}
+                                </select>
+                            )}
                         </div>
+                    )}
+
+                    {selectedApps?.includes("other") && (
+                        <input type="file" accept=".csv" onChange={(e) => setCsvToImport(e.target.files[0])} 
+                            className="w-full bg-white/5 p-4 rounded-2xl border border-white/10 text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-purple-600 file:text-white" />
                     )}
                 </div>
 
-                <div className="space-y-4">
-                    <input 
-                        type="file" 
-                        accept=".csv" 
-                        className="hidden" 
-                        id="csv-upload" 
-                        onChange={(e) => { 
-                            if(e.target.files[0]) { 
-                                setCsvToImport(e.target.files[0]); 
-                                setSelectedApps(prev => [...new Set([...prev, "other"])]); 
-                            }
-                        }} 
-                    />
-                    <label htmlFor="csv-upload" className="block cursor-pointer">
-                        <SourceCard 
-                            icon={FiUploadCloud} 
-                            title="Local CSV" 
-                            description={csvToImport ? `Ready: ${csvToImport.name}` : "Upload from computer"} 
-                            isSelected={selectedApps.includes("other")} 
-                        />
-                    </label>
-                </div>
-
-                <button 
-                    onClick={onImport} 
-                    className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold shadow-lg shadow-purple-600/20 active:scale-[0.98] transition-all mt-4"
-                >
-                    Import Selected
+                <button onClick={onImport} disabled={(!selectedSheet && !csvToImport) || loading}
+                    className="w-full mt-10 py-5 bg-white text-black rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:scale-[1.02] transition-all disabled:opacity-20 flex justify-center items-center gap-2">
+                    Initialize Stream <FiChevronRight />
                 </button>
             </div>
         </div>
-    </div>
-);
+    );
+}
