@@ -125,10 +125,10 @@ export default function Settings() {
 
     return (
         // The container background is dark, and padding is removed from the sides of the main content box.
-        <div className="w-full h-full text-white" style={{ background: "linear-gradient(180deg,#0e121e,#15082e)" }}>
+        <div className="w-full h-full text-white" >
             
             {/* Main Content Panel - Mimicking the flat, clean box design */}
-            <div className="bg-[#121626] min-h-screen"> 
+            <div> 
                 
                 {/* Header (Similar to the image's "Settings" title) */}
                 <div className="px-10 pt-8 pb-4 border-b border-gray-700/50">
