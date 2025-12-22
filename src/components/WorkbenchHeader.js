@@ -1,9 +1,8 @@
 import React from "react";
-import { FiPlus, FiSave, FiCloudLightning, FiActivity, FiCpu } from "react-icons/fi";
+import { FiPlus, FiSave, FiCloudLightning } from "react-icons/fi";
 import { MdOutlineInsights } from "react-icons/md";
-import { FaBrain } from "react-icons/fa";
 
-export const WorkbenchHeader = ({ isSaving, onImport, onSave, onOpenAI }) => (
+export const WorkbenchHeader = ({ isSaving, onImport, onSave }) => (
     /* max-w-full + box-border: Prevents the horizontal scroll/overflow.
        left-0 + right-0: Ensures it anchors perfectly to both sides.
     */
@@ -61,18 +60,9 @@ export const WorkbenchHeader = ({ isSaving, onImport, onSave, onOpenAI }) => (
                         className="flex items-center gap-2.5 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all text-slate-300 hover:text-emerald-400 disabled:opacity-20"
                     >
                         <FiSave size={18} /> 
-                        {isSaving ? "Saving" : "Commit"}
+                        {isSaving ? "Saving" : "Save"}
                     </button>
                 </div>
-
-                {/* AI Insights - High Contrast Action */}
-                <button 
-                    onClick={onOpenAI} 
-                    className="group relative flex items-center gap-3 px-8 py-3.5 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:shadow-[0_15px_40px_rgba(168,85,247,0.25)] active:scale-95 overflow-hidden"
-                >
-                    <FaBrain size={18} className="transition-transform group-hover:scale-110" />
-                    <span className="whitespace-nowrap">AI Insights</span>
-                </button>
             </div>
         </div>
     </header>

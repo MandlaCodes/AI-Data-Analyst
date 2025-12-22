@@ -10,9 +10,6 @@ const ACCENT_COLOR = "#c026d3";
 const DARK_BG = "#0a0118";
 const CARD_BG = "#1a0b2e";
 
-// Removed video constant
-// const BACKGROUND_VIDEO_URL = "/3163534-uhd_3840_2160_30fps.mp4";
-
 const HERO_STATS = [
     { value: '4.9+', label: 'Analyst Rating', sub: 'Verified Reviews' },
     { value: '20K+', label: 'Data Sets Processed', sub: 'Validated by AI' },
@@ -74,12 +71,6 @@ const customStyles = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
     .landing-page-container { background: transparent; min-height: 100vh; width: 100%; position: relative; }
-    
-    /* Removed filter: brightness to make video clear */
-    
-    /* Removed solid colors and blur from overlay */
-    .bg-content-overlay { background-color: transparent; backdrop-filter: none; }
-    
     .reveal-on-scroll { opacity: 0; transform: translateY(20px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
     .reveal-on-scroll.revealed { opacity: 1; transform: translateY(0); }
     .btn-primary-modern { background: white; color: ${DARK_BG}; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1); }
@@ -104,19 +95,54 @@ export default function Landing({ onGetStarted }) {
         <div className="relative text-white min-h-screen overflow-x-hidden landing-page-container">
             <style>{customStyles}</style>
 
-            {/* Particles Effect */}
+            {/* HIGH-END NEURAL PARTICLES */}
             <div className="fixed inset-0 pointer-events-none z-0">
-                <Particles id="tsparticles" init={particlesInit} options={{
-                    fullScreen: { enable: false },
-                    particles: {
-                        number: { value: 30 },
-                        color: { value: PRIMARY_COLOR },
-                        opacity: { value: 0.2 },
-                        size: { value: { min: 1, max: 2 } },
-                        move: { enable: true, speed: 0.5 },
-                        links: { enable: true, distance: 150, color: PRIMARY_COLOR, opacity: 0.1 }
-                    }
-                }} className="absolute inset-0" />
+                <Particles 
+                    id="tsparticles" 
+                    init={particlesInit} 
+                    options={{
+                        fullScreen: { enable: false },
+                        fpsLimit: 120,
+                        interactivity: {
+                            events: {
+                                onHover: { enable: true, mode: "grab" },
+                                resize: true,
+                            },
+                            modes: {
+                                grab: {
+                                    distance: 220,
+                                    links: { opacity: 0.4, color: PRIMARY_COLOR }
+                                },
+                            },
+                        },
+                        particles: {
+                            number: { value: 90, density: { enable: true, area: 900 } },
+                            color: { value: [PRIMARY_COLOR, ACCENT_COLOR, "#6366f1"] },
+                            links: {
+                                enable: true,
+                                color: PRIMARY_COLOR,
+                                distance: 160,
+                                opacity: 0.15,
+                                width: 1,
+                                triangles: { enable: true, opacity: 0.03 } // This creates the geometric AI mesh
+                            },
+                            move: {
+                                enable: true,
+                                speed: 0.6,
+                                direction: "none",
+                                random: true,
+                                outModes: { default: "bounce" }
+                            },
+                            size: { value: { min: 1, max: 3 } },
+                            opacity: {
+                                value: { min: 0.1, max: 0.4 },
+                                animation: { enable: true, speed: 1, minimumValue: 0.1 }
+                            }
+                        },
+                        detectRetina: true,
+                    }} 
+                    className="absolute inset-0" 
+                />
             </div>
 
             {/* Header */}
@@ -126,7 +152,7 @@ export default function Landing({ onGetStarted }) {
                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-fuchsia-600 rounded flex items-center justify-center">
                             <FaBrain className="text-white text-sm" />
                         </div>
-                        <span className="text-xl font-extrabold tracking-tight uppercase">MAND<span className="gradient-text">SIGHT</span></span>
+                        <span className="text-xl font-extrabold tracking-tight uppercase">METRIA<span className="gradient-text">AI</span></span>
                     </div>
                     <Link to="/auth/login" className="px-5 py-2 rounded-full bg-white/10 border border-white/20 text-sm font-medium flex items-center gap-2">
                         <FaUser /> Sign In
@@ -140,10 +166,10 @@ export default function Landing({ onGetStarted }) {
                     <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                         <div className="reveal-on-scroll">
                             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-tight mb-4">
-                                Mand<span className="gradient-text neon-heading">Sight</span>
+                                Metria<span className="gradient-text neon-heading">AI</span>
                             </h1>
                             <p className="text-lg md:text-xl text-gray-300 max-w-xl mb-6">
-                                Transforming Data into Actionable Insights. The APEX of intelligence.
+                                Transforming Data into Actionable Insights. The APEX of enterprise intelligence.
                             </p>
                             <div className="flex flex-col gap-2 mb-8">
                                 <div className="flex items-center gap-3 text-gray-300 font-medium"><FaCheck className="text-purple-400" /> No-Code Predictive Modeling</div>
@@ -242,7 +268,7 @@ export default function Landing({ onGetStarted }) {
 
                 {/* FOOTER */}
                 <footer className="py-10 text-center bg-transparent border-t border-white/5">
-                    <p className="text-sm text-gray-400">© {new Date().getFullYear()} MandSight — MN Web Solutions</p>
+                    <p className="text-sm text-gray-400">© {new Date().getFullYear()} MetriaAI — MN Web Solutions</p>
                 </footer>
             </main>
         </div>

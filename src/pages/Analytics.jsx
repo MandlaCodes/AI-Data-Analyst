@@ -1,37 +1,35 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
 import { FaSpinner } from 'react-icons/fa';
 import { MdOutlineAnalytics, MdOutlineTableChart } from "react-icons/md";
-import { FiTrash2, FiPlus, FiActivity, FiTrendingUp, FiHash, FiBarChart2, FiEye, FiZap } from "react-icons/fi";
-import { Pie } from 'react-chartjs-2';
-
+import { FiTrash2, FiPlus, FiActivity } from "react-icons/fi";
 import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
-import { AIAnalysisPanel } from '../components/AIAnalysisPanel';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+const AUTH_TOKEN_KEY = "adt_token";
 
 export default function Analytics() {
-    const userToken = localStorage.getItem("adt_token");
+    const userToken = localStorage.getItem(AUTH_TOKEN_KEY);
     
-    // Core State
     const [allDatasets, setAllDatasets] = useState([]);
     const [activeDatasets, setActiveDatasets] = useState([]);
-    const [savedInsights, setSavedInsights] = useState([]);
+    const [chartType, setChartType] = useState("line");
     const [showModal, setShowModal] = useState(false);
-    const [isAnalysisPanelOpen, setIsAnalysisPanelOpen] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Import Params
     const [selectedApps, setSelectedApps] = useState([]);
+    const [sheetsList, setSheetsList] = useState([]);
     const [selectedSheet, setSelectedSheet] = useState("");
     const [csvToImport, setCsvToImport] = useState(null);
 
-    // --- LOGIC: Data Processing & Categorical Identification ---
+    const datasetColors = ["#A78BFA", "#22C55E", "#F97316", "#EAB308"];
 
     const sanitizeCellValue = (value) => {
         if (value === null || value === undefined || value === "") return "";
@@ -40,180 +38,242 @@ export default function Analytics() {
         return !isNaN(numericValue) && str.length > 0 ? numericValue : str;
     };
 
-    const getCategoricalData = (dataset) => {
-        const headers = dataset.data[0];
+    const calculateHealthScore = (dataset) => {
         const rows = dataset.data.slice(1);
-        
-        // Find a column that isn't numeric and has repeating values
-        const catColIdx = headers.findIndex((_, idx) => {
-            const sample = rows.slice(0, 10).map(r => sanitizeCellValue(r[idx]));
-            return sample.some(v => typeof v === 'string' && v.length > 0);
-        });
-
-        if (catColIdx === -1) return null;
-
-        const counts = {};
+        const numericIdx = dataset.numericCols[0];
+        let issues = 0;
+        const vals = rows.map(r => sanitizeCellValue(r[numericIdx])).filter(v => typeof v === 'number');
+        const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
         rows.forEach(row => {
-            const val = row[catColIdx] || "Unknown";
-            counts[val] = (counts[val] || 0) + 1;
+            const val = sanitizeCellValue(row[numericIdx]);
+            if (val === "" || val === null || val === undefined) issues++;
+            if (typeof val === 'number' && val > avg * 5 && avg !== 0) issues += 0.5;
         });
-
-        return {
-            label: headers[catColIdx],
-            labels: Object.keys(counts),
-            values: Object.values(counts)
-        };
+        const score = Math.max(0, 100 - (issues / (rows.length || 1)) * 100);
+        return Math.round(score);
     };
 
-    const globalAggregates = useMemo(() => {
-        if (activeDatasets.length === 0) return { totalRecords: 0, totalSum: 0, avgValue: 0 };
-        let records = 0; let sum = 0;
-        activeDatasets.forEach(ds => {
-            records += ds.rows;
-            Object.values(ds.metrics).forEach(m => sum += m.total);
+    const parseCSVFile = async (file) => {
+        const text = await file.text();
+        const rows = text.split(/\r?\n/).filter(Boolean);
+        return rows.map(r => r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, '').replace(/""/g, '"')));
+    };
+
+    const detectNumericColumns = (values) => {
+        if (!values || values.length < 2) return [];
+        return values[0].map((_, colIndex) => {
+            const sample = values.slice(1, 6).map(r => sanitizeCellValue(r[colIndex]));
+            return sample.some(v => typeof v === "number") ? colIndex : null;
+        }).filter(i => i !== null);
+    };
+
+    const detectCategoryColumn = (values, numericIndexes) => {
+        for (let i = 0; i < values[0].length; i++) {
+            if (!numericIndexes.includes(i)) return { colIndex: i, header: values[0][i] };
+        }
+        return null;
+    };
+
+    const computeMetrics = (values, numericIndexes) => {
+        const metrics = {};
+        numericIndexes.forEach(idx => {
+            const colName = values[0][idx];
+            const arr = values.slice(1).map(r => sanitizeCellValue(r[idx])).filter(n => typeof n === "number");
+            const total = arr.reduce((a, b) => a + b, 0);
+            metrics[colName] = { total, avg: total / (arr.length || 1), max: Math.max(...arr), min: Math.min(...arr), count: arr.length };
         });
-        return { totalRecords: records, totalSum: sum, avgValue: sum / (records || 1) };
-    }, [activeDatasets]);
+        return metrics;
+    };
+
+    useEffect(() => {
+        const load = async () => {
+            if (!userToken) { setIsInitializing(false); return; }
+            try {
+                const res = await axios.get(`${API_BASE_URL}/analysis/current`, { headers: { Authorization: `Bearer ${userToken}` } });
+                if (res.data?.results) {
+                    const loaded = res.data.results.allDatasets || [];
+                    setAllDatasets(loaded);
+                    const config = res.data.results.config || {};
+                    setActiveDatasets(loaded.filter(d => config.activeDatasetIds?.includes(d.id)));
+                    setChartType(config.chartType || "line");
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setIsInitializing(false);
+            }
+        };
+        load();
+    }, [userToken]);
+
+    const handleSave = async () => {
+        if (!userToken) return;
+        setIsSaving(true);
+        try {
+            await axios.post(`${API_BASE_URL}/analysis/save`, {
+                name: `Session ${new Date().toLocaleDateString()}`,
+                source: "Multiple",
+                config: { activeDatasetIds: activeDatasets.map(d => d.id), chartType },
+                results: { allDatasets }
+            }, { headers: { Authorization: `Bearer ${userToken}` } });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const importSelected = async () => {
         setIsImporting(true);
         setShowModal(false);
         try {
             let importedRows = [];
-            let name = "Stream_" + Date.now().toString().slice(-4);
-            
+            let sourceName = "Dataset";
             if (selectedApps.includes("google_sheets") && selectedSheet) {
-                const res = await axios.get(`${API_BASE_URL}/google/sheets/${selectedSheet}`, {
-                    headers: { Authorization: `Bearer ${userToken}` }
-                });
-                importedRows = res.data.values;
+                const res = await axios.get(`${API_BASE_URL}/google/sheets/${selectedSheet}`, { headers: { Authorization: `Bearer ${userToken}` } });
+                if (res.data?.values) importedRows = res.data.values;
             } else if (selectedApps.includes("other") && csvToImport) {
-                const text = await csvToImport.text();
-                importedRows = text.split(/\r?\n/).filter(Boolean).map(r => r.split(","));
-                name = csvToImport.name;
+                sourceName = csvToImport.name.replace(/\.csv$/i,"");
+                importedRows = await parseCSVFile(csvToImport);
             }
-
             if (importedRows.length > 0) {
                 const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
-                const headers = cleaned[0];
-                const numericIdxs = headers.map((_, i) => {
-                    const sample = cleaned.slice(1, 6).map(r => sanitizeCellValue(r[i]));
-                    return sample.some(v => typeof v === "number") ? i : null;
-                }).filter(v => v !== null);
-
-                const metrics = {};
-                numericIdxs.forEach(idx => {
-                    const vals = cleaned.slice(1).map(r => sanitizeCellValue(r[idx])).filter(v => typeof v === 'number');
-                    metrics[headers[idx]] = { total: vals.reduce((a,b) => a+b, 0), count: vals.length };
-                });
-
-                const newDs = { id: Date.now(), name, rows: cleaned.length - 1, data: cleaned, metrics, numericCols: numericIdxs };
-                setAllDatasets(p => [...p, newDs]);
-                setActiveDatasets(p => [...p, newDs]);
+                const numeric = detectNumericColumns(cleaned);
+                const category = detectCategoryColumn(cleaned, numeric);
+                const newDataset = {
+                    id: Date.now(),
+                    name: sourceName,
+                    color: datasetColors[allDatasets.length % datasetColors.length],
+                    rows: cleaned.length - 1,
+                    cols: cleaned[0]?.length || 0,
+                    data: cleaned,
+                    numericCols: numeric,
+                    metrics: computeMetrics(cleaned, numeric),
+                    categoryCol: category,
+                };
+                setAllDatasets(prev => [...prev, newDataset]);
+                setActiveDatasets(prev => [...prev, newDataset]);
             }
-        } catch (e) { console.error(e); } finally { setIsImporting(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsImporting(false);
+            setSelectedApps([]);
+            setCsvToImport(null);
+        }
     };
 
     return (
-        <div className="bg-[#0A0B14] min-h-screen text-slate-200 font-sans selection:bg-pink-500/30">
-            {isImporting && <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center"><FaSpinner size={50} className="animate-spin text-pink-500" /></div>}
-            
-            <div className="max-w-[1600px] mx-auto p-8 space-y-10">
-                <WorkbenchHeader onImport={() => setShowModal(true)} onOpenAI={() => setIsAnalysisPanelOpen(true)} />
+        <div className="text-slate-200 px-6 md:px-12 pb-12 font-sans selection:bg-purple-500/30">
+            {(isInitializing || isImporting) && (
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#020617]/95 backdrop-blur-xl">
+                    <div className="relative mb-6">
+                        <div className="absolute inset-0 bg-purple-500/20 blur-3xl animate-pulse" />
+                        <FaSpinner size={60} className="text-purple-500 animate-spin relative" />
+                    </div>
+                    <p className="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">MetriaAI Initializing...</p>
+                </div>
+            )}
 
-                {/* METRICS & AGGREGATES SECTION (Reference: Top Row of Screenshot) */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-8 rounded-[2.5rem] shadow-xl">
-                        <div className="text-[11px] font-black uppercase tracking-widest text-purple-200 opacity-70">Total Records</div>
-                        <div className="text-4xl font-black mt-2">{globalAggregates.totalRecords.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-gradient-to-br from-cyan-500 to-cyan-700 p-8 rounded-[2.5rem] shadow-xl">
-                        <div className="text-[11px] font-black uppercase tracking-widest text-cyan-100 opacity-70">Aggregate Sum</div>
-                        <div className="text-4xl font-black mt-2">{globalAggregates.totalSum.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-[#161927] p-8 rounded-[2.5rem] border border-white/5 flex items-center justify-between">
-                        <div>
-                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">Active Streams</div>
-                            <div className="text-3xl font-black mt-1 text-white">{activeDatasets.length}</div>
-                        </div>
-                        <FiActivity className="text-pink-500" size={30} />
-                    </div>
-                    <div className="bg-[#161927] p-8 rounded-[2.5rem] border border-white/5 flex items-center justify-between">
-                        <div>
-                            <div className="text-[11px] font-black uppercase tracking-widest text-slate-500">Calculations</div>
-                            <div className="text-3xl font-black mt-1 text-white">{globalAggregates.avgValue.toFixed(1)} <span className="text-xs text-slate-500 italic">avg</span></div>
-                        </div>
-                        <FiTrendingUp className="text-emerald-400" size={30} />
-                    </div>
+            <div className="max-w-[1600px] mx-auto space-y-10">
+                <div className="pt-8">
+                    <WorkbenchHeader 
+                        isSaving={isSaving} 
+                        onImport={() => setShowModal(true)} 
+                        onSave={handleSave} 
+                        onOpenAI={() => {}} // Disabled logic
+                    />
                 </div>
 
-                {/* VISUALIZATION GRID (Categorical Pie Charts + Insights Table) */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Categorical Distribution Pie Charts */}
-                    <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {activeDatasets.slice(0, 2).map(ds => {
-                            const cat = getCategoricalData(ds);
-                            if (!cat) return null;
-                            return (
-                                <div key={ds.id} className="bg-[#11131F] p-8 rounded-[3rem] border border-white/5 shadow-2xl">
-                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
-                                        Distribution: {cat.label}
-                                    </h4>
-                                    <div className="h-64 flex items-center justify-center">
-                                        <Pie data={{
-                                            labels: cat.labels,
-                                            datasets: [{
-                                                data: cat.values,
-                                                backgroundColor: ['#A855F7', '#06B6D4', '#F43F5E', '#10B981'],
-                                                borderWidth: 0,
-                                            }]
-                                        }} options={{ plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 10, weight: 'bold' } } } }, cutout: '70%' }} />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* AI Insights Ledger / History (Sidebar style like screenshot) */}
-                    <div className="bg-[#11131F] rounded-[3rem] border border-white/5 p-8 flex flex-col">
-                        <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Neural_History</h3>
-                            <FiZap className="text-pink-500" />
+                {allDatasets.length > 0 ? (
+                    <>
+                        <div className="flex items-center gap-4 px-2">
+                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">DataSets</h3>
+                            <div className="h-[1px] flex-1 bg-white/5" />
                         </div>
-                        <div className="space-y-4 flex-1 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
-                            {savedInsights.length > 0 ? savedInsights.map(log => (
-                                <div key={log.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-pink-500/30 transition-all cursor-pointer group">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-[10px] font-mono text-pink-500">{log.timestamp}</span>
-                                        <div className="h-1 w-8 bg-pink-500/20 rounded-full overflow-hidden"><div className="h-full bg-pink-500 w-full" /></div>
-                                    </div>
-                                    <p className="text-[11px] text-slate-300 italic line-clamp-2">"{log.summary}"</p>
-                                </div>
-                            )) : (
-                                <div className="h-full flex flex-col items-center justify-center opacity-20 text-center">
-                                    <MdOutlineAnalytics size={40} />
-                                    <p className="text-[10px] uppercase font-black mt-2">No past analyses</p>
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={() => setIsAnalysisPanelOpen(true)} className="mt-8 w-full py-4 bg-white text-black rounded-2xl font-black text-[10px] uppercase tracking-widest">Open AI Analyst</button>
-                    </div>
-                </div>
 
-                <Visualizer activeDatasets={activeDatasets} sanitizeCellValue={sanitizeCellValue} />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {allDatasets.map(ds => {
+                                const isActive = activeDatasets.some(a => a.id === ds.id);
+                                const health = calculateHealthScore(ds);
+                                return (
+                                    <div 
+                                        key={ds.id} 
+                                        onClick={() => setActiveDatasets(prev => isActive ? prev.filter(d => d.id !== ds.id) : [...prev, ds])} 
+                                        className={`group relative p-6 rounded-[2rem] border transition-all duration-500 cursor-pointer overflow-hidden ${
+                                            isActive 
+                                            ? 'bg-[#0F172A] border-purple-500 shadow-[0_20px_50px_rgba(0,0,0,0.4)]' 
+                                            : 'border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]'
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div className={`p-3 rounded-2xl border transition-all ${isActive ? 'bg-purple-600 text-white border-purple-400' : 'bg-slate-900 text-slate-500 border-white/5'}`}>
+                                                <MdOutlineTableChart size={20} />
+                                            </div>
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${health > 85 ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'}`}>
+                                                {health}% Dataset Health
+                                            </span>
+                                        </div>
+
+                                        <div className="mb-4">
+                                            <div className="text-lg font-black text-white uppercase tracking-tighter truncate">{ds.name}</div>
+                                            <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-slate-500 mt-1 uppercase tracking-widest">
+                                                {ds.rows} Rows • Stream_{ds.id.toString().slice(-4)}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                <FiActivity className="text-purple-500" /> Live
+                                            </span>
+                                            <FiTrash2 
+                                                onClick={(e) => { e.stopPropagation(); setAllDatasets(d => d.filter(x => x.id !== ds.id)); setActiveDatasets(d => d.filter(x => x.id !== ds.id)); }} 
+                                                className="text-slate-600 hover:text-red-400 transition-colors" 
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            
+                            <button 
+                                onClick={() => setShowModal(true)}
+                                className="h-full min-h-[180px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-3 text-slate-600 hover:text-purple-400"
+                            >
+                                <FiPlus size={24} />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Add Dataset</span>
+                            </button>
+                        </div>
+
+                        <Visualizer 
+                            activeDatasets={activeDatasets} 
+                            chartType={chartType} 
+                            setChartType={setChartType} 
+                            sanitizeCellValue={sanitizeCellValue} 
+                        />
+                    </>
+                ) : (
+                    <div className="text-center py-32 bg-white/[0.01] rounded-[3rem] border border-white/5">
+                        <MdOutlineAnalytics size={60} className="mx-auto text-slate-700 mb-6" />
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Command Center Empty</h3>
+                        <p className="text-slate-500 text-sm mt-2 max-w-xs mx-auto">Initialize your dataset stream to activate inights.</p>
+                        <button onClick={() => setShowModal(true)} className="mt-8 px-10 py-4 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-[0_10px_30px_rgba(255,255,255,0.1)] transition-all">Import Stream</button>
+                    </div>
+                )}
             </div>
 
             {showModal && (
-                <ImportModal onClose={() => setShowModal(false)} selectedApps={selectedApps} setSelectedApps={setSelectedApps} selectedSheet={selectedSheet} setSelectedSheet={setSelectedSheet} setCsvToImport={setCsvToImport} csvToImport={csvToImport} onImport={importSelected} />
+                <ImportModal 
+                    onClose={() => setShowModal(false)} 
+                    selectedApps={selectedApps} 
+                    setSelectedApps={setSelectedApps} 
+                    sheetsList={sheetsList} 
+                    selectedSheet={selectedSheet} 
+                    setSelectedSheet={setSelectedSheet} 
+                    setCsvToImport={setCsvToImport} 
+                    csvToImport={csvToImport} 
+                    onImport={importSelected} 
+                />
             )}
-
-            <AIAnalysisPanel 
-                isOpen={isAnalysisPanelOpen} 
-                onClose={() => setIsAnalysisPanelOpen(false)} 
-                datasets={activeDatasets} 
-                onSaveInsight={(ins) => setSavedInsights(p => [{id: Date.now(), timestamp: new Date().toLocaleTimeString(), ...ins}, ...p])} 
-            />
         </div>
     );
 }

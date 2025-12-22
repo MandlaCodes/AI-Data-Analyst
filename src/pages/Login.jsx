@@ -195,7 +195,7 @@ export default function Login({ onLoginSuccess }) {
                     <div className="success-overlay">
                         <FiCheckCircle size={80} className="mb-4" style={{ color: PRIMARY_NEON }} />
                         <h2 className="text-6xl font-bold tracking-widest mb-4" style={{ color: PRIMARY_NEON }}>WELCOME</h2>
-                        <p className="text-xl text-gray-400">Preparing your intelligence suite...</p>
+                        <p className="text-xl text-gray-400">Preparing your dashboard</p>
                     </div>
                 )}
 
@@ -206,7 +206,7 @@ export default function Login({ onLoginSuccess }) {
 
                     <div className="relative z-10 text-center">
                         <h2 className="text-3xl font-bold text-white mb-10 tracking-wide">
-                            {isSignup ? "MANDSIGHT ANALYTICS" : "BACK TO APEX"}
+                            {isSignup ? "MetriaAI" : "MetriaAI"}
                         </h2>
                         <button onClick={() => setIsSignup(!isSignup)} className="w-48 py-4 rounded-full font-bold text-xl neon-button">
                             {isSignup ? "LOG IN" : "SIGN UP"}
@@ -221,13 +221,13 @@ export default function Login({ onLoginSuccess }) {
                     </div>
 
                     <h1 className="text-3xl font-black mb-10 uppercase tracking-tighter" style={{ color: PRIMARY_NEON }}>
-                        {isSignup ? "Create Identity" : "Access Console"}
+                        {isSignup ? "Create Identity" : "Access Dashboard"}
                     </h1>
 
                     <form onSubmit={handleSubmit} className="w-full max-w-sm">
                         <div className="input-group">
                             <FiMail className="input-icon" size={20} />
-                            <input type="email" placeholder="Corporate Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="auth-input" />
+                            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="auth-input" />
                         </div>
                         
                         <div className="input-group">
