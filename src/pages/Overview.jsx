@@ -61,7 +61,7 @@ export default function Overview() {
                     <div className="inline-block p-4 rounded-full bg-purple-500/10 border border-purple-500/20 mb-4">
                         <FiDatabase size={48} className="text-purple-400" />
                     </div>
-                    <h1 className="text-4xl font-bold tracking-tight">Welcome to Trader AI</h1>
+                    <h1 className="text-4xl font-bold tracking-tight">Welcome to your dashboard</h1>
                     <p className="text-slate-400 text-lg">
                         You haven't analyzed any data yet. Head over to the Workbench to import your business datasets and generate your first executive summary.
                     </p>

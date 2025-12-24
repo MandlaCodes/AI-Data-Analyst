@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from "react";
+/**
+ * pages/Analytics.js
+ */
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
 import { FaSpinner } from 'react-icons/fa';
 import { MdOutlineAnalytics, MdOutlineTableChart } from "react-icons/md";
-import { FiTrash2, FiPlus, FiActivity } from "react-icons/fi";
+// Fixed these imports to use the correct library path
+import { FiTrash2, FiPlus, FiActivity } from "react-icons/fi"; 
 import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
@@ -30,7 +34,9 @@ export default function Analytics() {
     const [csvToImport, setCsvToImport] = useState(null);
 
     const datasetColors = ["#A78BFA", "#22C55E", "#F97316", "#EAB308"];
+    const isFirstMount = useRef(true);
 
+    // --- UTILITIES ---
     const sanitizeCellValue = (value) => {
         if (value === null || value === undefined || value === "") return "";
         const str = String(value).trim();
@@ -39,8 +45,9 @@ export default function Analytics() {
     };
 
     const calculateHealthScore = (dataset) => {
+        if (!dataset.data || dataset.data.length < 2) return 0;
         const rows = dataset.data.slice(1);
-        const numericIdx = dataset.numericCols[0];
+        const numericIdx = dataset.numericCols[0] || 0;
         let issues = 0;
         const vals = rows.map(r => sanitizeCellValue(r[numericIdx])).filter(v => typeof v === 'number');
         const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
@@ -85,39 +92,131 @@ export default function Analytics() {
         return metrics;
     };
 
+    // --- SESSION MANAGEMENT ---
+
     useEffect(() => {
-        const load = async () => {
+        const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
-                const res = await axios.get(`${API_BASE_URL}/analysis/current`, { headers: { Authorization: `Bearer ${userToken}` } });
-                if (res.data?.results) {
-                    const loaded = res.data.results.allDatasets || [];
-                    setAllDatasets(loaded);
-                    const config = res.data.results.config || {};
-                    setActiveDatasets(loaded.filter(d => config.activeDatasetIds?.includes(d.id)));
-                    setChartType(config.chartType || "line");
+                const res = await axios.get(`${API_BASE_URL}/analysis/current`, { 
+                    headers: { Authorization: `Bearer ${userToken}` } 
+                });
+                
+                if (res.data?.page_state) {
+                    const { 
+                        allDatasets: loadedDatasets, 
+                        activeDatasetIds, 
+                        chartType: loadedChartType,
+                        uiContext 
+                    } = res.data.page_state;
+
+                    setAllDatasets(loadedDatasets || []);
+                    setChartType(loadedChartType || "line");
+                    
+                    if (activeDatasetIds && loadedDatasets) {
+                        const active = loadedDatasets.filter(d => activeDatasetIds.includes(d.id));
+                        setActiveDatasets(active);
+                    }
+
+                    if (uiContext) {
+                        setShowModal(!!uiContext.showModal);
+                        setSelectedApps(uiContext.selectedApps || []);
+                        setSelectedSheet(uiContext.selectedSheet || "");
+                    }
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Session load failed:", e);
             } finally {
                 setIsInitializing(false);
             }
         };
-        load();
+        loadSession();
     }, [userToken]);
+
+    useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
+
+        const autosave = async () => {
+            if (!userToken || isInitializing) return;
+            setIsSaving(true);
+            try {
+                const pageState = {
+                    allDatasets,
+                    activeDatasetIds: activeDatasets.map(d => d.id),
+                    chartType,
+                    uiContext: {
+                        showModal,
+                        selectedApps,
+                        selectedSheet
+                    }
+                };
+
+                await axios.post(`${API_BASE_URL}/analysis/save`, {
+                    name: "Autosave Dashboard",
+                    page_state: pageState
+                }, { 
+                    headers: { Authorization: `Bearer ${userToken}` } 
+                });
+            } catch (e) {
+                console.warn("Autosave failed", e);
+            } finally {
+                setIsSaving(false);
+            }
+        };
+
+        const timer = setTimeout(autosave, 1500); 
+        return () => clearTimeout(timer);
+    }, [allDatasets, activeDatasets, chartType, showModal, selectedApps, selectedSheet, userToken, isInitializing]);
+
+    const handleAIUpdate = (datasetId, aiData) => {
+        const applyUpdate = (list) => list.map(ds => 
+            ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
+        );
+        
+        setAllDatasets(prev => applyUpdate(prev));
+        setActiveDatasets(prev => applyUpdate(prev));
+    };
+
+    useEffect(() => {
+        const fetchSheets = async () => {
+            if (userToken && showModal && selectedApps.includes("google_sheets")) {
+                try {
+                    const res = await axios.get(`${API_BASE_URL}/google/sheets`, {
+                        headers: { Authorization: `Bearer ${userToken}` }
+                    });
+                    setSheetsList(res.data?.files || []);
+                } catch (err) {
+                    console.error("Failed to fetch Google Sheets:", err);
+                    setSheetsList([]);
+                }
+            }
+        };
+        fetchSheets();
+    }, [showModal, selectedApps, userToken]);
 
     const handleSave = async () => {
         if (!userToken) return;
         setIsSaving(true);
         try {
+            const pageState = {
+                allDatasets,
+                activeDatasetIds: activeDatasets.map(d => d.id),
+                chartType,
+                uiContext: { showModal, selectedApps, selectedSheet }
+            };
+
             await axios.post(`${API_BASE_URL}/analysis/save`, {
-                name: `Session ${new Date().toLocaleDateString()}`,
-                source: "Multiple",
-                config: { activeDatasetIds: activeDatasets.map(d => d.id), chartType },
-                results: { allDatasets }
-            }, { headers: { Authorization: `Bearer ${userToken}` } });
+                name: `Manual Save ${new Date().toLocaleTimeString()}`,
+                page_state: pageState
+            }, { 
+                headers: { Authorization: `Bearer ${userToken}` } 
+            });
+            alert("Workspace snapshot saved!");
         } catch (e) {
-            console.error(e);
+            alert("Save failed.");
         } finally {
             setIsSaving(false);
         }
@@ -125,21 +224,28 @@ export default function Analytics() {
 
     const importSelected = async () => {
         setIsImporting(true);
-        setShowModal(false);
         try {
             let importedRows = [];
             let sourceName = "Dataset";
+
             if (selectedApps.includes("google_sheets") && selectedSheet) {
-                const res = await axios.get(`${API_BASE_URL}/google/sheets/${selectedSheet}`, { headers: { Authorization: `Bearer ${userToken}` } });
+                const sheetMeta = sheetsList.find(s => s.id === selectedSheet);
+                if (sheetMeta) sourceName = sheetMeta.name;
+
+                const res = await axios.get(`${API_BASE_URL}/google/sheets/${selectedSheet}`, { 
+                    headers: { Authorization: `Bearer ${userToken}` } 
+                });
                 if (res.data?.values) importedRows = res.data.values;
             } else if (selectedApps.includes("other") && csvToImport) {
                 sourceName = csvToImport.name.replace(/\.csv$/i,"");
                 importedRows = await parseCSVFile(csvToImport);
             }
+
             if (importedRows.length > 0) {
                 const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
                 const numeric = detectNumericColumns(cleaned);
                 const category = detectCategoryColumn(cleaned, numeric);
+                
                 const newDataset = {
                     id: Date.now(),
                     name: sourceName,
@@ -150,16 +256,20 @@ export default function Analytics() {
                     numericCols: numeric,
                     metrics: computeMetrics(cleaned, numeric),
                     categoryCol: category,
+                    aiStorage: null
                 };
                 setAllDatasets(prev => [...prev, newDataset]);
                 setActiveDatasets(prev => [...prev, newDataset]);
+                setShowModal(false); 
             }
         } catch (e) {
-            console.error(e);
+            console.error("Import error:", e);
+            alert("Import failed.");
         } finally {
             setIsImporting(false);
             setSelectedApps([]);
             setCsvToImport(null);
+            setSelectedSheet("");
         }
     };
 
@@ -171,7 +281,9 @@ export default function Analytics() {
                         <div className="absolute inset-0 bg-purple-500/20 blur-3xl animate-pulse" />
                         <FaSpinner size={60} className="text-purple-500 animate-spin relative" />
                     </div>
-                    <p className="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">MetriaAI Initializing...</p>
+                    <p className="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">
+                        {isImporting ? "Processing Stream..." : "MetriaAI Initializing..."}
+                    </p>
                 </div>
             )}
 
@@ -181,7 +293,7 @@ export default function Analytics() {
                         isSaving={isSaving} 
                         onImport={() => setShowModal(true)} 
                         onSave={handleSave} 
-                        onOpenAI={() => {}} // Disabled logic
+                        onOpenAI={() => {}} 
                     />
                 </div>
 
@@ -211,7 +323,7 @@ export default function Analytics() {
                                                 <MdOutlineTableChart size={20} />
                                             </div>
                                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${health > 85 ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'}`}>
-                                                {health}% Dataset Health
+                                                {health}% Health
                                             </span>
                                         </div>
 
@@ -227,7 +339,11 @@ export default function Analytics() {
                                                 <FiActivity className="text-purple-500" /> Live
                                             </span>
                                             <FiTrash2 
-                                                onClick={(e) => { e.stopPropagation(); setAllDatasets(d => d.filter(x => x.id !== ds.id)); setActiveDatasets(d => d.filter(x => x.id !== ds.id)); }} 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    setAllDatasets(d => d.filter(x => x.id !== ds.id)); 
+                                                    setActiveDatasets(d => d.filter(x => x.id !== ds.id)); 
+                                                }} 
                                                 className="text-slate-600 hover:text-red-400 transition-colors" 
                                             />
                                         </div>
@@ -248,14 +364,15 @@ export default function Analytics() {
                             activeDatasets={activeDatasets} 
                             chartType={chartType} 
                             setChartType={setChartType} 
-                            sanitizeCellValue={sanitizeCellValue} 
+                            authToken={userToken}
+                            onAIUpdate={handleAIUpdate} 
                         />
                     </>
                 ) : (
                     <div className="text-center py-32 bg-white/[0.01] rounded-[3rem] border border-white/5">
                         <MdOutlineAnalytics size={60} className="mx-auto text-slate-700 mb-6" />
                         <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Command Center Empty</h3>
-                        <p className="text-slate-500 text-sm mt-2 max-w-xs mx-auto">Initialize your dataset stream to activate inights.</p>
+                        <p className="text-slate-500 text-sm mt-2 max-w-xs mx-auto">Initialize your dataset stream to activate insights.</p>
                         <button onClick={() => setShowModal(true)} className="mt-8 px-10 py-4 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-[0_10px_30px_rgba(255,255,255,0.1)] transition-all">Import Stream</button>
                     </div>
                 )}
@@ -263,7 +380,12 @@ export default function Analytics() {
 
             {showModal && (
                 <ImportModal 
-                    onClose={() => setShowModal(false)} 
+                    onClose={() => {
+                        setShowModal(false);
+                        setSelectedApps([]);
+                        setSheetsList([]);
+                        setCsvToImport(null);
+                    }} 
                     selectedApps={selectedApps} 
                     setSelectedApps={setSelectedApps} 
                     sheetsList={sheetsList} 

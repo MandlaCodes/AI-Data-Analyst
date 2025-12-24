@@ -1,8 +1,8 @@
-// public/manifest.json (Temporary Test Version)
+
 {
   "short_name": "MindSight",
   "name": "MindSight | AI Data Analyst Platform",
-  "icons": [], // <-- EMPTY THIS LIST
+  "icons": [],
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#a855f7", 
