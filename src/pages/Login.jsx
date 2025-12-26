@@ -1,256 +1,167 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; 
-import { 
-    FaUser, 
-    FaLock, 
-    FaGoogle, 
-    FaFacebookF,
-    FaArrowLeft
-} from "react-icons/fa";
-import { 
-    FiLoader, 
-    FiAlertCircle, 
-    FiCheckCircle,
-    FiMail
-} from "react-icons/fi"; 
+import { FaUser, FaLock, FaGoogle, FaBuilding, FaBriefcase, FaArrowLeft, FaArrowRight } from "react-icons/fa";
+import { FiLoader, FiCheckCircle, FiMail, FiChevronDown } from "react-icons/fi"; 
 
 const PRIMARY_NEON = "#a855f7"; 
-const ACCENT_FUCHSIA = "#c026d3"; 
 const DARK_BG = "#0a0118"; 
 const CARD_BG = "#1a0b2e"; 
 const INPUT_BG = "#2d1b4e"; 
 
-const API = "https://ai-data-analyst-backend-1nuw.onrender.com";
+const INDUSTRIES = [
+    "Finance & Banking", "Healthcare", "E-commerce", 
+    "SaaS & Tech", "Manufacturing", "Marketing", "Other"
+];
 
 export default function Login({ onLoginSuccess }) {
     const [isSignup, setIsSignup] = useState(false);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [step, setStep] = useState(1); // 1: Credentials, 2: Profile Onboarding
+    const [formData, setFormData] = useState({
+        email: "", password: "", firstName: "", lastName: "", org: "", industry: ""
+    });
     const [status, setStatus] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false); 
     const navigate = useNavigate();
 
+    const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setStatus({ message: "Loading...", type: "info" });
+        
+        // If Signup and still on step 1, move to step 2
+        if (isSignup && step === 1) {
+            setStep(2);
+            return;
+        }
+
+        setStatus({ message: "Synchronizing...", type: "info" });
         try {
             const endpoint = isSignup ? "/auth/signup" : "/auth/login";
-            const response = await fetch(`${API}${endpoint}`, {
+            const payload = isSignup ? {
+                email: formData.email,
+                password: formData.password,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                organization: formData.org,
+                industry: formData.industry
+            } : { email: formData.email, password: formData.password };
+
+            const response = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify(payload),
             });
             const data = await response.json();
+
             if (!response.ok) {
-                setStatus({ message: data.error || "Authentication failed.", type: "error" });
+                setStatus({ message: data.error || "Access Denied.", type: "error" });
                 return;
             }
-            const profile = { id: data.user_id, email: data.email || email };
+
             localStorage.setItem("adt_token", data.token);
-            localStorage.setItem("adt_profile", JSON.stringify(profile));
-            setStatus(null);
+            localStorage.setItem("adt_profile", JSON.stringify(data.user));
             setIsLoggedIn(true);
-            setTimeout(() => { onLoginSuccess(profile.id, data.token); }, 1500);
+            setTimeout(() => { onLoginSuccess(data.user_id, data.token); }, 1500);
         } catch (err) {
-            setStatus({ message: "Could not connect to server.", type: "error" });
+            setStatus({ message: "Core Connection Failed.", type: "error" });
         }
     };
 
-    const customStyles = `
-        /* 1. Global Reset to kill white gaps */
-        html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: hidden;
-            background-color: ${DARK_BG};
-        }
-
-        @keyframes fadeInScale {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes welcomeFadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    
-        .login-page-container {
-            position: fixed; /* Fixes it to the viewport edges */
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: ${DARK_BG};
-            overflow: hidden;
-            display: flex;
-        }
-
-        .login-card-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            background: ${CARD_BG};
-            animation: fadeInScale 0.7s ease-in-out forwards;
-            margin: 0; /* Ensures no external spacing */
-        }
-        
-        .success-overlay {
-            position: absolute;
-            inset: 0;
-            background-color: ${DARK_BG};
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100; 
-            animation: welcomeFadeIn 0.5s ease-out forwards;
-        }
-
-        .left-panel {
-            position: relative;
-            flex: 0 0 45%;
-            background: linear-gradient(135deg, ${CARD_BG}, ${DARK_BG});
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0; /* Removed padding */
-            clip-path: polygon(0 0, 100% 0, 85% 100%, 0% 100%);
-            z-index: 2;
-        }
-
-        .geometric-layer {
-            position: absolute;
-            inset: 0;
-            transition: opacity 0.5s ease-in-out; 
-        }
-
-        .layer-1 { clip-path: polygon(0 0, 80% 0, 65% 100%, 0% 100%); background: ${ACCENT_FUCHSIA}; }
-        .layer-2 { clip-path: polygon(0 0, 65% 0, 50% 100%, 0% 100%); background: ${PRIMARY_NEON}; }
-        .layer-3 { clip-path: polygon(0 0, 40% 0, 25% 100%, 0% 100%); background: ${INPUT_BG}; }
-
-        .right-panel {
-            flex: 1;
-            padding: 20px; /* Reduced padding from 40px */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: ${CARD_BG};
-        }
-
-        .auth-input {
-            width: 100%;
-            border: none;
-            border-bottom: 2px solid ${INPUT_BG};
-            background: transparent;
-            color: white;
-            padding: 12px 12px 12px 35px;
-            outline: none;
-            font-size: 1.1rem;
-        }
-
-        .input-group {
-            position: relative;
-            margin-bottom: 30px;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        .input-icon {
-            position: absolute;
-            left: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: ${PRIMARY_NEON};
-        }
-
-        .neon-button {
-            background: white;
-            color: ${DARK_BG};
-            box-shadow: 0 0 15px ${PRIMARY_NEON};
-            transition: all 0.3s ease;
-        }
-        .neon-button:hover {
-            box-shadow: 0 0 25px ${ACCENT_FUCHSIA};
-            transform: scale(1.05);
-        }
-    `;
-
     return (
-        <div className="login-page-container">
-            <style>{customStyles}</style>
-
-            {!isLoggedIn && (
-                <button 
-                    onClick={() => navigate('/')} 
-                    className="absolute top-6 left-6 p-4 rounded-full text-white z-50 transition-all"
-                    style={{ backgroundColor: INPUT_BG, border: `1px solid ${PRIMARY_NEON}` }}
-                >
-                    <FaArrowLeft size={20} style={{ color: PRIMARY_NEON }} />
-                </button>
-            )}
-            
-            <div className="login-card-container">
-                {isLoggedIn && (
-                    <div className="success-overlay">
-                        <FiCheckCircle size={80} className="mb-4" style={{ color: PRIMARY_NEON }} />
-                        <h2 className="text-6xl font-bold tracking-widest mb-4" style={{ color: PRIMARY_NEON }}>WELCOME</h2>
-                        <p className="text-xl text-gray-400">Preparing your dashboard</p>
-                    </div>
-                )}
-
-                <div className="left-panel">
-                    <div className="geometric-layer layer-3" style={{ opacity: isSignup ? 0.2 : 0.8 }}></div>
-                    <div className="geometric-layer layer-2" style={{ opacity: isSignup ? 0.4 : 0.9 }}></div>
-                    <div className="geometric-layer layer-1" style={{ opacity: isSignup ? 0.7 : 1 }}></div>
-
-                    <div className="relative z-10 text-center">
-                        <h2 className="text-3xl font-bold text-white mb-10 tracking-wide">
-                            {isSignup ? "MetriaAI" : "MetriaAI"}
-                        </h2>
-                        <button onClick={() => setIsSignup(!isSignup)} className="w-48 py-4 rounded-full font-bold text-xl neon-button">
-                            {isSignup ? "LOG IN" : "SIGN UP"}
-                        </button>
-                    </div>
+        <div className="login-page-container min-h-screen w-full flex bg-[#0a0118] text-white font-sans overflow-hidden">
+            {/* SUCCESS OVERLAY */}
+            {isLoggedIn && (
+                <div className="fixed inset-0 z-[100] bg-[#0a0118] flex flex-col items-center justify-center animate-in fade-in duration-500">
+                    <FiCheckCircle size={80} className="text-purple-500 animate-bounce" />
+                    <h2 className="text-5xl font-black mt-6 tracking-tighter uppercase italic">Identity Verified</h2>
+                    <p className="text-slate-500 font-mono text-sm mt-2">CONFIGURING ANALYST WORKBENCH...</p>
                 </div>
+            )}
 
-                <div className="right-panel">
-                    <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" 
-                        style={{ background: `linear-gradient(135deg, ${PRIMARY_NEON}, ${ACCENT_FUCHSIA})`, boxShadow: `0 0 20px ${PRIMARY_NEON}` }}>
-                        <FaUser size={30} className="text-white" />
+            {/* LEFT PANEL: Geometric Design */}
+            <div className="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 to-black z-10" />
+                <div className="absolute top-[-10%] right-[-10%] w-full h-full border-[1px] border-purple-500/20 rounded-full rotate-12" />
+                
+                <div className="relative z-20 text-center space-y-8">
+                    <h2 className="text-7xl font-black italic tracking-tighter leading-none">METRIA<span className="text-purple-500">AI.</span></h2>
+                    <p className="text-slate-400 font-medium italic tracking-wide">Next-generation autonomous data intelligence.</p>
+                    <button 
+                        onClick={() => { setIsSignup(!isSignup); setStep(1); }} 
+                        className="px-12 py-4 border border-white/10 rounded-full font-black text-xs uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all"
+                    >
+                        {isSignup ? "Switch to Login" : "Initialize Account"}
+                    </button>
+                </div>
+            </div>
+
+            {/* RIGHT PANEL: Form */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#1a0b2e]/50 backdrop-blur-xl">
+                <div className="w-full max-w-md space-y-10">
+                    <div className="space-y-2">
+                        <h1 className="text-4xl font-black uppercase tracking-tighter italic">
+                            {isSignup ? (step === 1 ? "Start Journey" : "Build Profile") : "Welcome Back"}
+                        </h1>
+                        <p className="text-slate-500 text-sm font-mono uppercase tracking-widest">
+                            {isSignup ? `Step ${step} of 2` : "Secure Terminal Access"}
+                        </p>
                     </div>
 
-                    <h1 className="text-3xl font-black mb-10 uppercase tracking-tighter" style={{ color: PRIMARY_NEON }}>
-                        {isSignup ? "Create Identity" : "Access Dashboard"}
-                    </h1>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {isSignup && step === 2 ? (
+                            /* ONBOARDING FLOW: STEP 2 */
+                            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="relative">
+                                        <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/50" />
+                                        <input name="firstName" placeholder="First Name" onChange={handleChange} required className="w-full bg-white/5 border-b border-white/10 p-4 pl-12 rounded-t-xl outline-none focus:border-purple-500 transition-all" />
+                                    </div>
+                                    <div className="relative">
+                                        <input name="lastName" placeholder="Last Name" onChange={handleChange} required className="w-full bg-white/5 border-b border-white/10 p-4 rounded-t-xl outline-none focus:border-purple-500 transition-all" />
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/50" />
+                                    <input name="org" placeholder="Organization Name" onChange={handleChange} required className="w-full bg-white/5 border-b border-white/10 p-4 pl-12 outline-none focus:border-purple-500 transition-all" />
+                                </div>
+                                <div className="relative">
+                                    <FaBriefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/50" />
+                                    <select name="industry" onChange={handleChange} required className="w-full bg-white/5 border-b border-white/10 p-4 pl-12 appearance-none outline-none focus:border-purple-500 transition-all">
+                                        <option value="" className="bg-[#1a0b2e]">Select Industry</option>
+                                        {INDUSTRIES.map(ind => <option key={ind} value={ind} className="bg-[#1a0b2e]">{ind}</option>)}
+                                    </select>
+                                    <FiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
+                                </div>
+                            </div>
+                        ) : (
+                            /* STEP 1: CREDENTIALS */
+                            <div className="space-y-5 animate-in fade-in duration-500">
+                                <div className="relative">
+                                    <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500" />
+                                    <input type="email" name="email" placeholder="Email Address" onChange={handleChange} required className="w-full bg-white/5 border-b border-white/10 p-4 pl-12 rounded-t-xl outline-none focus:border-purple-500 transition-all" />
+                                </div>
+                                <div className="relative">
+                                    <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500" />
+                                    <input type="password" name="password" placeholder="Password" onChange={handleChange} required className="w-full bg-white/5 border-b border-white/10 p-4 pl-12 rounded-t-xl outline-none focus:border-purple-500 transition-all" />
+                                </div>
+                            </div>
+                        )}
 
-                    <form onSubmit={handleSubmit} className="w-full max-w-sm">
-                        <div className="input-group">
-                            <FiMail className="input-icon" size={20} />
-                            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="auth-input" />
-                        </div>
-                        
-                        <div className="input-group">
-                            <FaLock className="input-icon" size={20} />
-                            <input type="password" placeholder="Secure Password" value={password} onChange={(e) => setPassword(e.target.value)} required className="auth-input" />
-                        </div>
-
-                        <button type="submit" className="w-full py-4 rounded-lg font-black text-white uppercase tracking-widest mt-4 transition-all hover:brightness-110"
-                            style={{ background: `linear-gradient(90deg, ${ACCENT_FUCHSIA}, ${PRIMARY_NEON})`, boxShadow: `0 10px 20px rgba(192, 38, 211, 0.3)` }}>
-                            {status?.type === "info" ? <FiLoader className="animate-spin mx-auto" size={24} /> : (isSignup ? "Initialize" : "Authenticate")}
+                        <button type="submit" className="w-full group flex items-center justify-center gap-3 py-5 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-purple-600 hover:text-white transition-all shadow-xl shadow-purple-500/10">
+                            {status?.type === "info" ? <FiLoader className="animate-spin" size={20} /> : (
+                                <>
+                                    {isSignup ? (step === 1 ? "Next: Profile" : "Finalize Identity") : "Enter Terminal"}
+                                    <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
                         </button>
                     </form>
 
                     {status && (
-                        <div className="mt-8 flex items-center gap-2 font-bold" style={{ color: status.type === 'error' ? '#ff4d4d' : '#a855f7' }}>
+                        <div className={`text-center font-bold text-[10px] uppercase tracking-widest ${status.type === 'error' ? 'text-red-500' : 'text-purple-400'}`}>
                             {status.message}
                         </div>
                     )}
-
-                    <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-sm flex justify-around">
-                        <button className="flex items-center gap-2 text-gray-400 hover:text-white transition"><FaGoogle /> Google</button>
-                        <button className="flex items-center gap-2 text-gray-400 hover:text-white transition"><FaFacebookF /> Facebook</button>
-                    </div>
                 </div>
             </div>
         </div>
