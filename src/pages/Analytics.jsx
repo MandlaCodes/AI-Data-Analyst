@@ -1,6 +1,7 @@
 /**
  * pages/Analytics.js - VERSION: METRIA AI HIGH-ENERGY
  * Full production file with Session Persistence and Neural Stream processing.
+ * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
  */
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -24,7 +25,6 @@ import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
 
-// Register ChartJS components for the Visualizer
 ChartJS.register(
     CategoryScale, 
     LinearScale, 
@@ -57,7 +57,7 @@ export default function Analytics() {
 
     // Import Flow State
     const [selectedApps, setSelectedApps] = useState([]);
-    const [sheetsList, setSheetsList] = useState([]); // Kept for prop stability
+    const [sheetsList, setSheetsList] = useState([]); 
     const [selectedSheet, setSelectedSheet] = useState("");
     const [csvToImport, setCsvToImport] = useState(null);
 
@@ -246,14 +246,12 @@ export default function Analytics() {
             let sourceName = "Dataset";
 
             if (selectedApps.includes("google_sheets") && selectedSheet) {
-                // Fetch the sheet data using the ID from the Picker
                 const res = await axios.get(`${API_BASE_URL}/google/sheets/${selectedSheet}`, { 
                     headers: { Authorization: `Bearer ${userToken}` } 
                 });
                 
                 if (res.data?.values) {
                     importedRows = res.data.values;
-                    // Use the title from API or fallback to ID
                     sourceName = res.data.title || `Sheet_${selectedSheet.slice(0, 5)}`;
                 }
             } else if (selectedApps.includes("other") && csvToImport) {
@@ -293,8 +291,6 @@ export default function Analytics() {
         }
     };
 
-    // --- RENDER ---
-
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
             {/* Loading Overlay */}
@@ -310,8 +306,9 @@ export default function Analytics() {
                 </div>
             )}
 
-            <div className="w-full space-y-10">
-                <div className="pt-8 px-6 md:px-12">
+            <div className="w-full space-y-12">
+                {/* Header Container - Synchronized Anchor px-6 */}
+                <div className="pt-8 px-6">
                     <WorkbenchHeader 
                         isSaving={isSaving} 
                         onImport={() => setShowModal(true)} 
@@ -322,13 +319,13 @@ export default function Analytics() {
 
                 {allDatasets.length > 0 ? (
                     <>
-                        <div className="flex items-center gap-4 px-8 md:px-14">
-                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.6em]">Neural Streams</h3>
+                        <div className="flex items-center gap-6 px-6">
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.8em] whitespace-nowrap">Neural Streams</h3>
                             <div className="h-[1px] flex-1 bg-white/5" />
                         </div>
 
-                        {/* Stream Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-6 md:px-12">
+                        {/* Stream Grid - Vertically aligned with Header Branding */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6">
                             {allDatasets.map(ds => {
                                 const isActive = activeDatasets.some(a => a.id === ds.id);
                                 const health = calculateHealthScore(ds);
@@ -336,42 +333,42 @@ export default function Analytics() {
                                     <div 
                                         key={ds.id} 
                                         onClick={() => setActiveDatasets(prev => isActive ? prev.filter(d => d.id !== ds.id) : [...prev, ds])} 
-                                        className={`group relative overflow-hidden border rounded-[2.5rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
+                                        className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
                                             isActive 
-                                            ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_40px_rgba(188,19,254,0.1)]' 
-                                            : 'bg-white/[0.04] border-white/20 shadow-[0_0_40px_rgba(255,255,255,0.03)]'
+                                            ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_50px_rgba(188,19,254,0.1)] scale-[1.02]' 
+                                            : 'bg-white/[0.03] border-white/10 hover:border-white/20'
                                         }`} 
                                     >
-                                        <div className="absolute inset-0 opacity-30 pointer-events-none"
+                                        <div className="absolute inset-0 opacity-40 pointer-events-none"
                                             style={{ background: isActive 
-                                                ? 'radial-gradient(circle at 20% 20%, rgba(188, 19, 254, 0.4), transparent 70%)'
-                                                : 'radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), transparent 70%)' }}
+                                                ? 'radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.3), transparent 80%)'
+                                                : 'radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05), transparent 80%)' }}
                                         />
 
                                         <div className="relative z-10 flex-1">
                                             <div className="flex justify-between items-start mb-6">
                                                 <div className={`p-4 rounded-2xl border transition-all duration-500 ${
-                                                    isActive ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_20px_rgba(188,19,254,0.4)]' 
+                                                    isActive ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20' 
                                                              : 'bg-white border-white text-black'
                                                 }`}>
                                                     <MdOutlineTableChart size={22} />
                                                 </div>
-                                                <span className={`text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest ${health > 85 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}`}>
+                                                <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest ${health > 85 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}`}>
                                                     {health}% Integrity
                                                 </span>
                                             </div>
 
-                                            <div className="mb-4">
-                                                <div className="text-xl font-black text-white uppercase tracking-tighter truncate leading-none mb-2">{ds.name}</div>
-                                                <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                                                    {ds.rows} Entries • STRM_{ds.id.toString().slice(-4)}
+                                            <div className="mb-2">
+                                                <div className="text-xl font-black text-white uppercase tracking-tighter truncate leading-tight mb-1">{ds.name}</div>
+                                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">
+                                                    {ds.rows} Active Nodes
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="relative z-10 flex items-center justify-between pt-4 border-t border-white/5">
+                                        <div className="relative z-10 flex items-center justify-between pt-5 border-t border-white/5">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-purple-500 animate-pulse' : 'bg-slate-600'}`} /> Link Active
+                                                <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-purple-500 animate-pulse' : 'bg-slate-700'}`} /> {isActive ? 'Broadcasting' : 'Standby'}
                                             </span>
                                             <FiTrash2 
                                                 onClick={(e) => { 
@@ -383,24 +380,23 @@ export default function Analytics() {
                                                 size={18}
                                             />
                                         </div>
-                                        <div className={`absolute bottom-0 left-8 right-8 h-[2px] rounded-t-full ${isActive ? 'bg-purple-500 shadow-[0_0_20px_#bc13fe]' : 'bg-white shadow-[0_0_20px_white]'}`} />
                                     </div>
                                 );
                             })}
                             
                             <button 
                                 onClick={() => setShowModal(true)}
-                                className="h-full min-h-[220px] rounded-[2.5rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-3 text-slate-600 hover:text-purple-400 group"
+                                className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group"
                             >
-                                <div className="p-4 rounded-full border-2 border-dashed border-slate-700 group-hover:border-purple-500/50 transition-all">
+                                <div className="p-4 rounded-full border-2 border-dashed border-slate-800 group-hover:border-purple-500/50 transition-all">
                                     <FiPlus size={28} />
                                 </div>
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Initialize Stream</span>
+                                <span className="text-[11px] font-black uppercase tracking-[0.5em]">Sync Stream</span>
                             </button>
                         </div>
 
-                        {/* Chart / AI Visualizer Area */}
-                        <div className="px-6 md:px-12 pb-12">
+                        {/* Chart Area - Aligned to Grid */}
+                        <div className="px-6 pb-12">
                             <Visualizer 
                                 activeDatasets={activeDatasets} 
                                 chartType={chartType} 
@@ -411,18 +407,16 @@ export default function Analytics() {
                         </div>
                     </>
                 ) : (
-                    /* Empty State */
-                    <div className="px-6 md:px-12 pb-12">
-                        <div className="text-center py-48 bg-white/[0.01] rounded-[4rem] border border-white/5 relative overflow-hidden">
-                            <div className="absolute inset-0 bg-radial-gradient from-purple-500/5 to-transparent opacity-30 pointer-events-none" />
-                            <MdOutlineAnalytics size={80} className="mx-auto text-slate-800 mb-8" />
-                            <h3 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">No data detected</h3>
-                            <p className="text-slate-500 text-lg font-light italic max-w-md mx-auto mb-10">Upload a neural stream to begin deep-sector intelligence analysis.</p>
+                    <div className="px-6 pb-12">
+                        <div className="text-center py-52 bg-white/[0.01] border-y border-white/5 relative overflow-hidden rounded-[3rem]">
+                            <div className="absolute inset-0 bg-radial-gradient from-purple-500/10 to-transparent opacity-40 pointer-events-none" />
+                            <MdOutlineAnalytics size={100} className="mx-auto text-slate-900 mb-8" />
+                            <h3 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">Neural Link Disconnected</h3>
                             <button 
                                 onClick={() => setShowModal(true)} 
-                                className="px-12 py-5 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.4em] hover:shadow-[0_0_30px_rgba(188,19,254,0.4)] transition-all hover:scale-105"
+                                className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
                             >
-                                Import Data Stream
+                                Initialize Stream
                             </button>
                         </div>
                     </div>

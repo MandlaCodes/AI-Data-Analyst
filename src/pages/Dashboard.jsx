@@ -100,9 +100,9 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
                 {/* --- MAIN CONTENT AREA --- */}
                 <main className="flex-1 lg:ml-64 min-h-screen flex flex-col min-w-0 relative z-20 bg-[#000000]"> 
                     
-                    {/* Content Wrapper */}
-                    <div className="w-full h-full flex-1 bg-[#000000] p-4 md:p-8 lg:p-10">
-                        <div className="max-w-7xl mx-auto w-full">
+                    {/* Content Wrapper - PADDING AND MAX-WIDTH REMOVED FOR EDGE-TO-EDGE */}
+                    <div className="w-full h-full flex-1 bg-[#000000]">
+                        <div className="w-full">
                             <Outlet />
                         </div>
                     </div>
