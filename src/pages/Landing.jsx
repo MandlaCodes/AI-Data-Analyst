@@ -30,7 +30,7 @@ const FAQS = [
   { q: "Can I use Metria for multi-dataset comparison?", a: "Yes. Our 'Comparison Mode' allows you to synthesize insights across multiple disparate datasets simultaneously to find cross-departmental correlations." }
 ];
 
-const AI_HEAD_HERO = "/updated metria logo.png";
+const AI_HEAD_HERO = "/updated-metria-logo.png";
 const AI_IMAGE_SERVICE = "/photo-1666875753105-c63a6f3bdc86.avif";
 
 /* ---------------- STYLES ---------------- */
