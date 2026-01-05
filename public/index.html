@@ -9,20 +9,21 @@
     
     <meta name="description" content="The autonomous AI data analyst." />
 
-    <link rel="icon" type="image/png" href="/metriafavi.png" />
-    <link rel="shortcut icon" href="/metriafavi.png" />
-    <link rel="apple-touch-icon" href="/metriafavi.png" />
+    <link rel="icon" href="https://metria.dev/metriafavi.png" sizes="any" />
+    <link rel="apple-touch-icon" href="https://metria.dev/metriafavi.png" />
     <link rel="manifest" href="/manifest.json" />
 
+    <meta property="og:site_name" content="MetriaAI" />
     <meta property="og:title" content="MetriaAI" />
     <meta property="og:description" content="The autonomous AI data analyst." />
     <meta property="og:url" content="https://metria.dev/" />
     <meta property="og:image" content="https://metria.dev/metriafavi.png" />
+    <meta property="og:image:secure_url" content="https://metria.dev/metriafavi.png" />
     <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
     
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="MetriaAI" />
-    <meta name="twitter:description" content="The autonomous AI data analyst." />
     <meta name="twitter:image" content="https://metria.dev/metriafavi.png" />
 
     <script type="application/ld+json">
@@ -48,10 +49,9 @@
       function loadGooglePicker() {
         if (window.gapi) {
           gapi.load('picker', {
-            callback: () => console.log('Google Picker API: Ready for Synthesis'),
-            onerror: () => console.error('Google Picker API: Load Failed'),
-            timeout: 5000,
-            ontimeout: () => console.error('Google Picker API: Timeout')
+            callback: () => console.log('Google Picker API: Ready'),
+            onerror: () => console.error('Picker Load Failed'),
+            timeout: 5000
           });
         }
       }
