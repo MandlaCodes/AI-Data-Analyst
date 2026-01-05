@@ -4,19 +4,19 @@
   "description": "The autonomous AI data analyst.",
   "icons": [
     {
-      "src": "/metriafavi.png",
+      "src": "/updated-metria-logo.png",
       "sizes": "144x144",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/metriafavi.png",
+      "src": "/updated-metria-logo.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/metriafavi.png",
+      "src": "/updated-metria-logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
