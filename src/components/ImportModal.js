@@ -205,7 +205,7 @@ export const ImportModal = ({
                         className="w-full py-7 bg-white text-black rounded-3xl font-black text-xs uppercase tracking-[0.5em] hover:bg-purple-600 hover:text-white transition-all disabled:opacity-5 active:scale-[0.97] flex items-center justify-center gap-4 group"
                     >
                         <FiDatabase className="group-hover:scale-125 transition-transform" size={20} />
-                        Inject Stream
+                        Import data
                     </button>
                 </div>
             </div>

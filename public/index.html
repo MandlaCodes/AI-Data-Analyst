@@ -15,9 +15,24 @@
     <link rel="manifest" href="/manifest.json" />
 
     <meta property="og:title" content="MetriaAI" />
+    <meta property="og:description" content="The autonomous AI data analyst." />
     <meta property="og:url" content="https://metria.dev/" />
     <meta property="og:image" content="https://metria.dev/metriafavi.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:image:type" content="image/png" />
+    
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="MetriaAI" />
+    <meta name="twitter:description" content="The autonomous AI data analyst." />
+    <meta name="twitter:image" content="https://metria.dev/metriafavi.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "url": "https://metria.dev/",
+        "logo": "https://metria.dev/metriafavi.png"
+      }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -30,21 +45,19 @@
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
-      /**
-       * Initializes the Google API client for the Picker.
-       * Required for the 'drive.file' flow to work in production.
-       */
       function loadGooglePicker() {
-        gapi.load('picker', {
-          callback: () => console.log('Google Picker API: Ready for Synthesis'),
-          onerror: () => console.error('Google Picker API: Load Failed'),
-          timeout: 5000,
-          ontimeout: () => console.error('Google Picker API: Timeout')
-        });
+        if (window.gapi) {
+          gapi.load('picker', {
+            callback: () => console.log('Google Picker API: Ready for Synthesis'),
+            onerror: () => console.error('Google Picker API: Load Failed'),
+            timeout: 5000,
+            ontimeout: () => console.error('Google Picker API: Timeout')
+          });
+        }
       }
       window.addEventListener('load', loadGooglePicker);
     </script>
-    </head>
+  </head>
   <body>
     <div id="root"></div>
   </body>
