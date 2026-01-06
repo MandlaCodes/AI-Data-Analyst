@@ -1,6 +1,7 @@
 /**
  * Overview.js - VERSION: METRIA AI (PERMANENT HIGH-ENERGY DESIGN)
  * UPDATED: 2026-01-06
+ * REASON: Applied Universal Mapping for Dynamic Backend Keys
  */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -60,6 +61,7 @@ export default function Overview({ profile }) {
         icon: <FiCpu className="text-purple-500" />
     });
 
+    // Handle Weather & Greeting
     useEffect(() => {
         const getBaseGreeting = () => {
             const hour = new Date().getHours();
@@ -107,6 +109,7 @@ export default function Overview({ profile }) {
         }
     }, []);
 
+    // FETCH LATEST AI RUN AND DATASETS WITH UNIVERSAL MAPPING
     useEffect(() => {
         const fetchData = async () => {
             if (!userToken) {
@@ -121,13 +124,33 @@ export default function Overview({ profile }) {
                 
                 if (currentRes.data?.page_state) {
                     const state = currentRes.data.page_state;
-                    setAllDatasets(state.allDatasets || []);
-                    // Prioritize dedicated insight storage, fallback to dataset specific storage
-                    setAiInsights(state.ai_insight || state.allDatasets?.[0]?.aiStorage || null);
+                    const datasets = state.allDatasets || [];
+                    setAllDatasets(datasets);
+
+                    // EXTRACT RAW DATA
+                    const raw = state.ai_insight || datasets[0]?.aiStorage || null;
+                    
+                    if (raw) {
+                        // MAP INCOMING KEYS TO LOCAL UI VARIABLES (Supports both standard and MN Web formats)
+                        setAiInsights({
+                            summary: raw["Main Discovery"] || raw.summary || "Scan complete.",
+                            risk: raw["Risks to Watch"] || raw.risk || "No major risks detected.",
+                            opportunity: raw["Next Big Move"] || raw.opportunity || "Analyzing growth vectors...",
+                            action: raw["Top Action"] || raw.action || "Awaiting tactical priority.",
+                            impact: raw["Impact (R)"] || raw.impact || raw.roi_impact || "N/A"
+                        });
+                    }
                 }
-                setTrends(trendsRes.data || []);
+                
+                // Map trends similarly to ensure history cards display correctly
+                const mappedTrends = (trendsRes.data || []).map(t => ({
+                    ...t,
+                    summary: t.summary || t["Main Discovery"]
+                }));
+                setTrends(mappedTrends);
+
             } catch (e) {
-                console.error("Fetch Error:", e);
+                console.error("Metria Fetch Error:", e);
             } finally {
                 setTimeout(() => setIsLoading(false), 1200);
             }
@@ -244,21 +267,6 @@ export default function Overview({ profile }) {
                                 <FiArrowRight className="relative z-10 group-hover:translate-x-2 transition-transform" size={20} />
                                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 opacity-0 group-hover:opacity-10 transition-opacity" />
                             </motion.button>
-
-                            <div className="mt-12 md:mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 w-full border-t border-white/5 pt-8 md:pt-12">
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-2">Protocol 01</p>
-                                    <p className="text-[11px] font-bold text-white uppercase tracking-tighter">Upload CSV/Excel</p>
-                                </div>
-                                <div className="text-center border-y md:border-y-0 md:border-x border-white/5 py-4 md:py-0">
-                                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-2">Protocol 02</p>
-                                    <p className="text-[11px] font-bold text-white uppercase tracking-tighter">AI Processing</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-2">Protocol 03</p>
-                                    <p className="text-[11px] font-bold text-white uppercase tracking-tighter">Instant ROI</p>
-                                </div>
-                            </div>
                         </div>
                     </motion.div>
                 ) : (
@@ -291,8 +299,8 @@ export default function Overview({ profile }) {
 
                                 <div className="flex flex-col sm:flex-row gap-8 sm:gap-20 mt-12 relative z-10 border-t border-white/5 pt-8">
                                     <div>
-                                        <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em] mb-2">Alpha Projection</p>
-                                        <p className="text-3xl md:text-4xl font-black text-white">{latestTrend.roi || "12.0%"}</p>
+                                        <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em] mb-2">Impact Projection</p>
+                                        <p className="text-3xl md:text-4xl font-black text-white">{aiInsights?.impact || "---"}</p>
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em] mb-2">Confidence</p>
@@ -301,7 +309,7 @@ export default function Overview({ profile }) {
                                         </p>
                                     </div>
                                 </div>
-                                <div className="absolute bottom-0 left-6 md:left-10 right-6 md:right-10 h-1 rounded-t-full bg-white shadow-[0_0_20px_white]" />
+                                <div className="absolute bottom-0 left-6 md:left-10 right-6 md:left-10 h-1 rounded-t-full bg-white shadow-[0_0_20px_white]" />
                             </motion.section>
                         </div>
 
