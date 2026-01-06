@@ -1,10 +1,10 @@
 /**
  * components/AIAnalysisPanel.js - UNIVERSAL DATA ENGINE
- * Updated: 2026-01-04 - Instant View Expansion Fix
+ * Updated: 2026-01-05 - Unified Card Expansion Design
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
     FaBrain, FaRedo, FaSearch, FaDollarSign, FaRobot, FaCreditCard
 } from 'react-icons/fa';
@@ -47,7 +47,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         return stored ? JSON.parse(stored) : null;
     }, []);
 
-    // Scroll into view when expanded
     useEffect(() => {
         if (expandedInsight && panelRef.current) {
             panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -140,7 +139,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             className="relative overflow-hidden bg-black border border-white/20 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 shadow-[0_0_40px_rgba(255,255,255,0.03)] transition-all duration-700 group/panel"
             style={{ minHeight: '600px' }} 
         >
-            {/* Background Glow */}
             <div className="absolute inset-0 opacity-40 pointer-events-none"
                  style={{ background: `radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.1), transparent 70%)` }} />
 
@@ -194,8 +192,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         className="space-y-6 md:space-y-8 relative z-10"
                     >
                         {/* Summary Card */}
-                        <div className="p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] bg-white/[0.04] border border-white/10 relative overflow-hidden group/card">
-                            <span className="text-purple-500 text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.5em] block mb-4 md:mb-6">Strategic Overview</span>
+                        <div className="p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] bg-white/[0.04] border border-white/10 relative overflow-hidden group/card cursor-pointer"
+                             onClick={() => setExpandedInsight({ title: "Strategic Overview", content: insights.summary, icon: <FiFileText /> })}>
+                            <div className="flex justify-between items-start mb-4 md:mb-6">
+                                <span className="text-purple-500 text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.5em] block">Strategic Overview</span>
+                                <FiMaximize2 className="text-white/20 group-hover/card:text-white/50 transition-colors" />
+                            </div>
                             <div className="text-lg md:text-3xl text-white font-light leading-snug tracking-tight break-words">
                                 <TypewriterText text={insights.summary || "Generating overview..."} />
                             </div>
@@ -205,18 +207,25 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         {/* Responsive Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             <div 
-                                className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white/[0.03] border border-white/10 flex flex-col gap-4 cursor-pointer hover:bg-white/[0.06] transition-all duration-300" 
+                                className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white/[0.03] border border-white/10 flex flex-col gap-4 cursor-pointer hover:bg-white/[0.06] transition-all duration-300 group/card" 
                                 onClick={() => setExpandedInsight({ title: "Main Discovery", content: insights.root_cause, icon: <FaSearch /> })}
                             >
-                                <div className="text-purple-500"><FaSearch className="w-5 h-5 md:w-6 md:h-6"/></div>
+                                <div className="flex justify-between items-start">
+                                    <div className="text-purple-500"><FaSearch className="w-5 h-5 md:w-6 md:h-6"/></div>
+                                    <FiMaximize2 className="text-white/20 group-hover/card:text-white/50 transition-colors" />
+                                </div>
                                 <p className="text-[8px] md:text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Main Discovery</p>
                                 <div className="text-white/80 text-sm leading-relaxed font-light line-clamp-3">
                                     {insights.root_cause}
                                 </div>
                             </div>
 
-                            <div className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white/[0.03] border border-white/10 flex flex-col gap-4">
-                                <div className="text-emerald-400"><FaCreditCard className="w-5 h-5 md:w-6 md:h-6"/></div>
+                            <div className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white/[0.03] border border-white/10 flex flex-col gap-4 group/card cursor-pointer"
+                                 onClick={() => setExpandedInsight({ title: "Financial Impact", content: `Projected ROI Impact: ${insights.roi_impact}. This calculation is based on detected data patterns and organizational standards.`, icon: <FaCreditCard /> })}>
+                                <div className="flex justify-between items-start">
+                                    <div className="text-emerald-400"><FaCreditCard className="w-5 h-5 md:w-6 md:h-6"/></div>
+                                    <FiMaximize2 className="text-white/20 group-hover/card:text-white/50 transition-colors" />
+                                </div>
                                 <p className="text-[8px] md:text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Impact ({finContext.primary || 'Value'})</p>
                                 <div className="text-white text-2xl md:text-4xl font-black tracking-tighter">{insights.roi_impact || "0.00"}</div>
                             </div>
@@ -232,11 +241,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 <div 
                                     key={idx} 
                                     onClick={() => setExpandedInsight({ title: item.label, content: item.text, icon: item.icon })}
-                                    className={`p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border flex flex-col min-h-[180px] cursor-pointer transition-all hover:bg-white/[0.05] ${item.isPurple ? 'border-purple-500/30' : 'border-white/10'}`}
+                                    className={`group/card p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border flex flex-col min-h-[180px] cursor-pointer transition-all hover:bg-white/[0.05] ${item.isPurple ? 'border-purple-500/30' : 'border-white/10'}`}
                                 >
                                     <div className="flex justify-between items-start mb-4">
                                         <div className={`p-2 rounded-lg ${item.isPurple ? 'bg-purple-600 text-white' : 'bg-white text-black'}`}>{item.icon}</div>
-                                        <FiMaximize2 className="text-white/20" />
+                                        <FiMaximize2 className="text-white/20 group-hover/card:text-white/50 transition-colors" />
                                     </div>
                                     <h4 className="text-white text-[9px] font-black uppercase tracking-widest mb-2">{item.label}</h4>
                                     <p className="text-white/60 text-xs line-clamp-3">{item.text}</p>
@@ -254,7 +263,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
-            {/* EXPANDED VIEW - INSTANT OVERLAY WITHIN PANEL */}
+            {/* EXPANDED VIEW OVERLAY */}
             <AnimatePresence>
                 {expandedInsight && (
                     <motion.div 

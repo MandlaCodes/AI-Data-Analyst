@@ -2,6 +2,7 @@
  * pages/Analytics.js - VERSION: METRIA AI HIGH-ENERGY
  * Full production file with Session Persistence and Neural Stream processing.
  * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
+ * FIX: Direct Name Injection from Import Modal.
  */
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -169,13 +170,11 @@ export default function Analytics() {
         loadSession();
     }, [userToken]);
 
-    // AUTOSAVE LOGIC
     useEffect(() => {
         if (isFirstMount.current) {
             isFirstMount.current = false;
             return;
         }
-
         const autosave = async () => {
             if (!userToken || isInitializing) return;
             setIsSaving(true);
@@ -186,7 +185,6 @@ export default function Analytics() {
                     chartType,
                     uiContext: { showModal, selectedApps, selectedSheet }
                 };
-
                 await axios.post(`${API_BASE_URL}/analysis/save`, {
                     name: "Autosave Dashboard",
                     page_state: pageState
@@ -199,7 +197,6 @@ export default function Analytics() {
                 setIsSaving(false);
             }
         };
-
         const timer = setTimeout(autosave, 1500); 
         return () => clearTimeout(timer);
     }, [allDatasets, activeDatasets, chartType, showModal, selectedApps, selectedSheet, userToken, isInitializing]);
@@ -224,7 +221,6 @@ export default function Analytics() {
                 chartType,
                 uiContext: { showModal, selectedApps, selectedSheet }
             };
-
             await axios.post(`${API_BASE_URL}/analysis/save`, {
                 name: `Manual Save ${new Date().toLocaleTimeString()}`,
                 page_state: pageState
@@ -239,20 +235,20 @@ export default function Analytics() {
         }
     };
 
-    const importSelected = async () => {
+    const importSelected = async (manualId = null, manualName = null) => {
         setIsImporting(true);
         try {
             let importedRows = [];
-            let sourceName = "Dataset";
+            const targetSheetId = manualId;
+            let sourceName = manualName || "Neural Stream";
 
-            if (selectedApps.includes("google_sheets") && selectedSheet) {
-                const res = await axios.get(`${API_BASE_URL}/google/sheets/${selectedSheet}`, { 
+            if (selectedApps.includes("google_sheets") && targetSheetId) {
+                const res = await axios.get(`${API_BASE_URL}/google/sheets/${targetSheetId}`, { 
                     headers: { Authorization: `Bearer ${userToken}` } 
                 });
-                
                 if (res.data?.values) {
                     importedRows = res.data.values;
-                    sourceName = res.data.title || `Sheet_${selectedSheet.slice(0, 5)}`;
+                    if (res.data.title) sourceName = res.data.title;
                 }
             } else if (selectedApps.includes("other") && csvToImport) {
                 sourceName = csvToImport.name.replace(/\.csv$/i,"");
@@ -263,7 +259,6 @@ export default function Analytics() {
                 const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
                 const numeric = detectNumericColumns(cleaned);
                 const category = detectCategoryColumn(cleaned, numeric);
-                
                 const newDataset = {
                     id: Date.now(),
                     name: sourceName,
@@ -282,7 +277,7 @@ export default function Analytics() {
             }
         } catch (e) {
             console.error("Import error:", e);
-            alert("Import failed. Ensure you have selected a valid stream.");
+            alert("Import failed.");
         } finally {
             setIsImporting(false);
             setSelectedApps([]);
@@ -293,7 +288,6 @@ export default function Analytics() {
 
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
-            {/* Loading Overlay */}
             {(isInitializing || isImporting) && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
                     <div className="relative mb-6">
@@ -307,7 +301,6 @@ export default function Analytics() {
             )}
 
             <div className="w-full space-y-12">
-                {/* Header Container - Synchronized Anchor px-6 */}
                 <div className="pt-8 px-6">
                     <WorkbenchHeader 
                         isSaving={isSaving} 
@@ -324,7 +317,6 @@ export default function Analytics() {
                             <div className="h-[1px] flex-1 bg-white/5" />
                         </div>
 
-                        {/* Stream Grid - Vertically aligned with Header Branding */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6">
                             {allDatasets.map(ds => {
                                 const isActive = activeDatasets.some(a => a.id === ds.id);
@@ -344,7 +336,6 @@ export default function Analytics() {
                                                 ? 'radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.3), transparent 80%)'
                                                 : 'radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05), transparent 80%)' }}
                                         />
-
                                         <div className="relative z-10 flex-1">
                                             <div className="flex justify-between items-start mb-6">
                                                 <div className={`p-4 rounded-2xl border transition-all duration-500 ${
@@ -357,7 +348,6 @@ export default function Analytics() {
                                                     {health}% Integrity
                                                 </span>
                                             </div>
-
                                             <div className="mb-2">
                                                 <div className="text-xl font-black text-white uppercase tracking-tighter truncate leading-tight mb-1">{ds.name}</div>
                                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">
@@ -365,7 +355,6 @@ export default function Analytics() {
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div className="relative z-10 flex items-center justify-between pt-5 border-t border-white/5">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-purple-500 animate-pulse' : 'bg-slate-700'}`} /> {isActive ? 'Broadcasting' : 'Standby'}
@@ -383,7 +372,6 @@ export default function Analytics() {
                                     </div>
                                 );
                             })}
-                            
                             <button 
                                 onClick={() => setShowModal(true)}
                                 className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group"
@@ -395,7 +383,6 @@ export default function Analytics() {
                             </button>
                         </div>
 
-                        {/* Chart Area - Aligned to Grid */}
                         <div className="px-6 pb-12">
                             <Visualizer 
                                 activeDatasets={activeDatasets} 
@@ -435,11 +422,12 @@ export default function Analytics() {
                     selectedApps={selectedApps} 
                     setSelectedApps={setSelectedApps} 
                     sheetsList={sheetsList} 
+                    setSheetsList={setSheetsList}
                     selectedSheet={selectedSheet} 
                     setSelectedSheet={setSelectedSheet} 
                     setCsvToImport={setCsvToImport} 
                     csvToImport={csvToImport} 
-                    onImport={importSelected} 
+                    onImport={(id, name) => importSelected(id, name)} 
                 />
             )}
         </div>

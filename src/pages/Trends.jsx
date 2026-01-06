@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion"; // Added motion
 import { 
     FiArrowRight, FiTrendingUp, FiCalendar, FiAlertTriangle, 
-    FiZap, FiTarget, FiClock, FiDatabase, FiLayers, FiCheckCircle
+    FiZap, FiTarget, FiClock, FiLayers, FiCheckCircle, FiX 
 } from "react-icons/fi";
 import { FaSpinner } from "react-icons/fa";
 import axios from "axios";
@@ -16,6 +17,8 @@ export default function TrendsPage({ profile }) {
     
     const [trends, setTrends] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    // NEW: State for the expansion modal
+    const [expandedCard, setExpandedCard] = useState(null); 
 
     useEffect(() => {
         const fetchTrends = async () => {
@@ -25,10 +28,6 @@ export default function TrendsPage({ profile }) {
                     headers: { Authorization: `Bearer ${userToken}` }
                 });
 
-                // --- GROUPING LOGIC ---
-                // We reduce the array to a Map where the Key is the session_name.
-                // Because the API typically returns newest first, the first time we see a 
-                // name, it is the most recent one.
                 const uniqueSessions = res.data.reduce((acc, current) => {
                     if (!acc.find(item => item.session_name === current.session_name)) {
                         acc.push(current);
@@ -85,21 +84,17 @@ export default function TrendsPage({ profile }) {
                     </div>
                 ) : (
                     <div className="relative">
-                        {/* The Vertical Line */}
                         <div className="absolute left-[39px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-500 via-white/10 to-transparent z-0" />
 
                         <div className="space-y-16">
                             {trends.map((trend, idx) => (
                                 <div key={trend.id} className="relative flex items-start group">
-                                    
-                                    {/* Timeline Marker (The Node) */}
                                     <div className="flex-shrink-0 w-20 flex justify-center pt-2 relative z-10">
                                         <div className="w-10 h-10 rounded-full bg-[#020617] border-4 border-purple-500 flex items-center justify-center group-hover:bg-purple-500 transition-all duration-300">
                                             <FiCheckCircle size={16} className="text-white group-hover:scale-110" />
                                         </div>
                                     </div>
 
-                                    {/* The Content Card */}
                                     <div className="flex-grow bg-[#0a0118]/40 border border-white/5 rounded-[2rem] p-8 group-hover:border-purple-500/30 transition-all duration-500 hover:translate-x-2 backdrop-blur-sm">
                                         <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-8 gap-4">
                                             <div>
@@ -115,30 +110,40 @@ export default function TrendsPage({ profile }) {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                                            <div className="p-6 bg-white/[0.02] rounded-3xl border border-white/5">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            {/* WRAPPED CARDS IN ONCLICK TO TRIGGER EXPANSION */}
+                                            <div 
+                                                onClick={() => setExpandedCard({ title: "Critical Risk", content: trend.risk, icon: FiAlertTriangle, color: "text-rose-400" })}
+                                                className="p-6 bg-white/[0.02] rounded-3xl border border-white/5 hover:border-rose-500/30 cursor-pointer transition-colors"
+                                            >
                                                 <div className="flex items-center gap-2 text-rose-400 font-black text-[10px] uppercase tracking-[0.2em] mb-4">
                                                     <FiAlertTriangle /> Critical Risk
                                                 </div>
-                                                <p className="text-sm text-slate-400 leading-relaxed italic border-l-2 border-rose-500/30 pl-4">
+                                                <p className="text-sm text-slate-400 leading-relaxed italic border-l-2 border-rose-500/30 pl-4 line-clamp-3">
                                                     {trend.risk || "Neural scan detected no major risks."}
                                                 </p>
                                             </div>
 
-                                            <div className="p-6 bg-white/[0.02] rounded-3xl border border-white/5">
+                                            <div 
+                                                onClick={() => setExpandedCard({ title: "High Opportunity", content: trend.opportunity, icon: FiZap, color: "text-emerald-400" })}
+                                                className="p-6 bg-white/[0.02] rounded-3xl border border-white/5 hover:border-emerald-500/30 cursor-pointer transition-colors"
+                                            >
                                                 <div className="flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase tracking-[0.2em] mb-4">
                                                     <FiZap /> High Opportunity
                                                 </div>
-                                                <p className="text-sm text-slate-400 leading-relaxed italic border-l-2 border-emerald-500/30 pl-4">
+                                                <p className="text-sm text-slate-400 leading-relaxed italic border-l-2 border-emerald-500/30 pl-4 line-clamp-3">
                                                     {trend.opportunity || "No expansion vectors identified."}
                                                 </p>
                                             </div>
 
-                                            <div className="p-6 bg-purple-500/5 rounded-3xl border border-purple-500/10">
+                                            <div 
+                                                onClick={() => setExpandedCard({ title: "Strategic Action", content: trend.action, icon: FiTarget, color: "text-purple-400" })}
+                                                className="p-6 bg-purple-500/5 rounded-3xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition-colors"
+                                            >
                                                 <div className="flex items-center gap-2 text-purple-400 font-black text-[10px] uppercase tracking-[0.2em] mb-4">
                                                     <FiTarget /> Strategic Action
                                                 </div>
-                                                <p className="text-sm text-white font-medium leading-relaxed italic border-l-2 border-purple-500 pl-4">
+                                                <p className="text-sm text-white font-medium leading-relaxed italic border-l-2 border-purple-500 pl-4 line-clamp-3">
                                                     {trend.action || "Awaiting further core directives."}
                                                 </p>
                                             </div>
@@ -155,6 +160,39 @@ export default function TrendsPage({ profile }) {
                     </div>
                 )}
             </div>
+
+            {/* --- EXPANSION OVERLAY (Exactly like Overview.js) --- */}
+            <AnimatePresence>
+                {expandedCard && (
+                    <motion.div 
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/90 backdrop-blur-xl"
+                        onClick={() => setExpandedCard(null)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                            className="bg-[#0a0118] border border-white/10 w-full max-w-4xl p-8 md:p-12 rounded-[3rem] relative shadow-[0_0_100px_rgba(188,19,254,0.15)]"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <button onClick={() => setExpandedCard(null)} className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors">
+                                <FiX size={32} />
+                            </button>
+                            <div className={`flex items-center gap-4 mb-8 ${expandedCard.color}`}>
+                                <expandedCard.icon size={40} />
+                                <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter italic">{expandedCard.title}</h2>
+                            </div>
+                            <div className="space-y-6">
+                                <p className="text-xl md:text-3xl text-white/90 leading-tight font-light italic border-l-4 border-purple-500 pl-8">
+                                    {expandedCard.content || "No detailed intelligence available for this sector."}
+                                </p>
+                            </div>
+                            <div className="mt-12 pt-8 border-t border-white/5">
+                                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20">Metria Intelligence Protocol</p>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

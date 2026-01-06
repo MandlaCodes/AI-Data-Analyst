@@ -1,3 +1,7 @@
+/**
+ * components/Login.js - AUTH SYSTEM
+ * Fix: Prevents password autofill from bleeding into Company Name field
+ */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt } from "react-icons/fa";
@@ -67,7 +71,6 @@ export default function Login({ onLoginSuccess }) {
   };
 
   const pageStyles = `
-    /* Force body to be exactly the viewport size with no scroll */
     body, html {
       margin: 0;
       padding: 0;
@@ -76,17 +79,14 @@ export default function Login({ onLoginSuccess }) {
       width: 100vw;
       background-color: #02010a;
     }
-
     @keyframes pulse-slow {
       0%, 100% { opacity: 0.3; transform: scale(1); }
       50% { opacity: 0.6; transform: scale(1.1); }
     }
-    
     .bg-grid {
       background-size: 40px 40px;
       background-image: radial-gradient(circle, rgba(168, 85, 247, 0.1) 1px, transparent 1px);
     }
-    
     .input-focus-effect:focus-within {
       box-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
       border-color: rgba(168, 85, 247, 0.5);
@@ -97,7 +97,6 @@ export default function Login({ onLoginSuccess }) {
     <div className="h-screen w-screen flex bg-[#02010a] text-white font-sans overflow-hidden fixed inset-0">
       <style>{pageStyles}</style>
       
-      {/* SUCCESS OVERLAY */}
       {isLoggedIn && (
         <div className="fixed inset-0 z-[100] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
           <div className="relative">
@@ -109,10 +108,8 @@ export default function Login({ onLoginSuccess }) {
         </div>
       )}
 
-      {/* LEFT SIDE: BRANDING */}
       <div className="hidden lg:flex relative w-1/2 h-full items-center justify-center overflow-hidden border-r border-white/5 bg-grid">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
-        
         <div className="relative z-20 text-center px-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-[9px] font-bold uppercase tracking-[0.2em] mb-8">
             <FaShieldAlt className="animate-pulse" /> Secure Connection
@@ -132,7 +129,6 @@ export default function Login({ onLoginSuccess }) {
         </div>
       </div>
 
-      {/* RIGHT SIDE: FORM */}
       <div className="w-full lg:w-1/2 h-full flex items-center justify-center p-0 relative">
         <div className="w-full max-w-md space-y-8 relative z-10 px-8">
           <div className="space-y-3">
@@ -151,19 +147,29 @@ export default function Login({ onLoginSuccess }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                     <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                    <input name="firstName" placeholder="FIRST NAME" onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                    <input name="firstName" placeholder="FIRST NAME" value={formData.firstName} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                   </div>
                   <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
-                    <input name="lastName" placeholder="LAST NAME" onChange={handleChange} required className="w-full bg-transparent p-4 text-xs font-bold outline-none placeholder:text-white/20" />
+                    <input name="lastName" placeholder="LAST NAME" value={formData.lastName} onChange={handleChange} required className="w-full bg-transparent p-4 text-xs font-bold outline-none placeholder:text-white/20" />
                   </div>
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input name="org" placeholder="COMPANY NAME" onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  {/* FIX: Added value, id, and autoComplete="off" to prevent password bleeding */}
+                  <input 
+                    id="organization_name_input"
+                    name="org" 
+                    placeholder="COMPANY NAME" 
+                    autoComplete="off"
+                    value={formData.org} 
+                    onChange={handleChange} 
+                    required 
+                    className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" 
+                  />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBriefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <select name="industry" onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold appearance-none outline-none text-white/50 focus:text-white transition-all">
+                  <select name="industry" value={formData.industry} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold appearance-none outline-none text-white/50 focus:text-white transition-all">
                     <option value="" className="bg-[#02010a]">SELECT INDUSTRY</option>
                     {INDUSTRIES.map(ind => <option key={ind} value={ind} className="bg-[#02010a]">{ind.toUpperCase()}</option>)}
                   </select>
@@ -174,11 +180,11 @@ export default function Login({ onLoginSuccess }) {
               <div className="space-y-4 animate-in fade-in duration-500">
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input type="email" name="email" placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  <input type="email" name="email" value={formData.email} placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input type="password" name="password" placeholder="PASSWORD" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  <input type="password" name="password" value={formData.password} placeholder="PASSWORD" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                 </div>
               </div>
             )}

@@ -1,6 +1,6 @@
 /**
  * components/ImportModal.js - VERSION: METRIA AI NEURAL SYNC (PRODUCTION)
- * Updated: 2026-01-03 - ENV SECURITY UPDATE
+ * FIX: Direct injection of sheet name into the import function.
  */
 import React, { useState } from "react";
 import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader } from "react-icons/fi";
@@ -21,12 +21,11 @@ export const ImportModal = ({
     const [dragActive, setDragActive] = useState(false);
     const [isPickerLoading, setIsPickerLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
+    const [sheetId, setSheetId] = useState(""); 
 
-    // --- GOOGLE PICKER LOGIC ---
     const handleGoogleSheetSelect = async () => {
         setIsPickerLoading(true);
         setErrorMessage(null);
-        
         const internalToken = localStorage.getItem("adt_token"); 
 
         if (!window.google || !window.google.picker) {
@@ -36,9 +35,6 @@ export const ImportModal = ({
         }
 
         try {
-            /**
-             * STEP 1: Exchange Metria JWT for real Google Access Token
-             */
             const tokenRes = await fetch(`${API_BASE_URL}/google-token`, {
                 headers: { 'Authorization': `Bearer ${internalToken}` }
             });
@@ -50,9 +46,6 @@ export const ImportModal = ({
             
             const { access_token } = await tokenRes.json();
 
-            /**
-             * STEP 2: Initialize the Picker using Environment Variables
-             */
             const picker = new window.google.picker.PickerBuilder()
                 .setDeveloperKey(process.env.REACT_APP_GOOGLE_DEVELOPER_KEY) 
                 .setAppId(process.env.REACT_APP_GOOGLE_APP_ID)
@@ -62,10 +55,10 @@ export const ImportModal = ({
                 .setCallback((data) => {
                     if (data.action === window.google.picker.Action.PICKED) {
                         const doc = data.docs[0];
-                        setSelectedSheet(doc.id); 
+                        setSelectedSheet(doc.name); // Store Name
+                        setSheetId(doc.id);         // Store ID
                         setSelectedApps(["google_sheets"]);
                     }
-                    // Handle cleanup
                     if (data.action === window.google.picker.Action.PICKED || data.action === window.google.picker.Action.CANCEL) {
                         setIsPickerLoading(false);
                     }
@@ -74,7 +67,6 @@ export const ImportModal = ({
 
             picker.setVisible(true);
         } catch (err) {
-            console.error("Picker Logic Error:", err);
             setErrorMessage(err.message || "Failed to sync with Google Drive.");
             setIsPickerLoading(false);
         }
@@ -86,10 +78,10 @@ export const ImportModal = ({
         } else {
             setSelectedApps([appId]);
             setSelectedSheet(""); 
+            setSheetId("");
         }
     };
 
-    // --- CSV LOGIC ---
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) setCsvToImport(e.target.files[0]);
     };
@@ -106,13 +98,13 @@ export const ImportModal = ({
         if (e.dataTransfer.files && e.dataTransfer.files[0]) setCsvToImport(e.dataTransfer.files[0]);
     };
 
+    const canImport = (selectedApps.includes("google_sheets") && sheetId) || 
+                      (selectedApps.includes("other") && csvToImport);
+
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={onClose} />
-
             <div className="relative w-full max-w-2xl bg-[#050505] border border-white/10 rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300">
-                
-                {/* Header */}
                 <div className="p-10 border-b border-white/5 flex justify-between items-center">
                     <div>
                         <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Neural Core Ingest</h2>
@@ -131,7 +123,6 @@ export const ImportModal = ({
                         </div>
                     )}
 
-                    {/* App Selection Grid */}
                     <div className="grid grid-cols-2 gap-6">
                         <button 
                             onClick={() => handleAppToggle("google_sheets")}
@@ -159,8 +150,7 @@ export const ImportModal = ({
                         </button>
                     </div>
 
-                    {/* Selected File Feedback */}
-                    {selectedSheet && selectedApps.includes("google_sheets") && (
+                    {sheetId && selectedApps.includes("google_sheets") && (
                         <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-[2rem] flex items-center justify-between animate-in slide-in-from-bottom-2">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 bg-emerald-500 rounded-xl text-black"><FiCheck size={20} /></div>
@@ -173,7 +163,6 @@ export const ImportModal = ({
                         </div>
                     )}
 
-                    {/* Drag & Drop CSV */}
                     {selectedApps.includes("other") && (
                         <div 
                             className={`relative border-2 border-dashed rounded-[2.5rem] p-16 transition-all text-center ${dragActive ? 'border-purple-500 bg-purple-500/5' : 'border-white/10 bg-white/[0.02]'}`}
@@ -197,11 +186,10 @@ export const ImportModal = ({
                     )}
                 </div>
 
-                {/* Confirm Action */}
                 <div className="p-10 bg-white/[0.01] border-t border-white/5 mt-auto">
                     <button 
-                        disabled={(!selectedSheet && !csvToImport)}
-                        onClick={onImport}
+                        disabled={!canImport}
+                        onClick={() => onImport(sheetId, selectedSheet)} 
                         className="w-full py-7 bg-white text-black rounded-3xl font-black text-xs uppercase tracking-[0.5em] hover:bg-purple-600 hover:text-white transition-all disabled:opacity-5 active:scale-[0.97] flex items-center justify-center gap-4 group"
                     >
                         <FiDatabase className="group-hover:scale-125 transition-transform" size={20} />
