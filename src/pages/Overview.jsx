@@ -1,5 +1,6 @@
 /**
  * Overview.js - VERSION: METRIA AI (PERMANENT HIGH-ENERGY DESIGN)
+ * UPDATED: 2026-01-06
  */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -101,21 +102,28 @@ export default function Overview({ profile }) {
                 (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
                 () => setWeatherData({ greeting: getBaseGreeting(), weatherSentence: "System ready. Let's dive in.", icon: <FiCpu className="text-purple-500" /> })
             );
+        } else {
+            setWeatherData({ greeting: getBaseGreeting(), weatherSentence: "System ready. Let's dive in.", icon: <FiCpu className="text-purple-500" /> });
         }
     }, []);
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!userToken) return;
+            if (!userToken) {
+                setIsLoading(false);
+                return;
+            }
             try {
                 const [currentRes, trendsRes] = await Promise.all([
                     axios.get(`${API_BASE_URL}/analysis/current`, { headers: { Authorization: `Bearer ${userToken}` } }),
                     axios.get(`${API_BASE_URL}/analysis/trends`, { headers: { Authorization: `Bearer ${userToken}` } })
                 ]);
+                
                 if (currentRes.data?.page_state) {
                     const state = currentRes.data.page_state;
                     setAllDatasets(state.allDatasets || []);
-                    setAiInsights(state.ai_insight || (state.allDatasets?.[0]?.aiStorage) || null);
+                    // Prioritize dedicated insight storage, fallback to dataset specific storage
+                    setAiInsights(state.ai_insight || state.allDatasets?.[0]?.aiStorage || null);
                 }
                 setTrends(trendsRes.data || []);
             } catch (e) {
@@ -130,8 +138,10 @@ export default function Overview({ profile }) {
     const getChartData = () => {
         const ds = allDatasets[0];
         if (!ds?.data || ds.data.length < 2) return null;
+        
         const valIdx = ds.numericCols?.[0] ?? 1;
         const sample = ds.data.slice(1, 26); 
+        
         return {
             labels: sample.map(() => ""),
             datasets: [{
