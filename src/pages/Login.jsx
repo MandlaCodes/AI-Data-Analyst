@@ -1,6 +1,6 @@
 /**
  * components/Login.js - AUTH + ACTIVATION SYSTEM
- * Integration: Polar Checkout redirect added to Signup Step 2
+ * Integration: Polar Checkout redirect with optimized state handling
  */
 import React, { useState } from "react";
 import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt } from "react-icons/fa";
@@ -10,6 +10,8 @@ const INDUSTRIES = [
   "Finance & Banking", "Healthcare", "E-commerce",
   "SaaS & Tech", "Manufacturing", "Marketing", "Fitness", "Fashion", "Warehouse", "Real Estate"
 ];
+
+const BACKEND_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 export default function Login({ onLoginSuccess }) {
   const [isSignup, setIsSignup] = useState(false);
@@ -26,7 +28,7 @@ export default function Login({ onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // STEP 1 to STEP 2 Transition
+    // Step transition for Signup
     if (isSignup && step === 1) {
       setStep(2);
       return;
@@ -45,7 +47,7 @@ export default function Login({ onLoginSuccess }) {
         industry: formData.industry
       } : { email: formData.email, password: formData.password };
 
-      const response = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com${endpoint}`, {
+      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -58,13 +60,12 @@ export default function Login({ onLoginSuccess }) {
         return;
       }
 
-      // --- NEW: SIGNUP PAYMENT REDIRECT FLOW ---
+      // --- SIGNUP FLOW: TRIGGER POLAR CHECKOUT ---
       if (isSignup) {
-        setStatus({ message: "Account Created. Generating Activation Link...", type: "info" });
+        setStatus({ message: "Account Created. Initializing Secure Checkout...", type: "info" });
         setIsRedirecting(true);
 
-        // Fetch the Polar Checkout URL from your python backend
-        const checkoutRes = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com/payments/create-checkout`, {
+        const checkoutRes = await fetch(`${BACKEND_URL}/payments/create-checkout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: formData.email })
@@ -73,17 +74,17 @@ export default function Login({ onLoginSuccess }) {
         const checkoutData = await checkoutRes.json();
         
         if (checkoutData.url) {
-          // Redirect the user to Polar to finish the "Hire Your Analyst" flow
-          window.location.href = checkoutData.url;
+          // Use replace to ensure they don't loop back to the form on "Back" button
+          window.location.replace(checkoutData.url);
           return;
         } else {
-          setStatus({ message: "Payment system unavailable. Contact support.", type: "error" });
+          setStatus({ message: "Checkout failed to initialize. Please login to retry.", type: "error" });
           setIsRedirecting(false);
           return;
         }
       }
 
-      // --- STANDARD LOGIN FLOW ---
+      // --- LOGIN FLOW ---
       if (data.token) {
         localStorage.setItem("adt_token", data.token);
         if (data.user) {
@@ -95,38 +96,22 @@ export default function Login({ onLoginSuccess }) {
         }, 1500);
       }
     } catch (err) {
-      setStatus({ message: "Network Error. Please verify connection.", type: "error" });
+      setStatus({ message: "Network Error. Verify your connection.", type: "error" });
     }
   };
 
   const pageStyles = `
-    body, html {
-      margin: 0;
-      padding: 0;
-      overflow: hidden !important;
-      height: 100vh;
-      width: 100vw;
-      background-color: #02010a;
-    }
-    @keyframes pulse-slow {
-      0%, 100% { opacity: 0.3; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(1.1); }
-    }
-    .bg-grid {
-      background-size: 40px 40px;
-      background-image: radial-gradient(circle, rgba(168, 85, 247, 0.1) 1px, transparent 1px);
-    }
-    .input-focus-effect:focus-within {
-      box-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
-      border-color: rgba(168, 85, 247, 0.5);
-    }
+    body, html { margin: 0; padding: 0; overflow: hidden !important; height: 100vh; width: 100vw; background-color: #02010a; }
+    @keyframes pulse-slow { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+    .bg-grid { background-size: 40px 40px; background-image: radial-gradient(circle, rgba(168, 85, 247, 0.1) 1px, transparent 1px); }
+    .input-focus-effect:focus-within { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.5); }
   `;
 
   return (
     <div className="h-screen w-screen flex bg-[#02010a] text-white font-sans overflow-hidden fixed inset-0">
       <style>{pageStyles}</style>
       
-      {/* Success/Redirect Overlay */}
+      {/* Overlay for Success or Redirecting State */}
       {(isLoggedIn || isRedirecting) && (
         <div className="fixed inset-0 z-[100] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
           <div className="relative">
@@ -145,29 +130,29 @@ export default function Login({ onLoginSuccess }) {
         </div>
       )}
 
-      {/* Left Panel: High Energy Branding */}
+      {/* Left Branding Panel */}
       <div className="hidden lg:flex relative w-1/2 h-full items-center justify-center overflow-hidden border-r border-white/5 bg-grid">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
         <div className="relative z-20 text-center px-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-[9px] font-bold uppercase tracking-[0.2em] mb-8">
-            <FaShieldAlt className="animate-pulse" /> Secure Connection
+            <FaShieldAlt className="animate-pulse" /> Secure 256-bit Connection
           </div>
           <h2 className="text-8xl font-black italic tracking-tighter leading-none mb-6">
             METRIA<span className="text-purple-500">.</span>
           </h2>
           <p className="text-slate-400 text-lg font-medium italic tracking-wide mb-12 max-w-sm mx-auto">
-            Advanced AI for your business data. Simple, fast, and powerful.
+            Advanced AI for your business data. Deploy your analyst in seconds.
           </p>
           <button
             onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
             className="group px-10 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-500"
           >
-            {isSignup ? "Go to Login" : "Create an Account"}
+            {isSignup ? "Existing Member? Login" : "New? Hire Your Analyst"}
           </button>
         </div>
       </div>
 
-      {/* Right Panel: The Form */}
+      {/* Right Form Panel */}
       <div className="w-full lg:w-1/2 h-full flex items-center justify-center p-0 relative">
         <div className="w-full max-w-md space-y-8 relative z-10 px-8">
           <div className="space-y-3">
@@ -176,7 +161,7 @@ export default function Login({ onLoginSuccess }) {
             </h1>
             <div className="h-1 w-12 bg-purple-500" />
             <p className="text-slate-500 text-[10px] font-mono uppercase tracking-[0.3em]">
-              {isSignup ? `Step ${step} of 2` : "Enter your details below"}
+              {isSignup ? `Step ${step} of 2` : "Identification Required"}
             </p>
           </div>
 
@@ -221,7 +206,7 @@ export default function Login({ onLoginSuccess }) {
             <button type="submit" className="w-full group relative flex items-center justify-center gap-3 py-5 bg-purple-600 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-300 shadow-2xl shadow-purple-500/20">
               {status?.type === "info" ? <FiLoader className="animate-spin" size={18} /> : (
                 <>
-                  {isSignup ? (step === 1 ? "Next Step" : "Hire Your AI Analyst") : "Login Now"}
+                  {isSignup ? (step === 1 ? "Next Step" : "Hire Your AI Analyst") : "Authorized Login"}
                   <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
