@@ -71,7 +71,7 @@ const Contact = () => (
 );
 
 /**
- * AppWrapper component manages the global authentication and hydration state.
+ * AppWrapper component manages global auth and payment synchronization.
  */
 function AppWrapper() {
   const navigate = useNavigate();
@@ -89,8 +89,15 @@ function AppWrapper() {
     }
 
     try {
-      const response = await fetch("https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me", {
-        headers: { "Authorization": `Bearer ${token}` }
+      /**
+       * CACHE-BUSTER: Adding ?v= timestamp ensures Render and the Browser 
+       * do not serve a stale "inactive" status when the DB has changed.
+       */
+      const response = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me?v=${Date.now()}`, {
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Cache-Control": "no-cache"
+        }
       });
       
       if (response.ok) {
@@ -120,10 +127,10 @@ function AppWrapper() {
     const initApp = async () => {
       // 1. Check if we are returning from a successful payment
       if (location.search.includes("payment=success")) {
-        console.log("Payment success detected in URL. Starting Neural Sync...");
+        console.log("💳 Payment success detected. Synchronizing Neural Core...");
         let attempts = 0;
         let currentProfile = null;
-        const maxAttempts = 8; // ~24 seconds total polling window
+        const maxAttempts = 15; // 15 attempts * 4 seconds = 60s total window for Render cold starts
 
         // POLLING LOOP: Wait for the webhook to update the DB
         while (attempts < maxAttempts) {
@@ -131,27 +138,29 @@ function AppWrapper() {
           currentProfile = await checkAuth();
           
           if (currentProfile?.is_active) {
-            console.log("Subscription Active! Unlocking Dashboard.");
+            console.log("✅ Subscription Confirmed! Redirecting...");
             setShowToast(true);
             setTimeout(() => setShowToast(false), 5000);
-            break; 
+            // Redirect immediately to dashboard
+            navigate("/dashboard/overview", { replace: true });
+            setIsHydrated(true);
+            return; 
           }
           
           attempts++;
           if (attempts < maxAttempts) {
-            // Wait 3 seconds between retries to allow webhook processing
-            await new Promise(res => setTimeout(res, 3000)); 
+            // Wait 4 seconds between retries to give the DB time to commit
+            await new Promise(res => setTimeout(res, 4000)); 
           }
         }
         
-        // Clean the URL
-        navigate(location.pathname, { replace: true });
+        // Final fallback: Clean the URL and let standard routing handle it
+        navigate("/dashboard/overview", { replace: true });
       } else {
         // Standard session check
         await checkAuth();
       }
       
-      // Mark app as ready to render
       setIsHydrated(true);
     };
     
@@ -170,7 +179,7 @@ function AppWrapper() {
     navigate("/");
   };
 
-  // HYDRATION GUARD: Prevents flashes of Landing page while checking subscription
+  // HYDRATION GUARD: Prevents flashes of Landing page
   if (!isHydrated) return (
     <div className="min-h-screen bg-[#0a0118] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -186,7 +195,7 @@ function AppWrapper() {
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
           <div className="bg-purple-600 text-white px-6 py-3 rounded-full border border-white/20 shadow-2xl flex items-center gap-3">
             <span className="text-xl">🚀</span>
-            <span className="font-bold tracking-tight text-sm">Neural Core Upgraded: Subscription Active</span>
+            <span className="font-bold tracking-tight text-sm uppercase">Neural Core Upgraded: Subscription Active</span>
           </div>
         </div>
       )}
