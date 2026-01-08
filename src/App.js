@@ -118,30 +118,40 @@ function AppWrapper() {
 
   useEffect(() => {
     const initApp = async () => {
-      // Check if we are returning from a successful payment
+      // 1. Check if we are returning from a successful payment
       if (location.search.includes("payment=success")) {
+        console.log("Payment success detected in URL. Starting Neural Sync...");
         let attempts = 0;
         let currentProfile = null;
+        const maxAttempts = 8; // ~24 seconds total polling window
 
         // POLLING LOOP: Wait for the webhook to update the DB
-        while (attempts < 3) {
+        while (attempts < maxAttempts) {
+          console.log(`Polling Backend... Attempt ${attempts + 1}/${maxAttempts}`);
           currentProfile = await checkAuth();
+          
           if (currentProfile?.is_active) {
+            console.log("Subscription Active! Unlocking Dashboard.");
             setShowToast(true);
             setTimeout(() => setShowToast(false), 5000);
             break; 
           }
+          
           attempts++;
-          if (attempts < 3) await new Promise(res => setTimeout(res, 2500)); // Wait 2.5s between retries
+          if (attempts < maxAttempts) {
+            // Wait 3 seconds between retries to allow webhook processing
+            await new Promise(res => setTimeout(res, 3000)); 
+          }
         }
         
-        // Clean the URL and finish hydration
+        // Clean the URL
         navigate(location.pathname, { replace: true });
       } else {
-        // Standard load
+        // Standard session check
         await checkAuth();
       }
       
+      // Mark app as ready to render
       setIsHydrated(true);
     };
     
@@ -160,7 +170,7 @@ function AppWrapper() {
     navigate("/");
   };
 
-  // HYDRATION GUARD
+  // HYDRATION GUARD: Prevents flashes of Landing page while checking subscription
   if (!isHydrated) return (
     <div className="min-h-screen bg-[#0a0118] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
