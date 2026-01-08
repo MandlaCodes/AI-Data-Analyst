@@ -89,21 +89,30 @@ function AppWrapper() {
     }
 
     try {
-      /**
-       * CACHE-BUSTER: Adding ?v= timestamp ensures Render and the Browser 
-       * do not serve a stale "inactive" status when the DB has changed.
-       */
+      // CACHE-BUSTER: Ensures Render and Browser serve fresh DB data.
       const response = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me?v=${Date.now()}`, {
         headers: { 
           "Authorization": `Bearer ${token}`,
-          "Cache-Control": "no-cache"
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache"
         }
       });
       
       if (response.ok) {
         const userData = await response.json();
-        localStorage.setItem("adt_profile", JSON.stringify(userData));
-        const activeProfile = { ...userData, token };
+        
+        /**
+         * MISMATCH FIX:
+         * Backend sends 'id', but some components might expect 'user_id'.
+         * We map both to ensure absolute compatibility.
+         */
+        const activeProfile = { 
+          ...userData, 
+          user_id: userData.id, 
+          token 
+        };
+
+        localStorage.setItem("adt_profile", JSON.stringify(activeProfile));
         setProfile(activeProfile);
         return activeProfile;
       } else {
@@ -127,21 +136,24 @@ function AppWrapper() {
     const initApp = async () => {
       // 1. Check if we are returning from a successful payment
       if (location.search.includes("payment=success")) {
-        console.log("💳 Payment success detected. Synchronizing Neural Core...");
+        console.log("💳 Payment detected. Initiating ID-First Neural Sync...");
         let attempts = 0;
-        let currentProfile = null;
-        const maxAttempts = 15; // 15 attempts * 4 seconds = 60s total window for Render cold starts
+        const maxAttempts = 15; 
 
-        // POLLING LOOP: Wait for the webhook to update the DB
         while (attempts < maxAttempts) {
-          console.log(`Polling Backend... Attempt ${attempts + 1}/${maxAttempts}`);
-          currentProfile = await checkAuth();
+          console.log(`Neural Sync Attempt ${attempts + 1}/${maxAttempts}...`);
+          const currentProfile = await checkAuth();
           
-          if (currentProfile?.is_active) {
-            console.log("✅ Subscription Confirmed! Redirecting...");
+          /**
+           * ARCHITECTURAL TELEPORT: 
+           * Using subscription_id as the Master Key.
+           */
+          if (currentProfile?.subscription_id || currentProfile?.is_active) {
+            console.log("🚀 Subscription verified! Teleporting to Dashboard.");
             setShowToast(true);
             setTimeout(() => setShowToast(false), 5000);
-            // Redirect immediately to dashboard
+            
+            // Redirect immediately
             navigate("/dashboard/overview", { replace: true });
             setIsHydrated(true);
             return; 
@@ -149,15 +161,18 @@ function AppWrapper() {
           
           attempts++;
           if (attempts < maxAttempts) {
-            // Wait 4 seconds between retries to give the DB time to commit
             await new Promise(res => setTimeout(res, 4000)); 
           }
         }
         
-        // Final fallback: Clean the URL and let standard routing handle it
-        navigate("/dashboard/overview", { replace: true });
+        // Final fallback
+        const finalCheck = await checkAuth();
+        if (finalCheck?.is_active) {
+            navigate("/dashboard/overview", { replace: true });
+        } else {
+            navigate("/", { replace: true });
+        }
       } else {
-        // Standard session check
         await checkAuth();
       }
       
@@ -179,12 +194,14 @@ function AppWrapper() {
     navigate("/");
   };
 
-  // HYDRATION GUARD: Prevents flashes of Landing page
+  // HYDRATION GUARD: Prevents flashes of Landing page during Sync
   if (!isHydrated) return (
     <div className="min-h-screen bg-[#0a0118] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-4 border-purple-500/10 border-t-purple-500 rounded-full animate-spin"></div>
-            <p className="text-purple-500/40 text-[10px] uppercase tracking-[0.4em] font-bold animate-pulse">Synchronizing Neural Core</p>
+            <p className="text-purple-500/40 text-[10px] uppercase tracking-[0.4em] font-bold animate-pulse">
+                {location.search.includes("payment=success") ? "Verifying Subscription" : "Synchronizing Neural Core"}
+            </p>
         </div>
     </div>
   );

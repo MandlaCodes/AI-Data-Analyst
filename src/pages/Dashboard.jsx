@@ -11,7 +11,12 @@ import Overview from "./Overview";
 import Trends from "./Trends";
 
 const IntegrationsWrapper = ({ profile, onLogout, refetchProfile }) => {
-    const userId = profile?.id; 
+    /**
+     * ID MAPPING FIX: 
+     * We map profile.user_id (standardized in App.js) to the userId prop 
+     * required by the Integrations component.
+     */
+    const userId = profile?.user_id || profile?.id; 
     return (
         <Integrations 
             userId={userId} 
@@ -53,18 +58,31 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
         setIsVisible(true);
         
         // 3. --- CRITICAL BACKGROUND SYNC ---
-        // We force a direct fetch from the backend to ensure the 'is_active' status is captured
+        // Force a fresh pull from the DB to ensure 'is_active' is captured
         const savedToken = localStorage.getItem("adt_token");
         if (savedToken) {
             try {
-                const response = await fetch("https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me", {
-                    headers: { "Authorization": `Bearer ${savedToken}` }
+                // Using Cache-Buster ?v= and standardized /api/ route
+                const response = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me?v=${Date.now()}`, {
+                    headers: { 
+                        "Authorization": `Bearer ${savedToken}`,
+                        "Cache-Control": "no-cache"
+                    }
                 });
                 
                 if (response.ok) {
-                    const updatedUser = await response.json();
+                    const userData = await response.json();
+                    
+                    // Normalize the object for compatibility
+                    const updatedProfile = { 
+                        ...userData, 
+                        user_id: userData.id, 
+                        token: savedToken 
+                    };
+                    
                     // Update LocalStorage immediately
-                    localStorage.setItem("adt_profile", JSON.stringify(updatedUser));
+                    localStorage.setItem("adt_profile", JSON.stringify(updatedProfile));
+                    
                     // Trigger the refetch in App.js to sync the global state
                     if (refetchProfile) await refetchProfile();
                 }
@@ -73,6 +91,7 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
             }
         }
         
+        // Give the user a moment to see the "Preparing" state
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // 4. Final Fade Out and reveal Dashboard
@@ -80,7 +99,7 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
         await new Promise(resolve => setTimeout(resolve, 600));
         setActivationStage(null);
         
-        // Navigate to overview with the fresh 'active' state
+        // Clean the URL of the payment=success param and show dashboard
         navigate("/dashboard/overview", { replace: true });
     };
 
@@ -157,17 +176,17 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
                                     <div className="absolute inset-0 bg-green-500/20 blur-3xl rounded-full"></div>
                                     <FiCheckCircle size={80} className="text-green-400 mb-6 relative z-10" />
                                 </div>
-                                <h2 className="text-4xl font-black uppercase tracking-[0.2em] text-white">
+                                <h2 className="text-4xl font-black uppercase tracking-[0.2em] text-white text-center">
                                     Payment Successful
                                 </h2>
-                                <p className="text-white/30 text-[10px] mt-4 tracking-widest uppercase italic">
+                                <p className="text-white/30 text-[10px] mt-4 tracking-widest uppercase italic text-center">
                                     Transaction Verified &bull; Neural Node Authorized
                                 </p>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center">
                                 <FiLoader size={70} className="text-purple-500 mb-8 spinner-custom" />
-                                <h2 className="text-3xl font-black uppercase tracking-[0.5em] text-purple-400 neon-text animate-pulse">
+                                <h2 className="text-3xl font-black uppercase tracking-[0.5em] text-purple-400 neon-text animate-pulse text-center">
                                     Preparing Metria
                                 </h2>
                                 <div className="mt-6 flex gap-2">
@@ -175,7 +194,7 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
                                     <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                                     <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce"></span>
                                 </div>
-                                <p className="text-white/20 text-[9px] mt-8 tracking-[0.8em] uppercase">
+                                <p className="text-white/20 text-[9px] mt-8 tracking-[0.8em] uppercase text-center">
                                     Initializing Neural Core // Engine 5.0
                                 </p>
                             </div>
