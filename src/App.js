@@ -5,7 +5,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import Landing from "./pages/Landing";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard"; 
-import GoogleSheetsAnalysis from "./pages/GoogleSheetsAnalysis";
 
 /**
  * Legal & Support Components
@@ -78,133 +77,120 @@ function AppWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
   const [profile, setProfile] = useState(null); 
-  const [loading, setLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false); 
   const [showToast, setShowToast] = useState(false);
 
-  const refetchProfile = () => {
-    const savedProfile = localStorage.getItem("adt_profile");
-    const savedToken = localStorage.getItem("adt_token"); 
-
-    if (savedProfile && savedToken) {
-      try {
-        const userProfile = JSON.parse(savedProfile);
-        setProfile({ ...userProfile, token: savedToken });
-        return true;
-      } catch (e) {
-        console.error("Error parsing profile from localStorage:", e);
-        return false;
-      }
+  // Unified function to check backend for current user status
+  const checkAuth = async () => {
+    const token = localStorage.getItem("adt_token");
+    if (!token) {
+      setProfile(null);
+      setIsHydrated(true);
+      return null;
     }
-    setProfile(null);
-    return false;
-  };
-
-  const checkSubscriptionStatus = async () => {
-    const savedToken = localStorage.getItem("adt_token");
-    if (!savedToken) return;
 
     try {
       const response = await fetch("https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me", {
-        headers: { "Authorization": `Bearer ${savedToken}` }
+        headers: { "Authorization": `Bearer ${token}` }
       });
       
       if (response.ok) {
-        const updatedUser = await response.json();
-        localStorage.setItem("adt_profile", JSON.stringify(updatedUser));
-        setProfile({ ...updatedUser, token: savedToken });
+        const userData = await response.json();
+        localStorage.setItem("adt_profile", JSON.stringify(userData));
+        const activeProfile = { ...userData, token };
+        setProfile(activeProfile);
         
-        // Show success toast if they are now active
-        if (updatedUser.is_active) {
+        // Show upgrade toast if active and just paid
+        if (userData.is_active && location.search.includes("payment=success")) {
           setShowToast(true);
           setTimeout(() => setShowToast(false), 5000);
         }
+        
+        setIsHydrated(true);
+        return activeProfile;
+      } else {
+        localStorage.clear();
+        setProfile(null);
+        setIsHydrated(true);
+        return null;
       }
     } catch (err) {
-      console.error("Failed to sync profile:", err);
+      console.error("Auth Sync Failed:", err);
+      // Fallback to local storage if network is down
+      const saved = localStorage.getItem("adt_profile");
+      if (saved) setProfile({ ...JSON.parse(saved), token });
+      setIsHydrated(true);
+      return null;
     }
   };
 
-  const handleLoginSuccess = (userId, token) => { 
-    const savedProfile = JSON.parse(localStorage.getItem("adt_profile"));
-    const newProfile = { user_id: userId, email: savedProfile?.email || "User", token: token }; 
-    setProfile(newProfile);
-    navigate(`/dashboard/overview`);
+  useEffect(() => {
+    checkAuth();
+    // Clean URL if it has payment flags
+    if (location.search.includes("payment=success")) {
+      navigate(location.pathname, { replace: true });
+    }
+  }, []);
+
+  const handleLoginSuccess = async (userId, token) => { 
+    localStorage.setItem("adt_token", token);
+    const success = await checkAuth();
+    if (success) navigate(`/dashboard/overview`);
   };
 
-  useEffect(() => {
-    const initApp = async () => {
-      // 1. Check for payment success flag in URL
-      if (location.search.includes("payment=success")) {
-        await checkSubscriptionStatus();
-        // 2. Clean URL so toast doesn't re-trigger on refresh
-        navigate(location.pathname, { replace: true });
-      }
-      refetchProfile(); 
-      setLoading(false);
-    };
-    initApp();
-  }, [location.pathname, location.search, navigate]);
-
   const handleLogout = () => {
-    localStorage.removeItem("adt_profile");
-    localStorage.removeItem("adt_token"); 
+    localStorage.clear();
     setProfile(null);
     navigate("/");
   };
 
-  if (loading) return null;
+  // HYDRATION GUARD: Prevents any redirects until checkAuth is complete
+  if (!isHydrated) return (
+    <div className="min-h-screen bg-[#0a0118] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+            <div className="w-10 h-10 border-4 border-purple-500/10 border-t-purple-500 rounded-full animate-spin"></div>
+            <p className="text-purple-500/40 text-[10px] uppercase tracking-[0.4em] font-bold animate-pulse">Initializing Neural Core</p>
+        </div>
+    </div>
+  );
 
   return (
     <>
-      {/* SUCCESS NOTIFICATION TOAST */}
       {showToast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
           <div className="bg-purple-600 text-white px-6 py-3 rounded-full border border-white/20 shadow-2xl flex items-center gap-3">
             <span className="text-xl">🚀</span>
-            <span className="font-bold tracking-tight">Neural Core Upgraded: Subscription Active</span>
+            <span className="font-bold tracking-tight text-sm">Neural Core Upgraded: Subscription Active</span>
           </div>
         </div>
       )}
 
       <Routes>
-        <Route
-          path="/"
-          element={profile ? <Navigate to="/dashboard/overview" /> : <Landing onGetStarted={() => navigate("/login")} />}
-        />
+        <Route path="/" element={profile ? <Navigate to="/dashboard/overview" replace /> : <Landing onGetStarted={() => navigate("/login")} />} />
+        
+        <Route path="/login" element={profile ? <Navigate to="/dashboard/overview" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} />
 
-        <Route
-          path="/login"
-          element={profile ? <Navigate to="/dashboard/overview" /> : <Login onLoginSuccess={handleLoginSuccess} />}
-        />
-
-        <Route
-          path="/dashboard/*"
-          element={profile ? (
-            <Dashboard profile={profile} onLogout={handleLogout} refetchProfile={refetchProfile} /> 
+        <Route path="/dashboard/*" element={profile ? (
+            <Dashboard profile={profile} onLogout={handleLogout} refetchProfile={checkAuth} /> 
           ) : (
-            <Navigate to="/" />
+            <Navigate to="/" replace />
           )}
         >
           <Route path="overview" element={<Dashboard.Overview profile={profile} />} />
           <Route path="analytics" element={<Dashboard.Analytics profile={profile} onLogout={handleLogout} />} />
           <Route 
             path="integrations" 
-            element={<Dashboard.Integrations profile={profile} onLogout={handleLogout} refetchProfile={refetchProfile} />} 
+            element={<Dashboard.Integrations profile={profile} onLogout={handleLogout} refetchProfile={checkAuth} />} 
           /> 
           <Route path="profile" element={<Dashboard.Profile profile={profile} />} />
           <Route path="trends" element={<Dashboard.Trends profile={profile} />} />
           <Route index element={<Navigate replace to="overview" />} />
         </Route>
 
-        <Route
-          path="/google-sheets-analysis"
-          element={profile ? <GoogleSheetsAnalysis profile={profile} /> : <Navigate to="/" />}
-        />
-
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to={profile ? "/dashboard/overview" : "/"} replace />} />
       </Routes>
     </>
   );

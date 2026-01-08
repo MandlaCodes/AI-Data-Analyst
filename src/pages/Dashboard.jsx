@@ -43,7 +43,7 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
         setActivationStage('success');
         setTimeout(() => setIsVisible(true), 10);
         
-        // 1. Payment Success Message
+        // 1. Payment Success Message Duration
         await new Promise(resolve => setTimeout(resolve, 2500));
         
         // 2. Transition to "Preparing" (Fade out/in)
@@ -52,15 +52,36 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
         setActivationStage('preparing');
         setIsVisible(true);
         
-        // 3. Background Sync
-        if (refetchProfile) await refetchProfile();
+        // 3. --- CRITICAL BACKGROUND SYNC ---
+        // We force a direct fetch from the backend to ensure the 'is_active' status is captured
+        const savedToken = localStorage.getItem("adt_token");
+        if (savedToken) {
+            try {
+                const response = await fetch("https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me", {
+                    headers: { "Authorization": `Bearer ${savedToken}` }
+                });
+                
+                if (response.ok) {
+                    const updatedUser = await response.json();
+                    // Update LocalStorage immediately
+                    localStorage.setItem("adt_profile", JSON.stringify(updatedUser));
+                    // Trigger the refetch in App.js to sync the global state
+                    if (refetchProfile) await refetchProfile();
+                }
+            } catch (err) {
+                console.error("Dashboard sync failed:", err);
+            }
+        }
+        
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // 4. Final Fade Out and reveal Dashboard
         setIsVisible(false);
         await new Promise(resolve => setTimeout(resolve, 600));
         setActivationStage(null);
-        navigate("/dashboard", { replace: true });
+        
+        // Navigate to overview with the fresh 'active' state
+        navigate("/dashboard/overview", { replace: true });
     };
 
     const customStyles = `
@@ -93,9 +114,11 @@ export default function Dashboard({ profile, onLogout, refetchProfile }) {
             justify-content: center;
             transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
             opacity: 0;
+            pointer-events: none;
         }
         .activation-overlay.visible {
             opacity: 1;
+            pointer-events: auto;
         }
 
         .neon-text {
