@@ -71,7 +71,7 @@ const Contact = () => (
 );
 
 /**
- * AppWrapper component manages the global authentication state.
+ * AppWrapper component manages the global authentication and hydration state.
  */
 function AppWrapper() {
   const navigate = useNavigate();
@@ -85,7 +85,6 @@ function AppWrapper() {
     const token = localStorage.getItem("adt_token");
     if (!token) {
       setProfile(null);
-      setIsHydrated(true);
       return null;
     }
 
@@ -99,38 +98,55 @@ function AppWrapper() {
         localStorage.setItem("adt_profile", JSON.stringify(userData));
         const activeProfile = { ...userData, token };
         setProfile(activeProfile);
-        
-        // Show upgrade toast if active and just paid
-        if (userData.is_active && location.search.includes("payment=success")) {
-          setShowToast(true);
-          setTimeout(() => setShowToast(false), 5000);
-        }
-        
-        setIsHydrated(true);
         return activeProfile;
       } else {
         localStorage.clear();
         setProfile(null);
-        setIsHydrated(true);
         return null;
       }
     } catch (err) {
       console.error("Auth Sync Failed:", err);
-      // Fallback to local storage if network is down
       const saved = localStorage.getItem("adt_profile");
-      if (saved) setProfile({ ...JSON.parse(saved), token });
-      setIsHydrated(true);
+      if (saved) {
+        const p = { ...JSON.parse(saved), token };
+        setProfile(p);
+        return p;
+      }
       return null;
     }
   };
 
   useEffect(() => {
-    checkAuth();
-    // Clean URL if it has payment flags
-    if (location.search.includes("payment=success")) {
-      navigate(location.pathname, { replace: true });
-    }
-  }, []);
+    const initApp = async () => {
+      // Check if we are returning from a successful payment
+      if (location.search.includes("payment=success")) {
+        let attempts = 0;
+        let currentProfile = null;
+
+        // POLLING LOOP: Wait for the webhook to update the DB
+        while (attempts < 3) {
+          currentProfile = await checkAuth();
+          if (currentProfile?.is_active) {
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 5000);
+            break; 
+          }
+          attempts++;
+          if (attempts < 3) await new Promise(res => setTimeout(res, 2500)); // Wait 2.5s between retries
+        }
+        
+        // Clean the URL and finish hydration
+        navigate(location.pathname, { replace: true });
+      } else {
+        // Standard load
+        await checkAuth();
+      }
+      
+      setIsHydrated(true);
+    };
+    
+    initApp();
+  }, [location.search]);
 
   const handleLoginSuccess = async (userId, token) => { 
     localStorage.setItem("adt_token", token);
@@ -144,12 +160,12 @@ function AppWrapper() {
     navigate("/");
   };
 
-  // HYDRATION GUARD: Prevents any redirects until checkAuth is complete
+  // HYDRATION GUARD
   if (!isHydrated) return (
     <div className="min-h-screen bg-[#0a0118] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-4 border-purple-500/10 border-t-purple-500 rounded-full animate-spin"></div>
-            <p className="text-purple-500/40 text-[10px] uppercase tracking-[0.4em] font-bold animate-pulse">Initializing Neural Core</p>
+            <p className="text-purple-500/40 text-[10px] uppercase tracking-[0.4em] font-bold animate-pulse">Synchronizing Neural Core</p>
         </div>
     </div>
   );
