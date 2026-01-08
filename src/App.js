@@ -1,5 +1,3 @@
-// src/App.js
-
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
@@ -11,7 +9,6 @@ import GoogleSheetsAnalysis from "./pages/GoogleSheetsAnalysis";
 
 /**
  * Legal & Support Components
- * Dedicated pages to satisfy Google Cloud Verification requirements.
  */
 const LegalLayout = ({ title, children }) => (
   <div className="flex-1 flex flex-col items-center py-20 px-6 text-white bg-[#0a0118] min-h-screen">
@@ -75,14 +72,14 @@ const Contact = () => (
 );
 
 /**
- * AppWrapper component manages the global authentication state,
- * navigates, and handles conditional rendering.
+ * AppWrapper component manages the global authentication state.
  */
 function AppWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
   const [profile, setProfile] = useState(null); 
   const [loading, setLoading] = useState(true);
+  const [showToast, setShowToast] = useState(false);
 
   const refetchProfile = () => {
     const savedProfile = localStorage.getItem("adt_profile");
@@ -102,6 +99,31 @@ function AppWrapper() {
     return false;
   };
 
+  const checkSubscriptionStatus = async () => {
+    const savedToken = localStorage.getItem("adt_token");
+    if (!savedToken) return;
+
+    try {
+      const response = await fetch("https://ai-data-analyst-backend-1nuw.onrender.com/api/auth/me", {
+        headers: { "Authorization": `Bearer ${savedToken}` }
+      });
+      
+      if (response.ok) {
+        const updatedUser = await response.json();
+        localStorage.setItem("adt_profile", JSON.stringify(updatedUser));
+        setProfile({ ...updatedUser, token: savedToken });
+        
+        // Show success toast if they are now active
+        if (updatedUser.is_active) {
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 5000);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to sync profile:", err);
+    }
+  };
+
   const handleLoginSuccess = (userId, token) => { 
     const savedProfile = JSON.parse(localStorage.getItem("adt_profile"));
     const newProfile = { user_id: userId, email: savedProfile?.email || "User", token: token }; 
@@ -110,9 +132,18 @@ function AppWrapper() {
   };
 
   useEffect(() => {
-    refetchProfile(); 
-    setLoading(false);
-  }, [location.pathname]);
+    const initApp = async () => {
+      // 1. Check for payment success flag in URL
+      if (location.search.includes("payment=success")) {
+        await checkSubscriptionStatus();
+        // 2. Clean URL so toast doesn't re-trigger on refresh
+        navigate(location.pathname, { replace: true });
+      }
+      refetchProfile(); 
+      setLoading(false);
+    };
+    initApp();
+  }, [location.pathname, location.search, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem("adt_profile");
@@ -124,74 +155,61 @@ function AppWrapper() {
   if (loading) return null;
 
   return (
-    <Routes>
-      {/* 1. Landing Page */}
-      <Route
-        path="/"
-        element={profile ? (
-          <Navigate to="/dashboard/overview" />
-        ) : (
-          <Landing onGetStarted={() => navigate("/login")} /> 
-        )}
-      />
+    <>
+      {/* SUCCESS NOTIFICATION TOAST */}
+      {showToast && (
+        <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
+          <div className="bg-purple-600 text-white px-6 py-3 rounded-full border border-white/20 shadow-2xl flex items-center gap-3">
+            <span className="text-xl">🚀</span>
+            <span className="font-bold tracking-tight">Neural Core Upgraded: Subscription Active</span>
+          </div>
+        </div>
+      )}
 
-      {/* 2. Login Route */}
-      <Route
-        path="/login"
-        element={
-          profile ? (
-            <Navigate to="/dashboard/overview" />
+      <Routes>
+        <Route
+          path="/"
+          element={profile ? <Navigate to="/dashboard/overview" /> : <Landing onGetStarted={() => navigate("/login")} />}
+        />
+
+        <Route
+          path="/login"
+          element={profile ? <Navigate to="/dashboard/overview" /> : <Login onLoginSuccess={handleLoginSuccess} />}
+        />
+
+        <Route
+          path="/dashboard/*"
+          element={profile ? (
+            <Dashboard profile={profile} onLogout={handleLogout} refetchProfile={refetchProfile} /> 
           ) : (
-            <Login onLoginSuccess={handleLoginSuccess} /> 
-          )
-        }
-      />
+            <Navigate to="/" />
+          )}
+        >
+          <Route path="overview" element={<Dashboard.Overview profile={profile} />} />
+          <Route path="analytics" element={<Dashboard.Analytics profile={profile} onLogout={handleLogout} />} />
+          <Route 
+            path="integrations" 
+            element={<Dashboard.Integrations profile={profile} onLogout={handleLogout} refetchProfile={refetchProfile} />} 
+          /> 
+          <Route path="profile" element={<Dashboard.Profile profile={profile} />} />
+          <Route path="trends" element={<Dashboard.Trends profile={profile} />} />
+          <Route index element={<Navigate replace to="overview" />} />
+        </Route>
 
-      {/* 3. Private Route: Dashboard */}
-      <Route
-        path="/dashboard/*"
-        element={profile ? (
-          <Dashboard profile={profile} onLogout={handleLogout} refetchProfile={refetchProfile} /> 
-        ) : (
-          <Navigate to="/" />
-        )}
-      >
-        <Route path="overview" element={<Dashboard.Overview profile={profile} />} />
-        <Route path="analytics" element={<Dashboard.Analytics profile={profile} onLogout={handleLogout} />} />
-        <Route 
-          path="integrations" 
-          element={
-            <Dashboard.Integrations 
-              profile={profile} 
-              onLogout={handleLogout} 
-              refetchProfile={refetchProfile} 
-            />
-          } 
-        /> 
-        <Route path="profile" element={<Dashboard.Profile profile={profile} />} />
-        <Route path="trends" element={<Dashboard.Trends profile={profile} />} />
-        <Route index element={<Navigate replace to="overview" />} />
-      </Route>
+        <Route
+          path="/google-sheets-analysis"
+          element={profile ? <GoogleSheetsAnalysis profile={profile} /> : <Navigate to="/" />}
+        />
 
-      {/* 4. Standalone Pages */}
-      <Route
-        path="/google-sheets-analysis"
-        element={profile ? <GoogleSheetsAnalysis profile={profile} /> : <Navigate to="/" />}
-      />
-
-      {/* Legal & Verification Routes */}
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/terms" element={<Terms />} />
-      <Route path="/contact" element={<Contact />} />
-
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </>
   );
 }
 
-/**
- * Main App component.
- */
 export default function App() {
   return (
     <div className="min-h-screen w-full bg-[#0a0118] m-0 p-0 flex flex-col relative z-0"> 
