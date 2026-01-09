@@ -8,10 +8,11 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard"; 
 import GoogleSheetsAnalysis from "./pages/GoogleSheetsAnalysis";
+// --- ADD THIS IMPORT ---
+import Blog from "./components/Blog"; 
 
 /**
  * Legal & Support Components
- * Dedicated pages to satisfy Google Cloud Verification requirements.
  */
 const LegalLayout = ({ title, children }) => (
   <div className="flex-1 flex flex-col items-center py-20 px-6 text-white bg-[#0a0118] min-h-screen">
@@ -74,10 +75,6 @@ const Contact = () => (
   </LegalLayout>
 );
 
-/**
- * AppWrapper component manages the global authentication state,
- * navigates, and handles conditional rendering.
- */
 function AppWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -179,6 +176,9 @@ function AppWrapper() {
         element={profile ? <GoogleSheetsAnalysis profile={profile} /> : <Navigate to="/" />}
       />
 
+      {/* --- ADD THE BLOG ROUTE HERE --- */}
+      <Route path="/blog" element={<Blog />} />
+
       {/* Legal & Verification Routes */}
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
@@ -189,9 +189,6 @@ function AppWrapper() {
   );
 }
 
-/**
- * Main App component.
- */
 export default function App() {
   return (
     <div className="min-h-screen w-full bg-[#0a0118] m-0 p-0 flex flex-col relative z-0"> 

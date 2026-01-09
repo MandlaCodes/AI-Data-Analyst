@@ -7,7 +7,7 @@ import {
   FaChartLine, FaBrain, FaServer, FaWrench,
   FaArrowRight, FaRocket, FaShieldAlt,
   FaBars, FaTimes, FaPlus, FaMinus,
-  FaCheckCircle, FaMicrochip, FaDatabase, FaMagic
+  FaCheckCircle, FaMicrochip, FaDatabase, FaMagic, FaBookOpen
 } from "react-icons/fa";
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
@@ -69,8 +69,9 @@ body { background: ${DARK}; overflow-x: hidden; color: white; margin: 0; }
   animation: shine 4s linear infinite;
   padding-right: 0.35em;
   margin-right: -0.35em;
-  padding-bottom: 0.1em;
-  line-height: 1.1;
+  /* Fixed descender cutoff: */
+  padding-bottom: 0.15em; 
+  line-height: 1.2;
 }
 
 @keyframes shine { to { background-position: 200% center; } }
@@ -225,9 +226,9 @@ export default function Landing({ onGetStarted }) {
             <span className="font-extrabold text-xl tracking-tighter uppercase">Metria</span>
           </div>
 
-          {/* Desktop Nav */}
           <div className="hidden md:flex gap-8 text-[10px] uppercase font-bold tracking-widest text-gray-400">
             <a href="#solutions" className="hover:text-white transition-colors">The Engine</a>
+            <Link to="/blog" className="hover:text-white transition-colors">Blog</Link>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors">Documentation</a>
           </div>
@@ -239,16 +240,15 @@ export default function Landing({ onGetStarted }) {
             Access Terminal
           </button>
 
-          {/* Mobile Toggle */}
           <button className="md:hidden text-2xl text-white p-2 relative z-[110]" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <FaTimes /> : <FaBars />}
           </button>
         </nav>
 
-        {/* MOBILE MENU OVERLAY */}
         {isMenuOpen && (
           <div className="fixed inset-0 bg-[#02010a] z-[105] flex flex-col items-center justify-center gap-8 animate-slideDown md:hidden">
             <a href="#solutions" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase tracking-tighter hover:text-purple-500 transition-colors">The Engine</a>
+            <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase tracking-tighter hover:text-purple-500 transition-colors">Blog</Link>
             <a href="#pricing" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase tracking-tighter hover:text-purple-500 transition-colors">Pricing</a>
             <a href="#faq" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase tracking-tighter hover:text-purple-500 transition-colors">Documentation</a>
             <button 
@@ -343,6 +343,50 @@ export default function Landing({ onGetStarted }) {
           </div>
         </div>
       </section>
+
+ {/* INSIGHT BRIEFING (BLOG CTA SECTION) */}
+<section className="py-20 px-6">
+  <div className="max-w-7xl mx-auto">
+    <div className="glass-morphism rounded-[40px] p-8 md:p-16 border-l-4 border-purple-500 reveal">
+      <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div>
+          {/* FIXED HEADING: Added pb-2 and changed leading to 1.1 */}
+          <h2 className="text-3xl md:text-5xl font-black tracking-tighter mb-6 pb-2 leading-[1.1] reveal-text">
+            Data is noise. <br/>
+            <span className="text-purple-500">Strategy is clarity.</span>
+          </h2>
+          
+          <p className="text-gray-400 text-lg leading-relaxed mb-8 reveal-text delay-1">
+            Most businesses drown in dashboards but starve for direction. MetriaAI transforms raw spreadsheets and KPIs into clear, plain-English strategic intelligence. Stop guessing and start leading with evidence-based growth opportunities.
+          </p>
+          
+          <Link to="/blog" className="inline-flex items-center gap-3 px-8 py-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 font-bold uppercase tracking-widest text-xs hover:bg-purple-500 hover:text-white transition-all">
+            Read our Analysis Methodology <FaBookOpen />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+            <h4 className="text-white font-bold mb-2">Identify Trends</h4>
+            <p className="text-gray-500 text-xs">Catch failing trends before they impact revenue.</p>
+          </div>
+          <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+            <h4 className="text-white font-bold mb-2">Reduce Risk</h4>
+            <p className="text-gray-500 text-xs">Automated risk assessments for every decision.</p>
+          </div>
+          <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+            <h4 className="text-white font-bold mb-2">Growth Maps</h4>
+            <p className="text-gray-500 text-xs">AI-driven revenue impact projections.</p>
+          </div>
+          <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+            <h4 className="text-white font-bold mb-2">Zero Fatigue</h4>
+            <p className="text-gray-500 text-xs">No more complex charts. Just the answers.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* 4. PRICING */}
       <section id="pricing" className="py-32 px-6">
