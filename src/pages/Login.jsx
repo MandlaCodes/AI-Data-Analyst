@@ -1,17 +1,16 @@
 /**
- * components/Login.js - AUTH + ACTIVATION SYSTEM
- * Integration: Polar Checkout redirect with optimized state handling
+ * components/Login.js - AUTH SYSTEM
+ * Fix: Prevents password autofill from bleeding into Company Name field
  */
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt } from "react-icons/fa";
-import { FiLoader, FiCheckCircle, FiMail, FiChevronDown, FiCreditCard } from "react-icons/fi";
+import { FiLoader, FiCheckCircle, FiMail, FiChevronDown } from "react-icons/fi";
 
 const INDUSTRIES = [
   "Finance & Banking", "Healthcare", "E-commerce",
   "SaaS & Tech", "Manufacturing", "Marketing", "Fitness", "Fashion", "Warehouse", "Real Estate"
 ];
-
-const BACKEND_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 export default function Login({ onLoginSuccess }) {
   const [isSignup, setIsSignup] = useState(false);
@@ -20,25 +19,20 @@ export default function Login({ onLoginSuccess }) {
     email: "", password: "", firstName: "", lastName: "", org: "", industry: ""
   });
   const [status, setStatus] = useState(null);
-  const [isRedirecting, setIsRedirecting] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Step transition for Signup
     if (isSignup && step === 1) {
       setStep(2);
       return;
     }
 
     setStatus({ message: "Connecting to system...", type: "info" });
-    
     try {
-      // Corrected endpoints to match your likely backend structure
-      const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
+      const endpoint = isSignup ? "/auth/signup" : "/auth/login";
       const payload = isSignup ? {
         email: formData.email,
         password: formData.password,
@@ -48,7 +42,7 @@ export default function Login({ onLoginSuccess }) {
         industry: formData.industry
       } : { email: formData.email, password: formData.password };
 
-      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      const response = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -57,92 +51,60 @@ export default function Login({ onLoginSuccess }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setStatus({ message: data.detail || data.error || "Action Failed.", type: "error" });
+        setStatus({ message: data.detail || data.error || "Login Failed.", type: "error" });
         return;
       }
 
-      // --- SIGNUP FLOW: TRIGGER POLAR CHECKOUT ---
-      if (isSignup) {
-        /**
-         * CRITICAL FIX: 
-         * Save the token and profile immediately upon signup.
-         * This prevents the app from being "logged out" when returning from Polar.
-         */
-        if (data.token) {
-          localStorage.setItem("adt_token", data.token);
-          if (data.user) {
-            const normalizedUser = { ...data.user, user_id: data.user.id, token: data.token };
-            localStorage.setItem("adt_profile", JSON.stringify(normalizedUser));
-          }
-        }
-
-        setStatus({ message: "Account Created. Initializing Secure Checkout...", type: "info" });
-        setIsRedirecting(true);
-
-        const checkoutRes = await fetch(`${BACKEND_URL}/api/payments/create-checkout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email })
-        });
-
-        const checkoutData = await checkoutRes.json();
-        
-        if (checkoutData.url) {
-          // Hard redirect to payment gateway
-          window.location.replace(checkoutData.url);
-          return;
-        } else {
-          setStatus({ message: "Checkout failed to initialize. Please login to retry.", type: "error" });
-          setIsRedirecting(false);
-          return;
-        }
-      }
-
-      // --- LOGIN FLOW ---
       if (data.token) {
         localStorage.setItem("adt_token", data.token);
         if (data.user) {
-          // Normalize user_id to ensure Dashboard doesn't crash on ID mismatch
-          const normalizedUser = { ...data.user, user_id: data.user.id, token: data.token };
-          localStorage.setItem("adt_profile", JSON.stringify(normalizedUser));
+          localStorage.setItem("adt_profile", JSON.stringify(data.user));
         }
         setIsLoggedIn(true);
         setTimeout(() => {
-          onLoginSuccess(data.user_id || data.user?.id, data.token);
+          onLoginSuccess(data.user_id, data.token);
         }, 1500);
       }
     } catch (err) {
-      console.error("Auth Error:", err);
-      setStatus({ message: "Network Error. Verify your connection.", type: "error" });
+      setStatus({ message: "Network Error. Please try again.", type: "error" });
     }
   };
 
   const pageStyles = `
-    body, html { margin: 0; padding: 0; overflow: hidden !important; height: 100vh; width: 100vw; background-color: #02010a; }
-    @keyframes pulse-slow { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
-    .bg-grid { background-size: 40px 40px; background-image: radial-gradient(circle, rgba(168, 85, 247, 0.1) 1px, transparent 1px); }
-    .input-focus-effect:focus-within { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.5); }
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden !important;
+      height: 100vh;
+      width: 100vw;
+      background-color: #02010a;
+    }
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.1); }
+    }
+    .bg-grid {
+      background-size: 40px 40px;
+      background-image: radial-gradient(circle, rgba(168, 85, 247, 0.1) 1px, transparent 1px);
+    }
+    .input-focus-effect:focus-within {
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
+      border-color: rgba(168, 85, 247, 0.5);
+    }
   `;
 
   return (
     <div className="h-screen w-screen flex bg-[#02010a] text-white font-sans overflow-hidden fixed inset-0">
       <style>{pageStyles}</style>
       
-      {(isLoggedIn || isRedirecting) && (
+      {isLoggedIn && (
         <div className="fixed inset-0 z-[100] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
           <div className="relative">
              <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
-             {isRedirecting ? 
-              <FiCreditCard size={100} className="text-purple-400 relative z-10 animate-bounce" /> :
-              <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
-             }
+             <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
           </div>
-          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic">
-            {isRedirecting ? "Activate" : "Success"}
-          </h2>
-          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">
-            {isRedirecting ? "SECURE CHECKOUT INITIALIZING..." : "OPENING DASHBOARD..."}
-          </p>
+          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic">Success</h2>
+          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">OPENING DASHBOARD...</p>
         </div>
       )}
 
@@ -150,19 +112,19 @@ export default function Login({ onLoginSuccess }) {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
         <div className="relative z-20 text-center px-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-[9px] font-bold uppercase tracking-[0.2em] mb-8">
-            <FaShieldAlt className="animate-pulse" /> Secure 256-bit Connection
+            <FaShieldAlt className="animate-pulse" /> Secure Connection
           </div>
           <h2 className="text-8xl font-black italic tracking-tighter leading-none mb-6">
             METRIA<span className="text-purple-500">.</span>
           </h2>
           <p className="text-slate-400 text-lg font-medium italic tracking-wide mb-12 max-w-sm mx-auto">
-            Advanced AI for your business data. Deploy your analyst in seconds.
+            Advanced AI for your business data. Simple, fast, and powerful.
           </p>
           <button
             onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
             className="group px-10 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-500"
           >
-            {isSignup ? "Existing Member? Login" : "New? Hire Your Analyst"}
+            {isSignup ? "Go to Login" : "Create an Account"}
           </button>
         </div>
       </div>
@@ -175,7 +137,7 @@ export default function Login({ onLoginSuccess }) {
             </h1>
             <div className="h-1 w-12 bg-purple-500" />
             <p className="text-slate-500 text-[10px] font-mono uppercase tracking-[0.3em]">
-              {isSignup ? `Step ${step} of 2` : "Identification Required"}
+              {isSignup ? `Step ${step} of 2` : "Enter your details below"}
             </p>
           </div>
 
@@ -193,7 +155,17 @@ export default function Login({ onLoginSuccess }) {
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input id="org" name="org" placeholder="COMPANY NAME" autoComplete="off" value={formData.org} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  {/* FIX: Added value, id, and autoComplete="off" to prevent password bleeding */}
+                  <input 
+                    id="organization_name_input"
+                    name="org" 
+                    placeholder="COMPANY NAME" 
+                    autoComplete="off"
+                    value={formData.org} 
+                    onChange={handleChange} 
+                    required 
+                    className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" 
+                  />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBriefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
@@ -220,7 +192,7 @@ export default function Login({ onLoginSuccess }) {
             <button type="submit" className="w-full group relative flex items-center justify-center gap-3 py-5 bg-purple-600 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-300 shadow-2xl shadow-purple-500/20">
               {status?.type === "info" ? <FiLoader className="animate-spin" size={18} /> : (
                 <>
-                  {isSignup ? (step === 1 ? "Next Step" : "Hire Your AI Analyst") : "Authorized Login"}
+                  {isSignup ? (step === 1 ? "Next Step" : "Create Account") : "Login Now"}
                   <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
@@ -232,6 +204,15 @@ export default function Login({ onLoginSuccess }) {
               {status.message}
             </div>
           )}
+
+          <div className="text-center lg:hidden pb-4">
+             <button
+              onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
+              className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+            >
+              {isSignup ? "Have an account? Login" : "No account? Create one"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
