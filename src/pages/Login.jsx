@@ -37,7 +37,7 @@ export default function Login({ onLoginSuccess }) {
     setStatus({ message: "Connecting to system...", type: "info" });
     
     try {
-      const endpoint = isSignup ? "/auth/signup" : "/auth/login";
+      const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
       const payload = isSignup ? {
         email: formData.email,
         password: formData.password,
@@ -65,7 +65,7 @@ export default function Login({ onLoginSuccess }) {
         setStatus({ message: "Account Created. Initializing Secure Checkout...", type: "info" });
         setIsRedirecting(true);
 
-        const checkoutRes = await fetch(`${BACKEND_URL}/payments/create-checkout`, {
+        const checkoutRes = await fetch(`${BACKEND_URL}/api/payments/create-checkout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: formData.email })
@@ -87,15 +87,31 @@ export default function Login({ onLoginSuccess }) {
       // --- LOGIN FLOW ---
       if (data.token) {
         localStorage.setItem("adt_token", data.token);
+        
         if (data.user) {
-          localStorage.setItem("adt_profile", JSON.stringify(data.user));
+          /**
+           * MAPPING FIX:
+           * We ensure the 'user_id' key exists in the profile immediately 
+           * to prevent the "Empty Profile" kick-back during the first redirect.
+           * We also explicitly include the token in the profile object for redundancy.
+           */
+          const normalizedUser = { 
+            ...data.user, 
+            user_id: data.user.id, 
+            token: data.token 
+          };
+          
+          localStorage.setItem("adt_profile", JSON.stringify(normalizedUser));
+          setIsLoggedIn(true);
+          
+          // Small delay to let the "Success" animation play before moving to Dashboard
+          setTimeout(() => {
+            onLoginSuccess(normalizedUser.user_id, data.token);
+          }, 1500);
         }
-        setIsLoggedIn(true);
-        setTimeout(() => {
-          onLoginSuccess(data.user_id, data.token);
-        }, 1500);
       }
     } catch (err) {
+      console.error("Login Error:", err);
       setStatus({ message: "Network Error. Verify your connection.", type: "error" });
     }
   };
@@ -121,10 +137,10 @@ export default function Login({ onLoginSuccess }) {
               <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
              }
           </div>
-          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic">
+          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-center">
             {isRedirecting ? "Activate" : "Success"}
           </h2>
-          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">
+          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse text-center">
             {isRedirecting ? "SECURE CHECKOUT INITIALIZING..." : "OPENING DASHBOARD..."}
           </p>
         </div>

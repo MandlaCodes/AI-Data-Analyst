@@ -101,11 +101,7 @@ function AppWrapper() {
       if (response.ok) {
         const userData = await response.json();
         
-        /**
-         * MISMATCH FIX:
-         * Backend sends 'id', but some components might expect 'user_id'.
-         * We map both to ensure absolute compatibility.
-         */
+        // Mismatch fix: bridge 'id' and 'user_id'
         const activeProfile = { 
           ...userData, 
           user_id: userData.id, 
@@ -134,26 +130,27 @@ function AppWrapper() {
 
   useEffect(() => {
     const initApp = async () => {
-      // 1. Check if we are returning from a successful payment
+      // 1. Initial check to see if session exists
+      const initialProfile = await checkAuth();
+
+      // 2. Check if we are returning from a successful payment
       if (location.search.includes("payment=success")) {
-        console.log("💳 Payment detected. Initiating ID-First Neural Sync...");
+        console.log("💳 Payment detected. Initiating Patient Neural Sync...");
         let attempts = 0;
-        const maxAttempts = 15; 
+        const maxAttempts = 25; // Increased to give Render Free Tier more time
 
         while (attempts < maxAttempts) {
           console.log(`Neural Sync Attempt ${attempts + 1}/${maxAttempts}...`);
           const currentProfile = await checkAuth();
           
           /**
-           * ARCHITECTURAL TELEPORT: 
-           * Using subscription_id as the Master Key.
+           * Using subscription_id or is_active as the verification key
            */
-          if (currentProfile?.subscription_id || currentProfile?.is_active) {
-            console.log("🚀 Subscription verified! Teleporting to Dashboard.");
+          if (currentProfile?.subscription_id || currentProfile?.is_active === true) {
+            console.log("🚀 Subscription verified in DB. Teleporting to Dashboard.");
             setShowToast(true);
             setTimeout(() => setShowToast(false), 5000);
             
-            // Redirect immediately
             navigate("/dashboard/overview", { replace: true });
             setIsHydrated(true);
             return; 
@@ -161,18 +158,21 @@ function AppWrapper() {
           
           attempts++;
           if (attempts < maxAttempts) {
+            // Wait 4 seconds between retries
             await new Promise(res => setTimeout(res, 4000)); 
           }
         }
         
-        // Final fallback
+        // Final fallback: if polling times out but user is active, go to dashboard
         const finalCheck = await checkAuth();
-        if (finalCheck?.is_active) {
+        if (finalCheck?.is_active || finalCheck?.subscription_id) {
             navigate("/dashboard/overview", { replace: true });
         } else {
+            // Only kick to home if we are absolutely sure they aren't active after 100 seconds
             navigate("/", { replace: true });
         }
       } else {
+        // Standard session check (not a payment return)
         await checkAuth();
       }
       
