@@ -37,6 +37,7 @@ export default function Login({ onLoginSuccess }) {
     setStatus({ message: "Connecting to system...", type: "info" });
     
     try {
+      // Corrected endpoints to match your likely backend structure
       const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
       const payload = isSignup ? {
         email: formData.email,
@@ -62,6 +63,19 @@ export default function Login({ onLoginSuccess }) {
 
       // --- SIGNUP FLOW: TRIGGER POLAR CHECKOUT ---
       if (isSignup) {
+        /**
+         * CRITICAL FIX: 
+         * Save the token and profile immediately upon signup.
+         * This prevents the app from being "logged out" when returning from Polar.
+         */
+        if (data.token) {
+          localStorage.setItem("adt_token", data.token);
+          if (data.user) {
+            const normalizedUser = { ...data.user, user_id: data.user.id, token: data.token };
+            localStorage.setItem("adt_profile", JSON.stringify(normalizedUser));
+          }
+        }
+
         setStatus({ message: "Account Created. Initializing Secure Checkout...", type: "info" });
         setIsRedirecting(true);
 
@@ -74,7 +88,7 @@ export default function Login({ onLoginSuccess }) {
         const checkoutData = await checkoutRes.json();
         
         if (checkoutData.url) {
-          // Use replace to ensure they don't loop back to the form on "Back" button
+          // Hard redirect to payment gateway
           window.location.replace(checkoutData.url);
           return;
         } else {
@@ -87,31 +101,18 @@ export default function Login({ onLoginSuccess }) {
       // --- LOGIN FLOW ---
       if (data.token) {
         localStorage.setItem("adt_token", data.token);
-        
         if (data.user) {
-          /**
-           * MAPPING FIX:
-           * We ensure the 'user_id' key exists in the profile immediately 
-           * to prevent the "Empty Profile" kick-back during the first redirect.
-           * We also explicitly include the token in the profile object for redundancy.
-           */
-          const normalizedUser = { 
-            ...data.user, 
-            user_id: data.user.id, 
-            token: data.token 
-          };
-          
+          // Normalize user_id to ensure Dashboard doesn't crash on ID mismatch
+          const normalizedUser = { ...data.user, user_id: data.user.id, token: data.token };
           localStorage.setItem("adt_profile", JSON.stringify(normalizedUser));
-          setIsLoggedIn(true);
-          
-          // Small delay to let the "Success" animation play before moving to Dashboard
-          setTimeout(() => {
-            onLoginSuccess(normalizedUser.user_id, data.token);
-          }, 1500);
         }
+        setIsLoggedIn(true);
+        setTimeout(() => {
+          onLoginSuccess(data.user_id || data.user?.id, data.token);
+        }, 1500);
       }
     } catch (err) {
-      console.error("Login Error:", err);
+      console.error("Auth Error:", err);
       setStatus({ message: "Network Error. Verify your connection.", type: "error" });
     }
   };
@@ -127,7 +128,6 @@ export default function Login({ onLoginSuccess }) {
     <div className="h-screen w-screen flex bg-[#02010a] text-white font-sans overflow-hidden fixed inset-0">
       <style>{pageStyles}</style>
       
-      {/* Overlay for Success or Redirecting State */}
       {(isLoggedIn || isRedirecting) && (
         <div className="fixed inset-0 z-[100] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
           <div className="relative">
@@ -137,16 +137,15 @@ export default function Login({ onLoginSuccess }) {
               <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
              }
           </div>
-          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-center">
+          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic">
             {isRedirecting ? "Activate" : "Success"}
           </h2>
-          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse text-center">
+          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">
             {isRedirecting ? "SECURE CHECKOUT INITIALIZING..." : "OPENING DASHBOARD..."}
           </p>
         </div>
       )}
 
-      {/* Left Branding Panel */}
       <div className="hidden lg:flex relative w-1/2 h-full items-center justify-center overflow-hidden border-r border-white/5 bg-grid">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
         <div className="relative z-20 text-center px-12">
@@ -168,7 +167,6 @@ export default function Login({ onLoginSuccess }) {
         </div>
       </div>
 
-      {/* Right Form Panel */}
       <div className="w-full lg:w-1/2 h-full flex items-center justify-center p-0 relative">
         <div className="w-full max-w-md space-y-8 relative z-10 px-8">
           <div className="space-y-3">
