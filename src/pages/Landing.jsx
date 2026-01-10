@@ -127,7 +127,7 @@ body { background: ${DARK}; overflow-x: hidden; color: white; margin: 0; }
 
 .hero-visual {
   display: block;
-  max-height: 30vh; 
+  max-height: 25vh; 
   width: auto;
   border-radius: 37px;
   transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
@@ -257,11 +257,11 @@ export default function Landing({ onGetStarted }) {
         </div>
       </header>
 
-      {/* HERO SECTION - TIGHTER MOBILE HEIGHT */}
-      <section className="relative min-h-[90svh] md:min-h-[100svh] flex items-center px-6 md:px-12 pt-20 md:pt-24 overflow-hidden">
+      {/* HERO SECTION - REFINED PADDING FOR MOBILE */}
+      <section className="relative min-h-[90svh] md:min-h-[100svh] flex items-center px-6 md:px-12 pt-32 md:pt-24 overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-8 md:gap-12 items-center w-full relative z-10">
           
-          <div className="reveal flex justify-center items-center relative order-1 lg:order-2">
+          <div className="reveal flex justify-center items-center relative order-1 lg:order-2 mt-4 md:mt-0">
             <div className="absolute -inset-10 lg:-inset-20 bg-purple-600/10 blur-[60px] lg:blur-[120px] rounded-full" />
             <div className="hero-visual-container">
               <img src={AI_HEAD_HERO} className="hero-visual" alt="Metria Core Visual" />
@@ -276,7 +276,7 @@ export default function Landing({ onGetStarted }) {
               Decisions. <br />
               <span className="gradient-text italic">Automated.</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 max-w-xl mb-8 md:mb-10 leading-relaxed reveal-text delay-2 mx-auto lg:mx-0">
+            <p className="text-lg md:text-xl text-white-400 max-w-xl mb-8 md:mb-10 leading-relaxed reveal-text delay-2 mx-auto lg:mx-0">
               The autonomous AI data analyst that eliminates manual synthesis. Import your streams and get executive-ready intelligence in seconds.
             </p>
             <div className="flex justify-center lg:justify-start reveal-text delay-2">
