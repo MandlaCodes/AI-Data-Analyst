@@ -188,7 +188,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 {aiInsights && !loading && (
                     <div className="flex items-center gap-4">
                         <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-8 py-4 bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
-                           <FiFileText /> Board Briefing
+                           <FiFileText /> View full report
                         </button>
                         <button onClick={runAnalysis} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
                             <FaRedo className="text-[9px]" /> Refresh
