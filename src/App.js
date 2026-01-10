@@ -1,5 +1,4 @@
 // src/App.js
-
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
@@ -8,8 +7,17 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard"; 
 import GoogleSheetsAnalysis from "./pages/GoogleSheetsAnalysis";
-// --- ADD THIS IMPORT ---
 import Blog from "./components/Blog"; 
+
+/**
+ * ScrollToTop - Resets window scroll on route change
+ */
+const useScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+};
 
 /**
  * Legal & Support Components
@@ -27,7 +35,7 @@ const LegalLayout = ({ title, children }) => (
         onClick={() => window.history.back()} 
         className="mt-12 text-purple-400 hover:text-purple-300 transition-colors font-bold uppercase tracking-widest text-sm"
       >
-        ← Return to MetriaAI
+        &larr; Return to MetriaAI
       </button>
     </div>
   </div>
@@ -80,6 +88,9 @@ function AppWrapper() {
   const location = useLocation();
   const [profile, setProfile] = useState(null); 
   const [loading, setLoading] = useState(true);
+
+  // Trigger scroll to top on every navigation
+  useScrollToTop();
 
   const refetchProfile = () => {
     const savedProfile = localStorage.getItem("adt_profile");
@@ -176,7 +187,7 @@ function AppWrapper() {
         element={profile ? <GoogleSheetsAnalysis profile={profile} /> : <Navigate to="/" />}
       />
 
-      {/* --- ADD THE BLOG ROUTE HERE --- */}
+      {/* 5. Blog Route */}
       <Route path="/blog" element={<Blog />} />
 
       {/* Legal & Verification Routes */}
