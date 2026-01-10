@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-10 - Human-Centric Voice Sync + Sequential Report
+ * Updated: 2026-01-10 - Production Grade British Female Voice Sync
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -103,6 +103,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Finalizing report..."
     ], [userProfile]);
 
+    // PRE-FETCH VOICES (Critical for Chrome/Production)
+    useEffect(() => {
+        window.speechSynthesis.getVoices();
+    }, []);
+
     useEffect(() => {
         let interval;
         if (loading) {
@@ -122,28 +127,31 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
         let contentToRead = textOverride;
         if (isFullReportOpen) {
-            contentToRead = `Executive Summary. ${aiInsights.summary}. Primary Discovery. ${aiInsights.root_cause}. Identified Risk. ${aiInsights.risk}. Strategic Opportunity. ${aiInsights.opportunity}. Final Actionable Steps. ${aiInsights.action}`;
+            // Expression-rich text with punctuation for natural pausing
+            contentToRead = `Right... Let's take a look at the strategic briefing. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
         const voices = window.speechSynthesis.getVoices();
         
-        // FIND HUMAN-LIKE LADY VOICE: 
-        // Prioritizes "Google US English" (standard lady), "Natural", or "Samantha"
-        utterance.voice = voices.find(v => 
-            v.name.includes('Natural') || 
-            v.name.includes('Premium') || 
-            v.name.includes('Google US English') || 
-            v.name.includes('Samantha') ||
-            v.name.includes('Female')
-        ) || voices[0];
+        // STRICT BRITISH FEMALE FILTERING
+        const britishVoice = voices.find(v => 
+            (v.lang === 'en-GB' || v.lang.startsWith('en-GB')) && 
+            (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Hazel') || v.name.includes('Serena') || v.name.includes('Google'))
+        );
+
+        // Fallback to any British voice if female is not explicit, otherwise any voice
+        utterance.voice = britishVoice || voices.find(v => v.lang.includes('en-GB')) || voices[0];
         
-        // Humanized Pace & Tone
-        utterance.rate = 0.92; 
-        utterance.pitch = 1.05; // Slightly higher pitch for a clear, human lady tone
+        // Humanizing parameters
+        utterance.rate = 0.85; // Slightly slower for that professional, deliberate British cadence
+        utterance.pitch = 1.1; // Slightly higher to remove the 'drone' effect
+        utterance.volume = 1.0;
         
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+
         window.speechSynthesis.speak(utterance);
     };
 
@@ -236,30 +244,29 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
-            {/* SHARED OVERLAY FOR SINGLE CARDS AND FULL REPORT */}
             <AnimatePresence>
                 {(expandedCard || isFullReportOpen) && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
                         <motion.div 
                             initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-                            className="relative w-full max-w-6xl max-h-[85vh] bg-[#0a0a0f] border border-white/10 rounded-[3.5rem] flex flex-col overflow-hidden"
+                            className="relative w-full max-w-6xl max-h-[85vh] bg-[#0a0a0f] border border-white/10 rounded-[3.5rem] flex flex-col overflow-hidden shadow-[0_0_100px_rgba(188,19,254,0.1)]"
                         >
                             <div className="p-8 md:p-12 flex justify-between items-center border-b border-white/5 bg-[#111116]">
                                 <div className="flex items-center gap-6">
                                     <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-indigo-400' : (expandedCard ? expandedCard.color : '')}`}>
                                         {isFullReportOpen ? <FiFileText size={30} /> : (expandedCard && <expandedCard.icon size={30} />)}
                                     </div>
-                                    <h3 className="text-white text-3xl font-bold uppercase">{isFullReportOpen ? "Full Strategic Report" : (expandedCard && expandedCard.title)}</h3>
+                                    <h3 className="text-white text-3xl font-bold uppercase tracking-tight">{isFullReportOpen ? "Full Strategic Report" : (expandedCard && expandedCard.title)}</h3>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <button 
                                         onClick={() => toggleSpeech(isFullReportOpen ? "" : (expandedCard ? expandedCard.content : ""))}
                                         className={`flex items-center gap-4 px-8 py-4 rounded-2xl text-[12px] font-black uppercase tracking-widest border transition-all ${isSpeaking ? 'bg-[#bc13fe]/20 text-[#bc13fe] border-[#bc13fe]/30' : 'bg-white/5 text-white border-white/10 hover:bg-white hover:text-black'}`}
                                     >
-                                        {isSpeaking ? <><AudioWaveform /> Stop</> : <><FaVolumeUp /> Voice Briefing</>}
+                                        {isSpeaking ? <><AudioWaveform /> Stop Analysis</> : <><FaVolumeUp /> Voice Briefing</>}
                                     </button>
-                                    <button onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="p-5 bg-white/5 rounded-full text-white border border-white/10"><FiX size={26} /></button>
+                                    <button onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="p-5 bg-white/5 rounded-full text-white border border-white/10 hover:bg-red-500/20 transition-all"><FiX size={26} /></button>
                                 </div>
                             </div>
                             <div className="flex-1 overflow-y-auto p-10 md:p-20 bg-[#050505]/80">
@@ -272,19 +279,19 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                             <div className="space-y-4">
                                                 <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Primary Discovery</span>
-                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.root_cause}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.root_cause}</p>
                                             </div>
                                             <div className="space-y-4">
                                                 <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Risk Matrix</span>
-                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.risk}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.risk}</p>
                                             </div>
                                             <div className="space-y-4">
                                                 <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Growth Opportunity</span>
-                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.opportunity}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.opportunity}</p>
                                             </div>
                                             <div className="space-y-4">
                                                 <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Tactical Priority</span>
-                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.action}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.action}</p>
                                             </div>
                                         </div>
                                     </div>

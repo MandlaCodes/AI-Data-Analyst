@@ -1,10 +1,10 @@
 /**
  * components/Login.js - AUTH SYSTEM
- * Fix: Prevents password autofill from bleeding into Company Name field
+ * Fix: Mobile CTA visibility and overflow issues
  */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt } from "react-icons/fa";
+import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt, FaArrowLeft } from "react-icons/fa";
 import { FiLoader, FiCheckCircle, FiMail, FiChevronDown } from "react-icons/fi";
 
 const INDUSTRIES = [
@@ -74,9 +74,8 @@ export default function Login({ onLoginSuccess }) {
     body, html {
       margin: 0;
       padding: 0;
-      overflow: hidden !important;
-      height: 100vh;
-      width: 100vw;
+      overflow-x: hidden !important; /* Changed from overflow: hidden to allow vertical scroll on mobile */
+      min-height: 100vh;
       background-color: #02010a;
     }
     @keyframes pulse-slow {
@@ -94,7 +93,7 @@ export default function Login({ onLoginSuccess }) {
   `;
 
   return (
-    <div className="h-screen w-screen flex bg-[#02010a] text-white font-sans overflow-hidden fixed inset-0">
+    <div className="min-h-screen w-full flex bg-[#02010a] text-white font-sans relative">
       <style>{pageStyles}</style>
       
       {isLoggedIn && (
@@ -108,7 +107,8 @@ export default function Login({ onLoginSuccess }) {
         </div>
       )}
 
-      <div className="hidden lg:flex relative w-1/2 h-full items-center justify-center overflow-hidden border-r border-white/5 bg-grid">
+      {/* DESKTOP LEFT PANEL */}
+      <div className="hidden lg:flex relative w-1/2 h-screen items-center justify-center overflow-hidden border-r border-white/5 bg-grid sticky top-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
         <div className="relative z-20 text-center px-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-[9px] font-bold uppercase tracking-[0.2em] mb-8">
@@ -129,8 +129,20 @@ export default function Login({ onLoginSuccess }) {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 h-full flex items-center justify-center p-0 relative">
+      {/* FORM RIGHT PANEL */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-0 relative py-20 lg:py-0">
         <div className="w-full max-w-md space-y-8 relative z-10 px-8">
+          
+          {/* Back button for Sign Up Step 2 */}
+          {isSignup && step === 2 && (
+            <button 
+              onClick={() => setStep(1)}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-purple-500 transition-colors mb-4"
+            >
+              <FaArrowLeft /> Back
+            </button>
+          )}
+
           <div className="space-y-3">
             <h1 className="text-5xl font-black uppercase tracking-tighter italic leading-none">
               {isSignup ? "Sign Up" : "Login"}
@@ -155,7 +167,6 @@ export default function Login({ onLoginSuccess }) {
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  {/* FIX: Added value, id, and autoComplete="off" to prevent password bleeding */}
                   <input 
                     id="organization_name_input"
                     name="org" 
@@ -205,10 +216,12 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          <div className="text-center lg:hidden pb-4">
+          {/* MOBILE TOGGLE CTA - Fixed padding and visibility */}
+          <div className="text-center lg:hidden pt-4 pb-12">
              <button
+              type="button"
               onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
-              className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
+              className="px-6 py-3 border border-white/5 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-purple-400 transition-all bg-white/5"
             >
               {isSignup ? "Have an account? Login" : "No account? Create one"}
             </button>
