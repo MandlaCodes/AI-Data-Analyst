@@ -1,19 +1,65 @@
 /**
- * components/AIAnalysisPanel.js - UNIVERSAL DATA ENGINE
- * Updated: 2026-01-04 - Instant View Expansion Fix
+ * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
+ * Updated: 2026-01-10 - Human-Centric Voice Sync + Sequential Report
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaBrain, FaRedo, FaSearch, FaDollarSign, FaRobot, FaCreditCard
+    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaStop
 } from 'react-icons/fa';
 import { 
-    FiTrendingUp, FiShield, FiZap, FiActivity, FiLayers, 
-    FiFileText, FiCpu, FiNavigation, FiMaximize2, FiX, FiTerminal, FiTarget, FiArrowRight
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+
+const AudioWaveform = ({ color = "#bc13fe" }) => (
+    <div className="flex items-center gap-1 h-4">
+        {[...Array(4)].map((_, i) => (
+            <motion.div
+                key={i}
+                animate={{ height: [4, 16, 8, 14, 4] }}
+                transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1, ease: "easeInOut" }}
+                className="w-1 rounded-full"
+                style={{ backgroundColor: color }}
+            />
+        ))}
+    </div>
+);
+
+const InsightCard = ({ title, content, icon: Icon, isPurple, onClick }) => (
+    <div 
+        onClick={onClick}
+        className="relative group bg-[#111116] border border-white/5 rounded-[2rem] overflow-hidden flex flex-col transition-all duration-300 hover:border-white/20 hover:translate-y-[-4px] shadow-2xl cursor-pointer"
+    >
+        <div className="h-1.5 w-full opacity-80" style={{ backgroundColor: isPurple ? '#bc13fe' : '#a5b4fc' }} />
+        <div className="p-8 flex flex-col h-full">
+            <div className="flex justify-between items-start mb-6">
+                <div className={`p-3 rounded-xl bg-white/5 ${isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'}`}>
+                    <Icon size={20} />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isPurple ? 'bg-[#bc13fe]' : 'bg-indigo-400'}`} />
+                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Live Analysis</span>
+                </div>
+            </div>
+            <h4 className="text-white font-bold text-lg mb-3 tracking-tight group-hover:text-indigo-300 transition-colors">{title}</h4>
+            <p className="text-white text-sm leading-relaxed mb-8 line-clamp-4 font-medium">{content || "Analyzing data vectors..."}</p>
+            <div className="space-y-3 mb-8 flex-1">
+                <div className="flex items-center gap-3 text-[10px] text-white uppercase tracking-[0.2em] font-bold">
+                    <FiCheckCircle className={isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'} /> Verified Insight
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-white uppercase tracking-[0.2em] font-bold">
+                    <FiCheckCircle className={isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'} /> ROI Aligned
+                </div>
+            </div>
+            <button className={`w-full py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${isPurple ? 'bg-[#bc13fe]/10 text-[#bc13fe] border border-[#bc13fe]/20' : 'bg-white/5 text-white/40 border border-white/10'}`}>
+                View Deep Intel
+            </button>
+        </div>
+    </div>
+);
 
 const TypewriterText = ({ text, delay = 5 }) => {
     const [displayedText, setDisplayedText] = useState("");
@@ -25,9 +71,7 @@ const TypewriterText = ({ text, delay = 5 }) => {
             if (currentIndex < text.length) {
                 setDisplayedText(text.substring(0, currentIndex + 1));
                 currentIndex++;
-            } else {
-                clearInterval(timer);
-            }
+            } else { clearInterval(timer); }
         }, delay);
         return () => clearInterval(timer);
     }, [text, delay]);
@@ -37,42 +81,27 @@ const TypewriterText = ({ text, delay = 5 }) => {
 const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [loading, setLoading] = useState(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
-    const [expandedInsight, setExpandedInsight] = useState(null); 
+    const [expandedCard, setExpandedCard] = useState(null); 
+    const [isFullReportOpen, setIsFullReportOpen] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
     const panelRef = useRef(null);
     
     const userToken = localStorage.getItem("adt_token");
-
     const userProfile = useMemo(() => {
         const stored = localStorage.getItem("adt_profile");
         return stored ? JSON.parse(stored) : null;
     }, []);
 
-    // Scroll into view when expanded
-    useEffect(() => {
-        if (expandedInsight && panelRef.current) {
-            panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, [expandedInsight]);
-
-    const finContext = useMemo(() => {
-        const dataString = JSON.stringify(datasets);
-        const symbols = ['$', 'R', '£', '€', '¥', '₹', '₱', '₩', 'A$', 'C$'];
-        const detected = symbols.filter(s => dataString.includes(s));
-        return {
-            primary: detected[0] || null,
-            isMulti: detected.length > 1,
-            allDetected: detected
-        };
-    }, [datasets]);
+    const aiInsights = datasets[0]?.aiStorage;
 
     const phases = useMemo(() => [
-        "Starting AI Analyst...",
-        `Checking ${userProfile?.organization || 'System'} standards...`,
-        finContext.primary ? `Prioritizing ${finContext.primary} notation...` : "Scanning data patterns...",
+        "Initializing AI Analyst...",
+        `Aligning with ${userProfile?.organization || 'Corporate'} standards...`,
+        "Syncing Neural models...",
         "Identifying correlations...",
-        "Calculating ROI impacts...",
-        "Finalizing intelligence report..."
-    ], [userProfile, finContext]);
+        "Simulating ROI...",
+        "Finalizing report..."
+    ], [userProfile]);
 
     useEffect(() => {
         let interval;
@@ -80,216 +109,193 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             interval = setInterval(() => {
                 setAnalysisPhase((prev) => (prev < phases.length - 1 ? prev + 1 : prev));
             }, 2000);
-        } else {
-            setAnalysisPhase(0);
-        }
+        } else { setAnalysisPhase(0); }
         return () => clearInterval(interval);
     }, [loading, phases.length]);
 
-    if (!datasets || datasets.length === 0) return null;
+    const toggleSpeech = (textOverride) => {
+        if (isSpeaking) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+            return;
+        }
+
+        let contentToRead = textOverride;
+        if (isFullReportOpen) {
+            contentToRead = `Executive Summary. ${aiInsights.summary}. Primary Discovery. ${aiInsights.root_cause}. Identified Risk. ${aiInsights.risk}. Strategic Opportunity. ${aiInsights.opportunity}. Final Actionable Steps. ${aiInsights.action}`;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(contentToRead);
+        const voices = window.speechSynthesis.getVoices();
+        
+        // FIND HUMAN-LIKE LADY VOICE: 
+        // Prioritizes "Google US English" (standard lady), "Natural", or "Samantha"
+        utterance.voice = voices.find(v => 
+            v.name.includes('Natural') || 
+            v.name.includes('Premium') || 
+            v.name.includes('Google US English') || 
+            v.name.includes('Samantha') ||
+            v.name.includes('Female')
+        ) || voices[0];
+        
+        // Humanized Pace & Tone
+        utterance.rate = 0.92; 
+        utterance.pitch = 1.05; // Slightly higher pitch for a clear, human lady tone
+        
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+    };
 
     const runAnalysis = async () => {
         if (datasets.length === 0 || !userToken) return;
         setLoading(true);
         try {
-            const contextBundle = datasets.map(ds => ({
-                id: ds.id,
-                name: ds.name,
-                metrics: ds.metrics,
-                rows: ds.rows,
-                columns: ds.cols,
-                currency_hint: finContext.primary
-            }));
-
-            let systemRule = "Analyze this data accurately.";
-            if (finContext.isMulti) {
-                systemRule = `Multiple currencies detected (${finContext.allDetected.join(', ')}). Maintain specific symbols for each value.`;
-            } else if (finContext.primary) {
-                systemRule = `The user is working in ${finContext.primary}. Ensure ALL financial projections use the ${finContext.primary} symbol. Do not use USD/$.`;
-            }
-
-            const response = await axios.post(
-                `${API_BASE_URL}/ai/analyze`,
-                { 
-                    context: datasets.length === 1 ? contextBundle[0] : contextBundle,
-                    mode: datasets.length > 1 ? "comparison" : "single",
-                    system_instructions: systemRule
-                },
-                { headers: { Authorization: `Bearer ${userToken}` } }
-            );
-
-            let sanitizedData = { ...response.data };
-            if (!finContext.allDetected.includes('$') && finContext.primary && sanitizedData.roi_impact) {
-                sanitizedData.roi_impact = sanitizedData.roi_impact.replace(/\$/g, finContext.primary);
-            }
-
-            onUpdateAI(datasets[0].id, sanitizedData);
-        } catch (error) {
-            console.error("AI Analysis failed:", error);
-        } finally {
-            setLoading(false);
-        }
+            const contextBundle = datasets.map(ds => ({ id: ds.id, name: ds.name, metrics: ds.metrics }));
+            const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { context: contextBundle }, { headers: { Authorization: `Bearer ${userToken}` } });
+            onUpdateAI(datasets[0].id, response.data);
+        } catch (error) { console.error("AI Analysis failed:", error); } 
+        finally { setLoading(false); }
     };
 
-    const insights = datasets[0]?.aiStorage;
-    const isMulti = datasets.length > 1;
-
     return (
-        <div 
-            ref={panelRef}
-            className="relative overflow-hidden bg-black border border-white/20 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 shadow-[0_0_40px_rgba(255,255,255,0.03)] transition-all duration-700 group/panel"
-            style={{ minHeight: '600px' }} 
-        >
-            {/* Background Glow */}
-            <div className="absolute inset-0 opacity-40 pointer-events-none"
-                 style={{ background: `radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.1), transparent 70%)` }} />
+        <div ref={panelRef} className="relative overflow-hidden p-8 md:p-16 transition-all duration-700 min-h-[600px]">
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 md:mb-16 relative z-10">
-                <div className="flex items-center gap-4 md:gap-6 w-full">
-                    <div className="h-12 w-12 md:h-14 md:w-14 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0">
-                        {isMulti ? <FiLayers className="text-white w-6 h-6 md:w-7 md:h-7" /> : <FiTerminal className="text-purple-500 w-6 h-6 md:w-7 md:h-7" />}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
+                <div className="flex items-center gap-6">
+                    <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
+                        <FiCpu className="text-indigo-400 w-8 h-8" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <h2 className="text-[10px] md:text-[12px] font-black uppercase tracking-[0.4em] md:tracking-[0.6em] text-white/90 truncate">
-                            {userProfile?.organization || "Metria"} <span className="text-purple-500">AI Analyst</span>
+                    <div>
+                        <h2 className="text-[13px] font-black uppercase tracking-[0.6em] text-white">
+                            {userProfile?.organization || "STRATEGIC"} <span className="text-indigo-400">INTELLIGENCE</span>
                         </h2>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${loading ? 'bg-purple-500 animate-pulse' : 'bg-emerald-500'}`} />
-                            <span className="text-[7px] md:text-[8px] text-white/40 font-bold uppercase tracking-widest whitespace-nowrap">
-                                {loading ? "Scanning" : "Ready"} // {finContext.isMulti ? "Multi-Context" : (finContext.primary || "Global Standard")}
-                            </span>
+                        <div className="flex items-center gap-3 mt-2">
+                            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
+                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">{loading ? "Computing Logic" : "Decision Support Active"}</span>
                         </div>
                     </div>
                 </div>
-
-                <div className="w-full md:w-auto">
-                    {insights && !loading && (
-                        <button 
-                            onClick={runAnalysis} 
-                            className="w-full md:w-auto flex items-center justify-center gap-3 px-6 py-3 bg-white/5 border border-white/10 text-white rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all"
-                        >
-                            <FaRedo /> Re-Scan Data
+                {aiInsights && !loading && (
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-8 py-4 bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
+                           <FiFileText /> Board Briefing
                         </button>
-                    )}
-                </div>
+                        <button onClick={runAnalysis} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                            <FaRedo className="text-[9px]" /> Refresh
+                        </button>
+                    </div>
+                )}
             </div>
 
             <AnimatePresence mode="wait">
                 {loading ? (
-                    <motion.div 
-                        key="loading"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="py-32 md:py-48 flex flex-col items-center justify-center relative z-10 text-center"
-                    > 
+                    <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-48 flex flex-col items-center justify-center relative z-10"> 
                         <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
-                            <FiCpu className="text-purple-500 mb-6 md:mb-8 w-12 h-12 md:w-16 md:h-16" />
+                            <FiCpu className="text-indigo-400 mb-10 w-20 h-20 opacity-40" />
                         </motion.div>
-                        <h3 className="text-white text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] px-4 leading-relaxed">{phases[analysisPhase]}</h3>
+                        <h3 className="text-white/80 text-[12px] font-bold uppercase tracking-[0.8em] text-center">{phases[analysisPhase]}</h3>
                     </motion.div>
-                ) : insights ? (
-                    <motion.div 
-                        key="results"
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6 md:space-y-8 relative z-10"
-                    >
-                        {/* Summary Card */}
-                        <div className="p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] bg-white/[0.04] border border-white/10 relative overflow-hidden group/card">
-                            <span className="text-purple-500 text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.5em] block mb-4 md:mb-6">Strategic Overview</span>
-                            <div className="text-lg md:text-3xl text-white font-light leading-snug tracking-tight break-words">
-                                <TypewriterText text={insights.summary || "Generating overview..."} />
+                ) : aiInsights ? (
+                    <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
+                        <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
+                            <div className="flex items-center gap-3 mb-10">
+                                <div className="h-1 w-12 bg-indigo-400 rounded-full" />
+                                <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
                             </div>
-                            <div className="absolute bottom-0 left-6 right-6 md:left-10 md:right-10 h-1 rounded-t-full bg-purple-500 shadow-[0_0_20px_#bc13fe]" />
-                        </div>
-
-                        {/* Responsive Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                            <div 
-                                className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white/[0.03] border border-white/10 flex flex-col gap-4 cursor-pointer hover:bg-white/[0.06] transition-all duration-300" 
-                                onClick={() => setExpandedInsight({ title: "Main Discovery", content: insights.root_cause, icon: <FaSearch /> })}
-                            >
-                                <div className="text-purple-500"><FaSearch className="w-5 h-5 md:w-6 md:h-6"/></div>
-                                <p className="text-[8px] md:text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Main Discovery</p>
-                                <div className="text-white/80 text-sm leading-relaxed font-light line-clamp-3">
-                                    {insights.root_cause}
-                                </div>
-                            </div>
-
-                            <div className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white/[0.03] border border-white/10 flex flex-col gap-4">
-                                <div className="text-emerald-400"><FaCreditCard className="w-5 h-5 md:w-6 md:h-6"/></div>
-                                <p className="text-[8px] md:text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Impact ({finContext.primary || 'Value'})</p>
-                                <div className="text-white text-2xl md:text-4xl font-black tracking-tighter">{insights.roi_impact || "0.00"}</div>
+                            <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl">
+                                <TypewriterText text={aiInsights.summary} />
                             </div>
                         </div>
 
-                        {/* Action Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                            {[
-                                { label: "Risks to Watch", text: insights.risk, icon: <FiShield />, isPurple: true },
-                                { label: "Next Big Move", text: insights.opportunity, icon: <FiZap />, isPurple: false },
-                                { label: "Top Action", text: insights.action, icon: <FiTarget />, isPurple: true }
-                            ].map((item, idx) => (
-                                <div 
-                                    key={idx} 
-                                    onClick={() => setExpandedInsight({ title: item.label, content: item.text, icon: item.icon })}
-                                    className={`p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border flex flex-col min-h-[180px] cursor-pointer transition-all hover:bg-white/[0.05] ${item.isPurple ? 'border-purple-500/30' : 'border-white/10'}`}
-                                >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`p-2 rounded-lg ${item.isPurple ? 'bg-purple-600 text-white' : 'bg-white text-black'}`}>{item.icon}</div>
-                                        <FiMaximize2 className="text-white/20" />
-                                    </div>
-                                    <h4 className="text-white text-[9px] font-black uppercase tracking-widest mb-2">{item.label}</h4>
-                                    <p className="text-white/60 text-xs line-clamp-3">{item.text}</p>
-                                </div>
-                            ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
+                                <div className="p-4 w-fit bg-indigo-500/10 rounded-2xl text-indigo-400 mb-8 border border-indigo-500/20"><FaSearch size={20} /></div>
+                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">PRIMARY DISCOVERY</h4>
+                                <div className="text-white text-2xl leading-[1.6] font-semibold">{aiInsights.root_cause}</div>
+                            </div>
+                            <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
+                                <div className="p-4 w-fit bg-emerald-500/10 rounded-2xl text-emerald-400 mb-8 border border-emerald-500/20"><FaCreditCard size={20} /></div>
+                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">ESTIMATED IMPACT</h4>
+                                <div className="text-white text-2xl leading-[1.6] font-semibold">Valuation: <span className="text-emerald-400">{aiInsights.roi_impact || "Calculating..."}</span></div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <InsightCard title="Risk Matrix" content={aiInsights?.risk} icon={FiShield} isPurple onClick={() => setExpandedCard({ title: "Risk Matrix", content: aiInsights?.risk, icon: FiShield, color: "text-[#bc13fe]" })} />
+                            <InsightCard title="Growth Vectors" content={aiInsights?.opportunity} icon={FiZap} onClick={() => setExpandedCard({ title: "Growth Vectors", content: aiInsights?.opportunity, icon: FiZap, color: "text-indigo-400" })} />
+                            <InsightCard title="Tactical Priority" content={aiInsights?.action} icon={FiTarget} isPurple onClick={() => setExpandedCard({ title: "Tactical Priority", content: aiInsights?.action, icon: FiTarget, color: "text-[#bc13fe]" })} />
                         </div>
                     </motion.div>
                 ) : (
-                    <div className="py-32 md:py-52 text-center border border-dashed border-white/10 rounded-[2rem] md:rounded-[3rem]"> 
-                        <FaRobot className="text-white/5 mx-auto mb-6 w-10 h-10" />
-                        <button onClick={runAnalysis} className="px-8 py-4 bg-purple-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-                            Initialize Deep Scan
-                        </button>
+                    <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
+                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
+                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Intelligence Report</button>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* EXPANDED VIEW - INSTANT OVERLAY WITHIN PANEL */}
+            {/* SHARED OVERLAY FOR SINGLE CARDS AND FULL REPORT */}
             <AnimatePresence>
-                {expandedInsight && (
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="absolute inset-0 z-[100] bg-black/95 backdrop-blur-2xl p-8 md:p-16 flex flex-col"
-                    >
-                        <div className="flex justify-between items-center mb-12">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-xl text-purple-500">
-                                    {expandedInsight.icon}
+                {(expandedCard || isFullReportOpen) && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                            className="relative w-full max-w-6xl max-h-[85vh] bg-[#0a0a0f] border border-white/10 rounded-[3.5rem] flex flex-col overflow-hidden"
+                        >
+                            <div className="p-8 md:p-12 flex justify-between items-center border-b border-white/5 bg-[#111116]">
+                                <div className="flex items-center gap-6">
+                                    <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-indigo-400' : (expandedCard ? expandedCard.color : '')}`}>
+                                        {isFullReportOpen ? <FiFileText size={30} /> : (expandedCard && <expandedCard.icon size={30} />)}
+                                    </div>
+                                    <h3 className="text-white text-3xl font-bold uppercase">{isFullReportOpen ? "Full Strategic Report" : (expandedCard && expandedCard.title)}</h3>
                                 </div>
-                                <h3 className="text-white text-xl md:text-2xl font-black uppercase tracking-tighter">{expandedInsight.title}</h3>
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={() => toggleSpeech(isFullReportOpen ? "" : (expandedCard ? expandedCard.content : ""))}
+                                        className={`flex items-center gap-4 px-8 py-4 rounded-2xl text-[12px] font-black uppercase tracking-widest border transition-all ${isSpeaking ? 'bg-[#bc13fe]/20 text-[#bc13fe] border-[#bc13fe]/30' : 'bg-white/5 text-white border-white/10 hover:bg-white hover:text-black'}`}
+                                    >
+                                        {isSpeaking ? <><AudioWaveform /> Stop</> : <><FaVolumeUp /> Voice Briefing</>}
+                                    </button>
+                                    <button onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="p-5 bg-white/5 rounded-full text-white border border-white/10"><FiX size={26} /></button>
+                                </div>
                             </div>
-                            <button onClick={() => setExpandedInsight(null)} className="p-3 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all">
-                                <FiX className="w-6 h-6" />
-                            </button>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto pr-4 scrollbar-hide">
-                            <p className="text-white/90 text-2xl md:text-4xl leading-relaxed font-light tracking-tight">
-                                {expandedInsight.content}
-                            </p>
-                        </div>
-
-                        <div className="pt-8 border-t border-white/10 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Metria Intelligence Core // Verified</span>
-                            <div className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
-                        </div>
-                    </motion.div>
+                            <div className="flex-1 overflow-y-auto p-10 md:p-20 bg-[#050505]/80">
+                                {isFullReportOpen ? (
+                                    <div className="space-y-16 max-w-4xl mx-auto">
+                                        <div className="space-y-4">
+                                            <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">01 Executive Summary</span>
+                                            <p className="text-white text-3xl font-light leading-relaxed">{aiInsights.summary}</p>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                            <div className="space-y-4">
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Primary Discovery</span>
+                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.root_cause}</p>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Risk Matrix</span>
+                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.risk}</p>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Growth Opportunity</span>
+                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.opportunity}</p>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Tactical Priority</span>
+                                                <p className="text-white/80 text-xl leading-relaxed">{aiInsights.action}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    expandedCard && <p className="text-white/95 text-3xl md:text-5xl leading-[1.45] font-light tracking-tight">{expandedCard.content}</p>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
-
-            <div className="absolute bottom-0 left-6 right-6 md:left-10 md:right-10 h-1 rounded-t-full bg-white shadow-[0_0_20px_white]" />
         </div>
     );
 };
