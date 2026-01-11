@@ -235,46 +235,75 @@ export default function Analytics() {
         }
     };
 
-    const importSelected = async (manualId = null, manualName = null) => {
+    const importSelected = async (manualIds = [], manualNames = []) => {
         setIsImporting(true);
         try {
-            let importedRows = [];
-            const targetSheetId = manualId;
-            let sourceName = manualName || "Neural Stream";
-
-            if (selectedApps.includes("google_sheets") && targetSheetId) {
-                const res = await axios.get(`${API_BASE_URL}/google/sheets/${targetSheetId}`, { 
-                    headers: { Authorization: `Bearer ${userToken}` } 
+            // 1. Handle Google Sheets (Array of IDs)
+            if (selectedApps.includes("google_sheets") && Array.isArray(manualIds)) {
+                
+                // Map through all selected sheets and fetch them
+                const importPromises = manualIds.map(async (id, index) => {
+                    const res = await axios.get(`${API_BASE_URL}/google/sheets/${id}`, { 
+                        headers: { Authorization: `Bearer ${userToken}` } 
+                    });
+                    
+                    if (res.data?.values) {
+                        const importedRows = res.data.values;
+                        const sourceName = manualNames[index] || res.data.title || "Neural Stream";
+                        
+                        const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
+                        const numeric = detectNumericColumns(cleaned);
+                        const category = detectCategoryColumn(cleaned, numeric);
+                        
+                        return {
+                            id: Date.now() + index, // Ensure unique IDs for batch imports
+                            name: sourceName,
+                            color: datasetColors[(allDatasets.length + index) % datasetColors.length],
+                            rows: cleaned.length - 1,
+                            cols: cleaned[0]?.length || 0,
+                            data: cleaned,
+                            numericCols: numeric,
+                            metrics: computeMetrics(cleaned, numeric),
+                            categoryCol: category,
+                            aiStorage: null
+                        };
+                    }
+                    return null;
                 });
-                if (res.data?.values) {
-                    importedRows = res.data.values;
-                    if (res.data.title) sourceName = res.data.title;
+    
+                const newDatasets = (await Promise.all(importPromises)).filter(ds => ds !== null);
+                
+                setAllDatasets(prev => [...prev, ...newDatasets]);
+                setActiveDatasets(prev => [...prev, ...newDatasets]);
+            } 
+            
+            // 2. Handle Local CSV (Single File)
+            else if (selectedApps.includes("other") && csvToImport) {
+                const sourceName = csvToImport.name.replace(/\.csv$/i,"");
+                const importedRows = await parseCSVFile(csvToImport);
+                
+                if (importedRows.length > 0) {
+                    const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
+                    const numeric = detectNumericColumns(cleaned);
+                    const category = detectCategoryColumn(cleaned, numeric);
+                    const newDataset = {
+                        id: Date.now(),
+                        name: sourceName,
+                        color: datasetColors[allDatasets.length % datasetColors.length],
+                        rows: cleaned.length - 1,
+                        cols: cleaned[0]?.length || 0,
+                        data: cleaned,
+                        numericCols: numeric,
+                        metrics: computeMetrics(cleaned, numeric),
+                        categoryCol: category,
+                        aiStorage: null
+                    };
+                    setAllDatasets(prev => [...prev, newDataset]);
+                    setActiveDatasets(prev => [...prev, newDataset]);
                 }
-            } else if (selectedApps.includes("other") && csvToImport) {
-                sourceName = csvToImport.name.replace(/\.csv$/i,"");
-                importedRows = await parseCSVFile(csvToImport);
             }
-
-            if (importedRows.length > 0) {
-                const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
-                const numeric = detectNumericColumns(cleaned);
-                const category = detectCategoryColumn(cleaned, numeric);
-                const newDataset = {
-                    id: Date.now(),
-                    name: sourceName,
-                    color: datasetColors[allDatasets.length % datasetColors.length],
-                    rows: cleaned.length - 1,
-                    cols: cleaned[0]?.length || 0,
-                    data: cleaned,
-                    numericCols: numeric,
-                    metrics: computeMetrics(cleaned, numeric),
-                    categoryCol: category,
-                    aiStorage: null
-                };
-                setAllDatasets(prev => [...prev, newDataset]);
-                setActiveDatasets(prev => [...prev, newDataset]);
-                setShowModal(false); 
-            }
+    
+            setShowModal(false); 
         } catch (e) {
             console.error("Import error:", e);
             alert("Import failed.");

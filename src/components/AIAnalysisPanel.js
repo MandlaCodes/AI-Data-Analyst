@@ -1,12 +1,12 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-10 - Production Grade British Female Voice Sync
+ * Updated: 2026-01-11 - Multi-Dataset Strategic Architect & British Voice Sync
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaStop
+    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaLayerGroup
 } from 'react-icons/fa';
 import { 
     FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText
@@ -84,8 +84,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [expandedCard, setExpandedCard] = useState(null); 
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const panelRef = useRef(null);
+
+    // --- STRATEGIC GAME CHANGERS STATE ---
+    const [intelligenceMode, setIntelligenceMode] = useState(null); // 'standalone' | 'correlation' | 'compare'
+    const [showModeSelector, setShowModeSelector] = useState(false);
     
+    const panelRef = useRef(null);
     const userToken = localStorage.getItem("adt_token");
     const userProfile = useMemo(() => {
         const stored = localStorage.getItem("adt_profile");
@@ -98,12 +102,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Initializing AI Analyst...",
         `Aligning with ${userProfile?.organization || 'Corporate'} standards...`,
         "Syncing Neural models...",
-        "Identifying correlations...",
+        intelligenceMode === 'correlation' ? "Mapping cross-dataset dependencies..." : "Identifying correlations...",
         "Simulating ROI...",
         "Finalizing report..."
-    ], [userProfile]);
+    ], [userProfile, intelligenceMode]);
 
-    // PRE-FETCH VOICES (Critical for Chrome/Production)
+    // Multi-Dataset Watcher: Trigger CTA when another dataset is added
+    useEffect(() => {
+        if (datasets.length > 1 && !intelligenceMode) {
+            setShowModeSelector(true);
+        }
+    }, [datasets.length, intelligenceMode]);
+
     useEffect(() => {
         window.speechSynthesis.getVoices();
     }, []);
@@ -127,26 +137,19 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
         let contentToRead = textOverride;
         if (isFullReportOpen) {
-            // Expression-rich text with punctuation for natural pausing
             contentToRead = `Right... Let's take a look at the strategic briefing. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
         const voices = window.speechSynthesis.getVoices();
-        
-        // STRICT BRITISH FEMALE FILTERING
         const britishVoice = voices.find(v => 
             (v.lang === 'en-GB' || v.lang.startsWith('en-GB')) && 
-            (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Hazel') || v.name.includes('Serena') || v.name.includes('Google'))
+            (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Hazel') || v.name.includes('Serena'))
         );
 
-        // Fallback to any British voice if female is not explicit, otherwise any voice
-        utterance.voice = britishVoice || voices.find(v => v.lang.includes('en-GB')) || voices[0];
-        
-        // Humanizing parameters
-        utterance.rate = 0.85; // Slightly slower for that professional, deliberate British cadence
-        utterance.pitch = 1.1; // Slightly higher to remove the 'drone' effect
-        utterance.volume = 1.0;
+        utterance.voice = britishVoice || voices[0];
+        utterance.rate = 0.85; 
+        utterance.pitch = 1.1;
         
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
@@ -155,21 +158,106 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    const runAnalysis = async () => {
+    const runAnalysis = async (selectedMode = intelligenceMode) => {
         if (datasets.length === 0 || !userToken) return;
         setLoading(true);
         try {
-            const contextBundle = datasets.map(ds => ({ id: ds.id, name: ds.name, metrics: ds.metrics }));
-            const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { context: contextBundle }, { headers: { Authorization: `Bearer ${userToken}` } });
+            const contextBundle = datasets.map(ds => ({ 
+                id: ds.id, 
+                name: ds.name, 
+                metrics: ds.metrics 
+            }));
+
+            // Pass the mode to the backend so it knows whether to correlate or analyze solo
+            const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { 
+                context: contextBundle,
+                strategy: selectedMode || 'standalone'
+            }, { 
+                headers: { Authorization: `Bearer ${userToken}` } 
+            });
+
             onUpdateAI(datasets[0].id, response.data);
-        } catch (error) { console.error("AI Analysis failed:", error); } 
-        finally { setLoading(false); }
+        } catch (error) { 
+            console.error("AI Analysis failed:", error); 
+        } finally { 
+            setLoading(false); 
+        }
+    };
+
+    const handleSelectMode = (mode) => {
+        setIntelligenceMode(mode);
+        setShowModeSelector(false);
+        runAnalysis(mode);
     };
 
     return (
         <div ref={panelRef} className="relative overflow-hidden p-8 md:p-16 transition-all duration-700 min-h-[600px]">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
+            {/* STRATEGIC OBJECTIVE OVERLAY (Game Changer CTA) */}
+            <AnimatePresence>
+                {showModeSelector && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[300] bg-[#0a0a0f]/95 backdrop-blur-2xl flex items-center justify-center p-6"
+                    >
+                        <div className="max-w-5xl w-full">
+                            <div className="text-center mb-16">
+                                <motion.div 
+                                    initial={{ y: 20 }} animate={{ y: 0 }}
+                                    className="inline-block p-5 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-8"
+                                >
+                                    <FaLayerGroup size={42} />
+                                </motion.div>
+                                <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-4">
+                                    Multi-Stream Intelligence
+                                </h2>
+                                <p className="text-white/50 text-xl font-medium">Multiple datasets detected. Define your strategic objective.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <button 
+                                    onClick={() => handleSelectMode('correlation')}
+                                    className="p-10 rounded-[3rem] bg-white/5 border border-white/10 hover:border-indigo-500 hover:bg-indigo-500/5 transition-all text-left group"
+                                >
+                                    <FiZap className="text-indigo-400 mb-8 group-hover:scale-110 transition-transform" size={32} />
+                                    <h4 className="text-white text-xl font-bold mb-3">Cross-Correlation</h4>
+                                    <p className="text-white/40 text-xs leading-relaxed uppercase tracking-[0.2em]">Map dependencies between {datasets[0]?.name} and {datasets[1]?.name}</p>
+                                </button>
+
+                                <button 
+                                    onClick={() => handleSelectMode('compare')}
+                                    className="p-10 rounded-[3rem] bg-white/5 border border-white/10 hover:border-emerald-500 hover:bg-emerald-500/5 transition-all text-left group"
+                                >
+                                    <FiTarget className="text-emerald-400 mb-8 group-hover:scale-110 transition-transform" size={32} />
+                                    <h4 className="text-white text-xl font-bold mb-3">Comparative Benchmarking</h4>
+                                    <p className="text-white/40 text-xs leading-relaxed uppercase tracking-[0.2em]">Analyze performance deltas across all active streams</p>
+                                </button>
+
+                                <button 
+                                    onClick={() => handleSelectMode('standalone')}
+                                    className="p-10 rounded-[3rem] bg-white/5 border border-white/10 hover:border-white/40 transition-all text-left group"
+                                >
+                                    <FiCpu className="text-white/40 mb-8 group-hover:scale-110 transition-transform" size={32} />
+                                    <h4 className="text-white text-xl font-bold mb-3">Independent Streams</h4>
+                                    <p className="text-white/40 text-xs leading-relaxed uppercase tracking-[0.2em]">Maintain siloed analysis for each individual dataset</p>
+                                </button>
+                            </div>
+                            
+                            <button 
+                                onClick={() => setShowModeSelector(false)}
+                                className="mt-12 w-full text-center text-white/20 hover:text-white/60 text-xs uppercase tracking-widest transition-colors"
+                            >
+                                Continue without changes
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
                 <div className="flex items-center gap-6">
                     <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
@@ -181,16 +269,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         </h2>
                         <div className="flex items-center gap-3 mt-2">
                             <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
-                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">{loading ? "Computing Logic" : "Decision Support Active"}</span>
+                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">
+                                {loading ? "Computing Logic" : intelligenceMode ? `${intelligenceMode} mode active` : "Decision Support Active"}
+                            </span>
                         </div>
                     </div>
                 </div>
                 {aiInsights && !loading && (
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-8 py-4 bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
+                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
                            <FiFileText /> View full report
                         </button>
-                        <button onClick={runAnalysis} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                        <button onClick={() => runAnalysis()} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
                             <FaRedo className="text-[9px]" /> Refresh
                         </button>
                     </div>
@@ -211,6 +301,9 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             <div className="flex items-center gap-3 mb-10">
                                 <div className="h-1 w-12 bg-indigo-400 rounded-full" />
                                 <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
+                                {intelligenceMode === 'correlation' && (
+                                    <span className="ml-auto bg-indigo-500/20 text-indigo-400 text-[9px] font-bold px-3 py-1 rounded-full border border-indigo-500/30">CORRELATED ANALYSIS</span>
+                                )}
                             </div>
                             <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl">
                                 <TypewriterText text={aiInsights.summary} />
@@ -239,14 +332,15 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 ) : (
                     <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
                         <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
-                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Intelligence Report</button>
+                        <button onClick={() => runAnalysis()} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Intelligence Report</button>
                     </div>
                 )}
             </AnimatePresence>
 
+            {/* Modal for Expanded Insights / Full Report */}
             <AnimatePresence>
                 {(expandedCard || isFullReportOpen) && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
+                    <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 md:p-12">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
                         <motion.div 
                             initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
