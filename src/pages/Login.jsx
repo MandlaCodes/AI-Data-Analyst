@@ -1,10 +1,11 @@
 /**
  * components/Login.js - AUTH SYSTEM
  * Fix: Mobile CTA visibility and overflow issues
+ * Update: Added mobile-only desktop recommendation message
  */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt, FaArrowLeft } from "react-icons/fa";
+import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt, FaArrowLeft, FaDesktop } from "react-icons/fa";
 import { FiLoader, FiCheckCircle, FiMail, FiChevronDown } from "react-icons/fi";
 
 const INDUSTRIES = [
@@ -74,7 +75,7 @@ export default function Login({ onLoginSuccess }) {
     body, html {
       margin: 0;
       padding: 0;
-      overflow-x: hidden !important; /* Changed from overflow: hidden to allow vertical scroll on mobile */
+      overflow-x: hidden !important;
       min-height: 100vh;
       background-color: #02010a;
     }
@@ -133,6 +134,14 @@ export default function Login({ onLoginSuccess }) {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-0 relative py-20 lg:py-0">
         <div className="w-full max-w-md space-y-8 relative z-10 px-8">
           
+          {/* MOBILE OPTIMIZATION NOTICE */}
+          <div className="lg:hidden flex items-center gap-4 p-4 bg-purple-500/5 border border-purple-500/10 rounded-2xl mb-8">
+            <FaDesktop className="text-purple-500 shrink-0" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-relaxed">
+              Experience is <span className="text-purple-400">optimized for desktop</span>. Smaller screens may limit advanced visualizer features.
+            </p>
+          </div>
+
           {/* Back button for Sign Up Step 2 */}
           {isSignup && step === 2 && (
             <button 
@@ -216,7 +225,7 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          {/* MOBILE TOGGLE CTA - Fixed padding and visibility */}
+          {/* MOBILE TOGGLE CTA */}
           <div className="text-center lg:hidden pt-4 pb-12">
              <button
               type="button"

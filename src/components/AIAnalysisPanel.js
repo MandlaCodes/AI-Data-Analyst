@@ -1,18 +1,81 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-11 - Multi-Dataset Strategic Architect & British Voice Sync
+ * Updated: 2026-01-12 - Neural Strategy Injection & Executive PDF Export (FIXED)
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaLayerGroup
+    FaRedo, FaSearch, FaRobot, FaVolumeUp, FaLayerGroup
 } from 'react-icons/fa';
 import { 
-    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiDownload
 } from 'react-icons/fi';
+import { Page, Text, View, Document, StyleSheet, PDFDownloadLink } from '@react-pdf/renderer';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+
+// --- PDF STYLING FOR BOARD-ROOM GRADE EXPORTS ---
+const pdfStyles = StyleSheet.create({
+    page: { padding: 50, backgroundColor: '#FFFFFF', fontFamily: 'Helvetica' },
+    header: { borderBottom: 2, borderBottomColor: '#1A202C', marginBottom: 30, paddingBottom: 10 },
+    title: { fontSize: 26, fontWeight: 'bold', color: '#1A202C', letterSpacing: -1 },
+    subtitle: { fontSize: 10, color: '#718096', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 },
+    section: { marginBottom: 20 },
+    label: { fontSize: 9, fontWeight: 'bold', color: '#4A5568', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 1 },
+    content: { fontSize: 12, color: '#2D3748', lineHeight: 1.6 },
+    highlightBox: { padding: 20, backgroundColor: '#F7FAFC', borderLeft: 5, borderLeftColor: '#4C51BF', marginVertical: 15 },
+    roiLabel: { fontSize: 10, color: '#4C51BF', fontWeight: 'bold', marginBottom: 5 },
+    roiBadge: { fontSize: 22, fontWeight: 'bold', color: '#2D3748' },
+    footer: { position: 'absolute', bottom: 40, left: 50, right: 50, borderTop: 1, borderTopColor: '#EDF2F7', paddingTop: 15, fontSize: 8, color: '#A0AEC0', textAlign: 'center', lineHeight: 1.4 }
+});
+
+// --- PDF DOCUMENT COMPONENT ---
+const BoardReportPDF = ({ data, org, execName, mode }) => (
+    <Document>
+        <Page size="A4" style={pdfStyles.page}>
+            <View style={pdfStyles.header}>
+                <Text style={pdfStyles.title}>Strategic Intelligence Audit</Text>
+                <Text style={pdfStyles.subtitle}>Prepared for {execName} | {org} | Strategy: {mode}</Text>
+            </View>
+
+            <View style={pdfStyles.section}>
+                <Text style={pdfStyles.label}>Executive Summary</Text>
+                <Text style={pdfStyles.content}>{data.summary}</Text>
+            </View>
+
+            <View style={pdfStyles.highlightBox}>
+                <Text style={pdfStyles.roiLabel}>Estimated Capital Impact</Text>
+                <Text style={pdfStyles.roiBadge}>{data.roi_impact || "Analysing..."}</Text>
+            </View>
+
+            <View style={pdfStyles.section}>
+                <Text style={pdfStyles.label}>Primary Root Cause</Text>
+                <Text style={pdfStyles.content}>{data.root_cause}</Text>
+            </View>
+
+            <View style={pdfStyles.section}>
+                <Text style={pdfStyles.label}>Strategic Risk Area</Text>
+                <Text style={pdfStyles.content}>{data.risk}</Text>
+            </View>
+
+            <View style={pdfStyles.section}>
+                <Text style={pdfStyles.label}>Immediate Opportunity</Text>
+                <Text style={pdfStyles.content}>{data.opportunity}</Text>
+            </View>
+
+            <View style={pdfStyles.section}>
+                <Text style={pdfStyles.label}>Mandatory Executive Action</Text>
+                <Text style={[pdfStyles.content, { fontWeight: 'bold', color: '#C53030' }]}>{data.action}</Text>
+            </View>
+
+            <View style={pdfStyles.footer}>
+                <Text>METRIA AI NEURAL AUDIT | CONFIDENCE RATING: {(data.confidence * 100).toFixed(1)}%</Text>
+                <Text style={{ marginTop: 4 }}>DISCLAIMER: This report is a strategic simulation based on synthetic neural synthesis. Final capital maneuvers and tactical deployments should be verified by a certified financial officer (CFO).</Text>
+            </View>
+        </Page>
+    </Document>
+);
 
 const AudioWaveform = ({ color = "#bc13fe" }) => (
     <div className="flex items-center gap-1 h-4">
@@ -84,9 +147,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [expandedCard, setExpandedCard] = useState(null); 
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
-
-    // --- STRATEGIC GAME CHANGERS STATE ---
-    const [intelligenceMode, setIntelligenceMode] = useState(null); // 'standalone' | 'correlation' | 'compare'
+    const [intelligenceMode, setIntelligenceMode] = useState(null);
     const [showModeSelector, setShowModeSelector] = useState(false);
     
     const panelRef = useRef(null);
@@ -102,17 +163,17 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Initializing AI Analyst...",
         `Aligning with ${userProfile?.organization || 'Corporate'} standards...`,
         "Syncing Neural models...",
-        intelligenceMode === 'correlation' ? "Mapping cross-dataset dependencies..." : "Identifying correlations...",
-        "Simulating ROI...",
-        "Finalizing report..."
+        intelligenceMode === 'correlation' ? "Mapping cross-dataset dependencies..." : 
+        intelligenceMode === 'compare' ? "Calculating performance variance..." : "Auditing standalone silos...",
+        "Simulating ROI Impact...",
+        "Finalizing Strategic Report..."
     ], [userProfile, intelligenceMode]);
 
-    // Multi-Dataset Watcher: Trigger CTA when another dataset is added
     useEffect(() => {
-        if (datasets.length > 1 && !intelligenceMode) {
+        if (datasets.length > 1 && !intelligenceMode && !loading && !aiInsights) {
             setShowModeSelector(true);
         }
-    }, [datasets.length, intelligenceMode]);
+    }, [datasets.length, intelligenceMode, loading, aiInsights]);
 
     useEffect(() => {
         window.speechSynthesis.getVoices();
@@ -137,7 +198,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
         let contentToRead = textOverride;
         if (isFullReportOpen) {
-            contentToRead = `Right... Let's take a look at the strategic briefing. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
+            contentToRead = `Right... Let's take a look at the strategic REPORT. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
@@ -168,10 +229,9 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 metrics: ds.metrics 
             }));
 
-            // Pass the mode to the backend so it knows whether to correlate or analyze solo
             const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { 
                 context: contextBundle,
-                strategy: selectedMode || 'standalone'
+                strategy: selectedMode || 'standalone' 
             }, { 
                 headers: { Authorization: `Bearer ${userToken}` } 
             });
@@ -191,73 +251,56 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     return (
-        <div ref={panelRef} className="relative overflow-hidden p-8 md:p-16 transition-all duration-700 min-h-[600px]">
+        <div ref={panelRef} className="relative overflow-hidden px-0 py-8 md:py-16 transition-all duration-700 min-h-[600px]">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
-            {/* STRATEGIC OBJECTIVE OVERLAY (Game Changer CTA) */}
+            {/* STRATEGIC OBJECTIVE OVERLAY - MODE SELECTOR */}
             <AnimatePresence>
                 {showModeSelector && (
                     <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[300] bg-[#0a0a0f]/95 backdrop-blur-2xl flex items-center justify-center p-6"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4"
                     >
-                        <div className="max-w-5xl w-full">
-                            <div className="text-center mb-16">
-                                <motion.div 
-                                    initial={{ y: 20 }} animate={{ y: 0 }}
-                                    className="inline-block p-5 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-8"
-                                >
-                                    <FaLayerGroup size={42} />
-                                </motion.div>
-                                <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-4">
-                                    Multi-Stream Intelligence
-                                </h2>
-                                <p className="text-white/50 text-xl font-medium">Multiple datasets detected. Define your strategic objective.</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <button 
-                                    onClick={() => handleSelectMode('correlation')}
-                                    className="p-10 rounded-[3rem] bg-white/5 border border-white/10 hover:border-indigo-500 hover:bg-indigo-500/5 transition-all text-left group"
-                                >
-                                    <FiZap className="text-indigo-400 mb-8 group-hover:scale-110 transition-transform" size={32} />
-                                    <h4 className="text-white text-xl font-bold mb-3">Cross-Correlation</h4>
-                                    <p className="text-white/40 text-xs leading-relaxed uppercase tracking-[0.2em]">Map dependencies between {datasets[0]?.name} and {datasets[1]?.name}</p>
-                                </button>
-
-                                <button 
-                                    onClick={() => handleSelectMode('compare')}
-                                    className="p-10 rounded-[3rem] bg-white/5 border border-white/10 hover:border-emerald-500 hover:bg-emerald-500/5 transition-all text-left group"
-                                >
-                                    <FiTarget className="text-emerald-400 mb-8 group-hover:scale-110 transition-transform" size={32} />
-                                    <h4 className="text-white text-xl font-bold mb-3">Comparative Benchmarking</h4>
-                                    <p className="text-white/40 text-xs leading-relaxed uppercase tracking-[0.2em]">Analyze performance deltas across all active streams</p>
-                                </button>
-
-                                <button 
-                                    onClick={() => handleSelectMode('standalone')}
-                                    className="p-10 rounded-[3rem] bg-white/5 border border-white/10 hover:border-white/40 transition-all text-left group"
-                                >
-                                    <FiCpu className="text-white/40 mb-8 group-hover:scale-110 transition-transform" size={32} />
-                                    <h4 className="text-white text-xl font-bold mb-3">Independent Streams</h4>
-                                    <p className="text-white/40 text-xs leading-relaxed uppercase tracking-[0.2em]">Maintain siloed analysis for each individual dataset</p>
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                            className="w-full max-w-xl bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl"
+                        >
+                            <div className="flex justify-between items-center mb-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                                        <FaLayerGroup className="text-indigo-400" size={26} />
+                                    </div>
+                                    <h2 className="text-white font-black text-lg md:text-2xl tracking-tight">Intelligence Strategy</h2>
+                                </div>
+                                <button onClick={() => setShowModeSelector(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white">
+                                    <FiX size={18} />
                                 </button>
                             </div>
-                            
-                            <button 
-                                onClick={() => setShowModeSelector(false)}
-                                className="mt-12 w-full text-center text-white/20 hover:text-white/60 text-xs uppercase tracking-widest transition-colors"
-                            >
-                                Continue without changes
-                            </button>
-                        </div>
+                            <p className="text-white/50 text-sm md:text-base mb-8">Multiple datasets detected. Configure neural synthesis mode.</p>
+                            <div className="grid grid-cols-1 gap-4">
+                                <button onClick={() => handleSelectMode('correlation')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-400 hover:bg-indigo-500/5 transition-all text-left group">
+                                    <FiZap className="text-indigo-400 mb-3 group-hover:scale-110 transition-transform" size={22} />
+                                    <h4 className="text-white font-bold mb-1 text-sm md:text-base">Cross-Correlation</h4>
+                                    <p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Map cross-stream dependencies</p>
+                                </button>
+                                <button onClick={() => handleSelectMode('compare')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-400 hover:bg-emerald-500/5 transition-all text-left group">
+                                    <FiTarget className="text-emerald-400 mb-3 group-hover:scale-110 transition-transform" size={22} />
+                                    <h4 className="text-white font-bold mb-1 text-sm md:text-base">Comparative Benchmark</h4>
+                                    <p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Analyze performance deltas</p>
+                                </button>
+                                <button onClick={() => handleSelectMode('standalone')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-white/40 hover:bg-white/5 transition-all text-left group">
+                                    <FiCpu className="text-white/50 mb-3 group-hover:scale-110 transition-transform" size={22} />
+                                    <h4 className="text-white font-bold mb-1 text-sm md:text-base">Independent Streams</h4>
+                                    <p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Autonomous silo deep-dive</p>
+                                </button>
+                            </div>
+                            <button onClick={() => setShowModeSelector(false)} className="mt-6 w-full text-center text-white/30 hover:text-white/60 text-[10px] uppercase tracking-widest transition-colors">Continue without choosing</button>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Header Section */}
+            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
                 <div className="flex items-center gap-6">
                     <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
@@ -270,7 +313,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         <div className="flex items-center gap-3 mt-2">
                             <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
                             <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">
-                                {loading ? "Computing Logic" : intelligenceMode ? `${intelligenceMode} mode active` : "Decision Support Active"}
+                                {loading ? "Computing Logic" : intelligenceMode ? `${intelligenceMode.toUpperCase()} MODE ACTIVE` : "Decision Support Active"}
                             </span>
                         </div>
                     </div>
@@ -280,8 +323,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
                            <FiFileText /> View full report
                         </button>
-                        <button onClick={() => runAnalysis()} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                            <FaRedo className="text-[9px]" /> Refresh
+                        <button onClick={() => setShowModeSelector(true)} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                            <FaRedo className="text-[9px]" /> Strategic Switch
                         </button>
                     </div>
                 )}
@@ -297,12 +340,16 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </motion.div>
                 ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
+                        {/* SUMMARY */}
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
                             <div className="flex items-center gap-3 mb-10">
                                 <div className="h-1 w-12 bg-indigo-400 rounded-full" />
                                 <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
                                 {intelligenceMode === 'correlation' && (
-                                    <span className="ml-auto bg-indigo-500/20 text-indigo-400 text-[9px] font-bold px-3 py-1 rounded-full border border-indigo-500/30">CORRELATED ANALYSIS</span>
+                                    <span className="ml-auto bg-indigo-500/20 text-indigo-400 text-[9px] font-bold px-3 py-1 rounded-full border border-indigo-500/30 tracking-widest">NEURAL CORRELATION</span>
+                                )}
+                                {intelligenceMode === 'standalone' && (
+                                    <span className="ml-auto bg-white/5 text-white/40 text-[9px] font-bold px-3 py-1 rounded-full border border-white/10 tracking-widest">INDEPENDENT AUDIT</span>
                                 )}
                             </div>
                             <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl">
@@ -310,95 +357,99 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             </div>
                         </div>
 
+                        {/* INSIGHT CARDS */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
-                                <div className="p-4 w-fit bg-indigo-500/10 rounded-2xl text-indigo-400 mb-8 border border-indigo-500/20"><FaSearch size={20} /></div>
-                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">PRIMARY DISCOVERY</h4>
-                                <div className="text-white text-2xl leading-[1.6] font-semibold">{aiInsights.root_cause}</div>
-                            </div>
-                            <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
-                                <div className="p-4 w-fit bg-emerald-500/10 rounded-2xl text-emerald-400 mb-8 border border-emerald-500/20"><FaCreditCard size={20} /></div>
-                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">ESTIMATED IMPACT</h4>
-                                <div className="text-white text-2xl leading-[1.6] font-semibold">Valuation: <span className="text-emerald-400">{aiInsights.roi_impact || "Calculating..."}</span></div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <InsightCard title="Risk Matrix" content={aiInsights?.risk} icon={FiShield} isPurple onClick={() => setExpandedCard({ title: "Risk Matrix", content: aiInsights?.risk, icon: FiShield, color: "text-[#bc13fe]" })} />
-                            <InsightCard title="Growth Vectors" content={aiInsights?.opportunity} icon={FiZap} onClick={() => setExpandedCard({ title: "Growth Vectors", content: aiInsights?.opportunity, icon: FiZap, color: "text-indigo-400" })} />
-                            <InsightCard title="Tactical Priority" content={aiInsights?.action} icon={FiTarget} isPurple onClick={() => setExpandedCard({ title: "Tactical Priority", content: aiInsights?.action, icon: FiTarget, color: "text-[#bc13fe]" })} />
+                            <InsightCard title="Primary Root Cause" content={aiInsights.root_cause} icon={FaSearch} isPurple={false} onClick={() => setExpandedCard("root")} />
+                            <InsightCard title="Risk Exposure" content={aiInsights.risk} icon={FiShield} isPurple={true} onClick={() => setExpandedCard("risk")} />
+                            <InsightCard title="Growth Opportunity" content={aiInsights.opportunity} icon={FaRobot} isPurple={false} onClick={() => setExpandedCard("opp")} />
+                            <InsightCard title="Recommended Action" content={aiInsights.action} icon={FiTarget} isPurple={true} onClick={() => setExpandedCard("action")} />
                         </div>
                     </motion.div>
                 ) : (
-                    <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
-                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
-                        <button onClick={() => runAnalysis()} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Intelligence Report</button>
+                    <div className="py-48 flex flex-col items-center justify-center relative z-10">
+                        <button 
+                            onClick={() => setShowModeSelector(true)}
+                            className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40"
+                        >
+                            Initialize Neural Analysis
+                        </button>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* Modal for Expanded Insights / Full Report */}
+            {/* EXPANDED MODALS & REPORT */}
             <AnimatePresence>
-                {(expandedCard || isFullReportOpen) && (
-                    <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 md:p-12">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
-                        <motion.div 
-                            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-                            className="relative w-full max-w-6xl max-h-[85vh] bg-[#0a0a0f] border border-white/10 rounded-[3.5rem] flex flex-col overflow-hidden shadow-[0_0_100px_rgba(188,19,254,0.1)]"
-                        >
-                            <div className="p-8 md:p-12 flex justify-between items-center border-b border-white/5 bg-[#111116]">
-                                <div className="flex items-center gap-6">
-                                    <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-indigo-400' : (expandedCard ? expandedCard.color : '')}`}>
-                                        {isFullReportOpen ? <FiFileText size={30} /> : (expandedCard && <expandedCard.icon size={30} />)}
-                                    </div>
-                                    <h3 className="text-white text-3xl font-bold uppercase tracking-tight">{isFullReportOpen ? "Full Strategic Report" : (expandedCard && expandedCard.title)}</h3>
+                {expandedCard && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[250] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6">
+                        <div className="max-w-4xl w-full bg-[#111116] border border-white/10 rounded-[3rem] p-12 relative shadow-2xl">
+                            <button onClick={() => setExpandedCard(null)} className="absolute top-6 right-6 text-white/60 hover:text-white transition-colors"><FiX size={26} /></button>
+                            <h3 className="text-white text-2xl font-bold mb-6">
+                                {expandedCard === "root" && "Primary Root Cause"}
+                                {expandedCard === "risk" && "Risk Exposure"}
+                                {expandedCard === "opp" && "Growth Opportunity"}
+                                {expandedCard === "action" && "Recommended Action"}
+                            </h3>
+                            <p className="text-white/80 text-lg leading-relaxed font-light">
+                                {expandedCard === "root" && aiInsights.root_cause}
+                                {expandedCard === "risk" && aiInsights.risk}
+                                {expandedCard === "opp" && aiInsights.opportunity}
+                                {expandedCard === "action" && aiInsights.action}
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {isFullReportOpen && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[260] bg-[#0b0b11]/95 backdrop-blur-2xl p-10 flex flex-col overflow-y-auto">
+                        <div className="max-w-6xl mx-auto w-full">
+                            <div className="flex justify-between items-center mb-12">
+                                <div>
+                                    <h2 className="text-white text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2>
+                                    <p className="text-indigo-400 text-xs mt-2 uppercase tracking-[0.3em] font-bold">Strategy: {intelligenceMode || 'Standard'}</p>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <button 
-                                        onClick={() => toggleSpeech(isFullReportOpen ? "" : (expandedCard ? expandedCard.content : ""))}
-                                        className={`flex items-center gap-4 px-8 py-4 rounded-2xl text-[12px] font-black uppercase tracking-widest border transition-all ${isSpeaking ? 'bg-[#bc13fe]/20 text-[#bc13fe] border-[#bc13fe]/30' : 'bg-white/5 text-white border-white/10 hover:bg-white hover:text-black'}`}
-                                    >
-                                        {isSpeaking ? <><AudioWaveform /> Stop Analysis</> : <><FaVolumeUp /> Voice Briefing</>}
-                                    </button>
-                                    <button onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="p-5 bg-white/5 rounded-full text-white border border-white/10 hover:bg-red-500/20 transition-all"><FiX size={26} /></button>
-                                </div>
+                                <button onClick={() => setIsFullReportOpen(false)} className="text-white/60 hover:text-white transition-colors"><FiX size={34} /></button>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-10 md:p-20 bg-[#050505]/80">
-                                {isFullReportOpen ? (
-                                    <div className="space-y-16 max-w-4xl mx-auto">
-                                        <div className="space-y-4">
-                                            <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">01 Executive Summary</span>
-                                            <p className="text-white text-3xl font-light leading-relaxed">{aiInsights.summary}</p>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                            <div className="space-y-4">
-                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Primary Discovery</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.root_cause}</p>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Risk Matrix</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.risk}</p>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Growth Opportunity</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.opportunity}</p>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Tactical Priority</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.action}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    expandedCard && <p className="text-white/95 text-3xl md:text-5xl leading-[1.45] font-light tracking-tight">{expandedCard.content}</p>
-                                )}
+                            <div className="space-y-12">
+                                <Section label="Executive Summary" text={aiInsights.summary} />
+                                <Section label="Estimated Financial Impact" text={aiInsights.roi_impact || "Analysing..."} isHighlight />
+                                <Section label="Primary Root Cause" text={aiInsights.root_cause} />
+                                <Section label="Risk Exposure" text={aiInsights.risk} />
+                                <Section label="Opportunity" text={aiInsights.opportunity} />
+                                <Section label="Recommended Action" text={aiInsights.action} />
                             </div>
-                        </motion.div>
-                    </div>
+                            <div className="flex flex-wrap justify-end mt-12 gap-6 pb-20">
+                                {/* PDF EXPORT TRIGGER */}
+                                <PDFDownloadLink 
+                                    document={<BoardReportPDF data={aiInsights} org={userProfile?.organization || "Corporate"} execName={userProfile?.first_name || "Executive"} mode={intelligenceMode || "Standard"} />} 
+                                    fileName={`Strategic_Audit_${new Date().toISOString().split('T')[0]}.pdf`}
+                                    className="flex items-center gap-3 px-10 py-4 bg-white text-black rounded-xl text-[13px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all shadow-xl cursor-pointer"
+                                >
+                                    {({ loading }) => (
+                                        <div className="flex items-center gap-2">
+                                            <FiDownload /> {loading ? "Generating Board PDF..." : "Download Board Report"}
+                                        </div>
+                                    )}
+                                </PDFDownloadLink>
+
+                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl text-[13px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all">
+                                    <FaVolumeUp /> {isSpeaking ? "Stop Briefing" : "Listen to Briefing"}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </div>
     );
 };
+
+const Section = ({ label, text, isHighlight = false }) => (
+    <div className={`border-l-2 ${isHighlight ? 'border-emerald-500 bg-emerald-500/5 p-6 rounded-r-2xl' : 'border-indigo-500/20 pl-8'}`}>
+        <h3 className={`${isHighlight ? 'text-emerald-400' : 'text-indigo-400'} text-[12px] uppercase tracking-[0.5em] font-black mb-3`}>{label}</h3>
+        <p className={`text-white ${isHighlight ? 'text-3xl font-bold' : 'text-xl font-light'} leading-relaxed`}>{text}</p>
+    </div>
+);
 
 export default AIAnalysisPanel;
