@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-15 - Enhanced Executive Summary & Data Persistence
+ * Updated: 2026-01-15 - FIX: Forced modal trigger on multi-dataset detection regardless of previous state.
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -106,11 +106,15 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Finalizing Strategic Report..."
     ], [userProfile, intelligenceMode]);
 
+    // FIX: Clear intelligenceMode if datasets increase, forcing the modal to re-evaluate
     useEffect(() => {
-        if (datasets.length > 1 && !intelligenceMode && !loading && !aiInsights) {
+        if (datasets.length > 1 && !aiInsights && !loading) {
+            // If we have multiple datasets but no insights yet, force the selector
             setShowModeSelector(true);
+        } else if (datasets.length === 1 && !intelligenceMode && !loading && !aiInsights) {
+            setIntelligenceMode('standalone');
         }
-    }, [datasets.length, intelligenceMode, loading, aiInsights]);
+    }, [datasets.length, loading, aiInsights]);
 
     useEffect(() => {
         window.speechSynthesis.getVoices();
@@ -156,7 +160,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    const runAnalysis = async (selectedMode = intelligenceMode) => {
+    const runAnalysis = async (selectedMode) => {
         if (datasets.length === 0 || !userToken) return;
         setLoading(true);
         try {
@@ -187,13 +191,20 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         runAnalysis(mode);
     };
 
+    const handleInitialClick = () => {
+        if (datasets.length > 1) {
+            setShowModeSelector(true);
+        } else {
+            handleSelectMode('standalone');
+        }
+    };
+
     return (
         <div ref={panelRef} className="relative overflow-hidden px-0 py-8 md:py-16 transition-all duration-700 min-h-[600px]">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
-            {/* STRATEGIC OBJECTIVE OVERLAY - MODE SELECTOR */}
             <AnimatePresence>
-                {showModeSelector && (
+                {showModeSelector && datasets.length > 1 && (
                     <motion.div 
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4"
@@ -213,7 +224,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                     <FiX size={18} />
                                 </button>
                             </div>
-                            <p className="text-white/50 text-sm md:text-base mb-8">Multiple datasets detected. Configure neural synthesis mode.</p>
+                            <p className="text-white/50 text-sm md:text-base mb-8">System detected {datasets.length} data streams. Configure neural synthesis mode.</p>
                             <div className="grid grid-cols-1 gap-4">
                                 <button onClick={() => handleSelectMode('correlation')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-400 hover:bg-indigo-500/5 transition-all text-left group">
                                     <FiZap className="text-indigo-400 mb-3 group-hover:scale-110 transition-transform" size={22} />
@@ -237,7 +248,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
-            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
                 <div className="flex items-center gap-6">
                     <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
@@ -260,9 +270,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
                            <FiFileText /> View full report
                         </button>
-                        <button onClick={() => setShowModeSelector(true)} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                            <FaRedo className="text-[9px]" /> Strategic Switch
-                        </button>
+                        {datasets.length > 1 && (
+                            <button onClick={() => setShowModeSelector(true)} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                                <FaRedo className="text-[9px]" /> Strategic Switch
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -277,9 +289,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </motion.div>
                 ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
-                        {/* ENHANCED EXECUTIVE SUMMARY CARD */}
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
-                            {/* Improved Background Gradient */}
                             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/[0.07] via-transparent to-purple-500/[0.07] pointer-events-none" />
                             <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full" />
                             
@@ -299,7 +309,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                     <TypewriterText text={aiInsights.summary} />
                                 </div>
 
-                                {/* NEW DATA VECTORS: ROI & CONFIDENCE */}
                                 <div className="flex flex-wrap gap-4 pt-8 border-t border-white/5">
                                     <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10 group hover:border-emerald-500/50 transition-all">
                                         <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
@@ -324,7 +333,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             </div>
                         </div>
 
-                        {/* INSIGHT CARDS */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <InsightCard title="Primary Root Cause" content={aiInsights.root_cause} icon={FaSearch} isPurple={false} onClick={() => setExpandedCard("root")} />
                             <InsightCard title="Risk Exposure" content={aiInsights.risk} icon={FiShield} isPurple={true} onClick={() => setExpandedCard("risk")} />
@@ -335,7 +343,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 ) : (
                     <div className="py-48 flex flex-col items-center justify-center relative z-10">
                         <button 
-                            onClick={() => setShowModeSelector(true)}
+                            onClick={handleInitialClick}
                             className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40"
                         >
                             Initialize Neural Analysis
@@ -344,7 +352,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
-            {/* EXPANDED MODALS & REPORT */}
+            {/* Modals for Expanded Cards and Full Report */}
             <AnimatePresence>
                 {expandedCard && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6">
