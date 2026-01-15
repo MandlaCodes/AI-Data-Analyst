@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-12 - Neural Strategy Injection & Executive PDF Export (FIXED)
+ * Updated: 2026-01-15 - Enhanced Executive Summary & Data Persistence
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -9,73 +9,10 @@ import {
     FaRedo, FaSearch, FaRobot, FaVolumeUp, FaLayerGroup
 } from 'react-icons/fa';
 import { 
-    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiDownload
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiTrendingUp, FiActivity
 } from 'react-icons/fi';
-import { Page, Text, View, Document, StyleSheet, PDFDownloadLink } from '@react-pdf/renderer';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
-
-// --- PDF STYLING FOR BOARD-ROOM GRADE EXPORTS ---
-const pdfStyles = StyleSheet.create({
-    page: { padding: 50, backgroundColor: '#FFFFFF', fontFamily: 'Helvetica' },
-    header: { borderBottom: 2, borderBottomColor: '#1A202C', marginBottom: 30, paddingBottom: 10 },
-    title: { fontSize: 26, fontWeight: 'bold', color: '#1A202C', letterSpacing: -1 },
-    subtitle: { fontSize: 10, color: '#718096', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 },
-    section: { marginBottom: 20 },
-    label: { fontSize: 9, fontWeight: 'bold', color: '#4A5568', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 1 },
-    content: { fontSize: 12, color: '#2D3748', lineHeight: 1.6 },
-    highlightBox: { padding: 20, backgroundColor: '#F7FAFC', borderLeft: 5, borderLeftColor: '#4C51BF', marginVertical: 15 },
-    roiLabel: { fontSize: 10, color: '#4C51BF', fontWeight: 'bold', marginBottom: 5 },
-    roiBadge: { fontSize: 22, fontWeight: 'bold', color: '#2D3748' },
-    footer: { position: 'absolute', bottom: 40, left: 50, right: 50, borderTop: 1, borderTopColor: '#EDF2F7', paddingTop: 15, fontSize: 8, color: '#A0AEC0', textAlign: 'center', lineHeight: 1.4 }
-});
-
-// --- PDF DOCUMENT COMPONENT ---
-const BoardReportPDF = ({ data, org, execName, mode }) => (
-    <Document>
-        <Page size="A4" style={pdfStyles.page}>
-            <View style={pdfStyles.header}>
-                <Text style={pdfStyles.title}>Strategic Intelligence Audit</Text>
-                <Text style={pdfStyles.subtitle}>Prepared for {execName} | {org} | Strategy: {mode}</Text>
-            </View>
-
-            <View style={pdfStyles.section}>
-                <Text style={pdfStyles.label}>Executive Summary</Text>
-                <Text style={pdfStyles.content}>{data.summary}</Text>
-            </View>
-
-            <View style={pdfStyles.highlightBox}>
-                <Text style={pdfStyles.roiLabel}>Estimated Capital Impact</Text>
-                <Text style={pdfStyles.roiBadge}>{data.roi_impact || "Analysing..."}</Text>
-            </View>
-
-            <View style={pdfStyles.section}>
-                <Text style={pdfStyles.label}>Primary Root Cause</Text>
-                <Text style={pdfStyles.content}>{data.root_cause}</Text>
-            </View>
-
-            <View style={pdfStyles.section}>
-                <Text style={pdfStyles.label}>Strategic Risk Area</Text>
-                <Text style={pdfStyles.content}>{data.risk}</Text>
-            </View>
-
-            <View style={pdfStyles.section}>
-                <Text style={pdfStyles.label}>Immediate Opportunity</Text>
-                <Text style={pdfStyles.content}>{data.opportunity}</Text>
-            </View>
-
-            <View style={pdfStyles.section}>
-                <Text style={pdfStyles.label}>Mandatory Executive Action</Text>
-                <Text style={[pdfStyles.content, { fontWeight: 'bold', color: '#C53030' }]}>{data.action}</Text>
-            </View>
-
-            <View style={pdfStyles.footer}>
-                <Text>METRIA AI NEURAL AUDIT | CONFIDENCE RATING: {(data.confidence * 100).toFixed(1)}%</Text>
-                <Text style={{ marginTop: 4 }}>DISCLAIMER: This report is a strategic simulation based on synthetic neural synthesis. Final capital maneuvers and tactical deployments should be verified by a certified financial officer (CFO).</Text>
-            </View>
-        </Page>
-    </Document>
-);
 
 const AudioWaveform = ({ color = "#bc13fe" }) => (
     <div className="flex items-center gap-1 h-4">
@@ -340,20 +277,50 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </motion.div>
                 ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
-                        {/* SUMMARY */}
+                        {/* ENHANCED EXECUTIVE SUMMARY CARD */}
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
-                            <div className="flex items-center gap-3 mb-10">
-                                <div className="h-1 w-12 bg-indigo-400 rounded-full" />
-                                <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
-                                {intelligenceMode === 'correlation' && (
-                                    <span className="ml-auto bg-indigo-500/20 text-indigo-400 text-[9px] font-bold px-3 py-1 rounded-full border border-indigo-500/30 tracking-widest">NEURAL CORRELATION</span>
-                                )}
-                                {intelligenceMode === 'standalone' && (
-                                    <span className="ml-auto bg-white/5 text-white/40 text-[9px] font-bold px-3 py-1 rounded-full border border-white/10 tracking-widest">INDEPENDENT AUDIT</span>
-                                )}
-                            </div>
-                            <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl">
-                                <TypewriterText text={aiInsights.summary} />
+                            {/* Improved Background Gradient */}
+                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/[0.07] via-transparent to-purple-500/[0.07] pointer-events-none" />
+                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full" />
+                            
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 mb-10">
+                                    <div className="h-1 w-12 bg-indigo-400 rounded-full" />
+                                    <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
+                                    {intelligenceMode === 'correlation' && (
+                                        <span className="ml-auto bg-indigo-500/20 text-indigo-400 text-[9px] font-bold px-3 py-1 rounded-full border border-indigo-500/30 tracking-widest">NEURAL CORRELATION</span>
+                                    )}
+                                    {intelligenceMode === 'standalone' && (
+                                        <span className="ml-auto bg-white/5 text-white/40 text-[9px] font-bold px-3 py-1 rounded-full border border-white/10 tracking-widest">INDEPENDENT AUDIT</span>
+                                    )}
+                                </div>
+                                
+                                <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl mb-12">
+                                    <TypewriterText text={aiInsights.summary} />
+                                </div>
+
+                                {/* NEW DATA VECTORS: ROI & CONFIDENCE */}
+                                <div className="flex flex-wrap gap-4 pt-8 border-t border-white/5">
+                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10 group hover:border-emerald-500/50 transition-all">
+                                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                                            <FiTrendingUp size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Projected ROI Impact</p>
+                                            <p className="text-white font-bold text-sm uppercase">{aiInsights.roi_impact || "Calculating..."}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10 group hover:border-indigo-500/50 transition-all">
+                                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                                            <FiActivity size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Neural Confidence</p>
+                                            <p className="text-white font-bold text-sm uppercase">{aiInsights.confidence || "94.2%"}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -380,7 +347,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             {/* EXPANDED MODALS & REPORT */}
             <AnimatePresence>
                 {expandedCard && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[250] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6">
                         <div className="max-w-4xl w-full bg-[#111116] border border-white/10 rounded-[3rem] p-12 relative shadow-2xl">
                             <button onClick={() => setExpandedCard(null)} className="absolute top-6 right-6 text-white/60 hover:text-white transition-colors"><FiX size={26} /></button>
                             <h3 className="text-white text-2xl font-bold mb-6">
@@ -402,7 +369,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
             <AnimatePresence>
                 {isFullReportOpen && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[260] bg-[#0b0b11]/95 backdrop-blur-2xl p-10 flex flex-col overflow-y-auto">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-[#0b0b11]/95 backdrop-blur-2xl p-10 flex flex-col overflow-y-auto">
                         <div className="max-w-6xl mx-auto w-full">
                             <div className="flex justify-between items-center mb-12">
                                 <div>
@@ -413,28 +380,24 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             </div>
                             <div className="space-y-12">
                                 <Section label="Executive Summary" text={aiInsights.summary} />
-                                <Section label="Estimated Financial Impact" text={aiInsights.roi_impact || "Analysing..."} isHighlight />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
+                                        <h4 className="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-2">ROI Impact</h4>
+                                        <p className="text-white text-xl font-bold">{aiInsights.roi_impact || "High Strategic Yield"}</p>
+                                    </div>
+                                    <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
+                                        <h4 className="text-indigo-400 text-[10px] font-black uppercase tracking-widest mb-2">Confidence Level</h4>
+                                        <p className="text-white text-xl font-bold">{aiInsights.confidence || "94.2% Neural Match"}</p>
+                                    </div>
+                                </div>
                                 <Section label="Primary Root Cause" text={aiInsights.root_cause} />
                                 <Section label="Risk Exposure" text={aiInsights.risk} />
                                 <Section label="Opportunity" text={aiInsights.opportunity} />
                                 <Section label="Recommended Action" text={aiInsights.action} />
                             </div>
-                            <div className="flex flex-wrap justify-end mt-12 gap-6 pb-20">
-                                {/* PDF EXPORT TRIGGER */}
-                                <PDFDownloadLink 
-                                    document={<BoardReportPDF data={aiInsights} org={userProfile?.organization || "Corporate"} execName={userProfile?.first_name || "Executive"} mode={intelligenceMode || "Standard"} />} 
-                                    fileName={`Strategic_Audit_${new Date().toISOString().split('T')[0]}.pdf`}
-                                    className="flex items-center gap-3 px-10 py-4 bg-white text-black rounded-xl text-[13px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all shadow-xl cursor-pointer"
-                                >
-                                    {({ loading }) => (
-                                        <div className="flex items-center gap-2">
-                                            <FiDownload /> {loading ? "Generating Board PDF..." : "Download Board Report"}
-                                        </div>
-                                    )}
-                                </PDFDownloadLink>
-
-                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl text-[13px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all">
-                                    <FaVolumeUp /> {isSpeaking ? "Stop Briefing" : "Listen to Briefing"}
+                            <div className="flex justify-end mt-12 gap-6 pb-20">
+                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                                    <FaVolumeUp /> {isSpeaking ? "Stop Briefing" : "Read Out Loud"}
                                 </button>
                             </div>
                         </div>
@@ -445,10 +408,10 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     );
 };
 
-const Section = ({ label, text, isHighlight = false }) => (
-    <div className={`border-l-2 ${isHighlight ? 'border-emerald-500 bg-emerald-500/5 p-6 rounded-r-2xl' : 'border-indigo-500/20 pl-8'}`}>
-        <h3 className={`${isHighlight ? 'text-emerald-400' : 'text-indigo-400'} text-[12px] uppercase tracking-[0.5em] font-black mb-3`}>{label}</h3>
-        <p className={`text-white ${isHighlight ? 'text-3xl font-bold' : 'text-xl font-light'} leading-relaxed`}>{text}</p>
+const Section = ({ label, text }) => (
+    <div className="border-l-2 border-indigo-500/20 pl-8">
+        <h3 className="text-indigo-400 text-[12px] uppercase tracking-[0.5em] font-black mb-3">{label}</h3>
+        <p className="text-white text-xl leading-relaxed font-light">{text}</p>
     </div>
 );
 

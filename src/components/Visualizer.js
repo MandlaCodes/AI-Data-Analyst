@@ -1,6 +1,7 @@
 /**
  * components/Visualizer.js - MOBILE OPTIMIZED VERSION
  * Optimized: 2026-01-12 - HD PDF Export with Chart Capture
+ * Constraint: Charts only render after AI response completion.
  */
 import React, { useMemo, useState, useEffect } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
@@ -27,7 +28,9 @@ const COLORS = ["#00F2FF", "#7000FF", "#FF007A", "#ADFF2F", "#FF8A00", "#00FF94"
 
 const toNumber = (v) => {
   if (typeof v === "number") return v;
-  const n = Number(String(v || "").replace(/[%,$£€,]/g, "").trim());
+  const s = String(v || "").trim();
+  if (!s || !/\d/.test(s)) return null; 
+  const n = Number(s.replace(/[a-df-zA-DF-Z%,$£€¥₩₹]/g, "").replace(/,/g, "").trim());
   return isNaN(n) ? null : n;
 };
 
@@ -63,7 +66,7 @@ const chartOptions = {
 export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken, onAIUpdate }) => {
   const [readyStates, setReadyStates] = useState({});
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [isExporting, setIsExporting] = useState(false); // Track download state
+  const [isExporting, setIsExporting] = useState(false); 
   const [localChartTypes, setLocalChartTypes] = useState({});
   const [expandedChart, setExpandedChart] = useState(null);
 
@@ -76,7 +79,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
   useEffect(() => {
     const updatedReady = { ...readyStates };
     activeDatasets.forEach(ds => {
-      if (ds.aiStorage || ds.data) updatedReady[ds.id] = true;
+      if (ds.aiStorage) updatedReady[ds.id] = true;
     });
     setReadyStates(updatedReady);
   }, [activeDatasets]);
@@ -94,15 +97,11 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
     }));
   };
 
-  // --- THE FIXED EXPORT LOGIC ---
   const handleExport = async (id, name) => {
     const element = document.getElementById(`report-${id}`);
     if (!element || isExporting) return;
-
     setIsExporting(true);
-    
     try {
-      // Create high-res canvas (2x scale for print quality)
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -111,34 +110,21 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight
       });
-
       const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      const imgWidth = 210; // A4 Width
-      const pageHeight = 297; // A4 Height
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+      const imgWidth = 210;
+      const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
       let heightLeft = imgHeight;
       let position = 0;
-
-      // Add first page
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
-
-      // Handle multi-page if the dataset is long
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-
       pdf.save(`METRIA_PROTOCOL_${name.toUpperCase()}.pdf`);
     } catch (err) {
       console.error("Export failed:", err);
@@ -168,7 +154,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
             max: Math.max(...numeric),
             sum: numeric.reduce((a,b)=>a+b,0)
         } : null;
-
         const freq = {};
         if (!stats) {
             rows.forEach(r => {
@@ -176,10 +161,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
                 freq[val] = (freq[val] || 0) + 1;
             });
         }
-
         return { col, isNumeric: numeric.length >= 2, numeric, stats, freq };
       });
-
       return { ...ds, rows, columns, analysis, labels: rows.map(r => r[labelCol]) };
     });
   }, [activeDatasets]);
@@ -187,7 +170,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
   if (activeDatasets.length === 0) return null;
 
   return (
-    <div className="mt-10 md:mt-20 space-y-20 md:space-y-40 pb-32 max-w-[1500px] mx-auto px-4 md:px-6" style={{ overflowAnchor: 'none' }}>
+    <div className="mt-6 md:mt-10 space-y-8 md:space-y-12 pb-32 max-w-[1500px] mx-auto px-4 md:px-6" style={{ overflowAnchor: 'none' }}>
       
       {expandedChart && (
         <div className="fixed inset-0 z-[300] flex flex-col lg:flex-row">
@@ -220,36 +203,36 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
       </section>
 
       {parsed.map(ds => {
+        const isReady = !!readyStates[ds.id];
+        if (!isReady) return null;
+
         const numericCols = ds.analysis.filter(c => c.isNumeric);
         const categoricalCols = ds.analysis.filter(c => !c.isNumeric && Object.keys(c.freq).length > 1 && Object.keys(c.freq).length < 15);
-        const isReady = !!readyStates[ds.id];
 
         return (
-          <div key={ds.id} className="space-y-10 md:space-y-16 scroll-mt-20 p-4 rounded-[3rem]" id={`report-${ds.id}`}>
+          <div key={ds.id} className="space-y-10 md:space-y-16 scroll-mt-20 p-4 rounded-[3rem] animate-in fade-in slide-in-from-bottom-5 duration-700" id={`report-${ds.id}`}>
             
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-800 pb-8 md:pb-12 gap-6 md:gap-8">
-                <div className="max-w-full">
+                <div className="max-w-full lg:max-w-2xl overflow-hidden">
                   <div className="flex items-center gap-3 mb-3 md:mb-4">
                     <div className="p-2 bg-[#7000FF]/20 rounded-lg border border-[#7000FF]/30">
                       <FiDatabase className="text-[#7000FF] w-4 h-4 md:w-[18px] md:h-[18px]" />
                     </div>
                     <h3 className="text-zinc-500 font-black text-[8px] md:text-[10px] uppercase tracking-[0.3em] md:tracking-[0.5em]">Network_Data_Matrix</h3>
                   </div>
-                  <h2 className="text-4xl sm:text-5xl md:text-7xl font-[1000] text-white uppercase tracking-tighter leading-none italic break-words">{ds.name}</h2>
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-[1000] text-white uppercase tracking-tighter leading-none italic line-clamp-2">{ds.name}</h2>
                 </div>
-                {isReady && (
-                    <button 
-                      onClick={() => handleExport(ds.id, ds.name)} 
-                      disabled={isExporting}
-                      className="w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-10 py-4 md:py-5 bg-zinc-100 text-black rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] hover:bg-[#7000FF] hover:text-white transition-all active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.5)] disabled:opacity-50"
-                    >
-                        <FiDownload className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isExporting ? 'animate-bounce' : ''}`} /> 
-                        {isExporting ? "Compiling Report..." : "Download Protocol"}
-                    </button>
-                )}
+                <button 
+                  onClick={() => handleExport(ds.id, ds.name)} 
+                  disabled={isExporting}
+                  className="w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-10 py-4 md:py-5 bg-zinc-100 text-black rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] hover:bg-[#7000FF] hover:text-white transition-all active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.5)] disabled:opacity-50 shrink-0"
+                >
+                    <FiDownload className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isExporting ? 'animate-bounce' : ''}`} /> 
+                    {isExporting ? "Compiling Report..." : "Download Protocol"}
+                </button>
             </div>
             
-            <div className={`transition-all duration-1000 ${isReady ? "opacity-100 translate-y-0" : "opacity-30 translate-y-10"}`}>
+            <div className="opacity-100 translate-y-0 transition-all duration-1000">
               {/* Numeric Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
                 {numericCols.slice(0, 4).map((col, idx) => (

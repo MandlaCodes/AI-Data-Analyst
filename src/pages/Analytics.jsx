@@ -2,7 +2,7 @@
  * pages/Analytics.js - VERSION: METRIA AI HIGH-ENERGY
  * Full production file with Session Persistence and Neural Stream processing.
  * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
- * FIX: Direct Name Injection from Import Modal.
+ * FIX: Logical Gate - Charts only display AFTER aiStorage is populated.
  */
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -238,10 +238,7 @@ export default function Analytics() {
     const importSelected = async (manualIds = [], manualNames = []) => {
         setIsImporting(true);
         try {
-            // 1. Handle Google Sheets (Array of IDs)
             if (selectedApps.includes("google_sheets") && Array.isArray(manualIds)) {
-                
-                // Map through all selected sheets and fetch them
                 const importPromises = manualIds.map(async (id, index) => {
                     const res = await axios.get(`${API_BASE_URL}/google/sheets/${id}`, { 
                         headers: { Authorization: `Bearer ${userToken}` } 
@@ -250,13 +247,12 @@ export default function Analytics() {
                     if (res.data?.values) {
                         const importedRows = res.data.values;
                         const sourceName = manualNames[index] || res.data.title || "Neural Stream";
-                        
                         const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
                         const numeric = detectNumericColumns(cleaned);
                         const category = detectCategoryColumn(cleaned, numeric);
                         
                         return {
-                            id: Date.now() + index, // Ensure unique IDs for batch imports
+                            id: Date.now() + index,
                             name: sourceName,
                             color: datasetColors[(allDatasets.length + index) % datasetColors.length],
                             rows: cleaned.length - 1,
@@ -272,12 +268,10 @@ export default function Analytics() {
                 });
     
                 const newDatasets = (await Promise.all(importPromises)).filter(ds => ds !== null);
-                
                 setAllDatasets(prev => [...prev, ...newDatasets]);
+                // NOTE: We add to active list, but Visualizer handles the "ready" check
                 setActiveDatasets(prev => [...prev, ...newDatasets]);
             } 
-            
-            // 2. Handle Local CSV (Single File)
             else if (selectedApps.includes("other") && csvToImport) {
                 const sourceName = csvToImport.name.replace(/\.csv$/i,"");
                 const importedRows = await parseCSVFile(csvToImport);
@@ -315,6 +309,10 @@ export default function Analytics() {
         }
     };
 
+    // LOGIC FIX: Filter the datasets passed to the visualizer
+    // Only pass datasets where aiStorage (AI Analysis) has finished.
+    const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
+
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
             {(isInitializing || isImporting) && (
@@ -329,8 +327,8 @@ export default function Analytics() {
                 </div>
             )}
 
-            <div className="w-full space-y-12">
-                <div className="pt-8 px-6">
+            <div className="w-full">
+                <div className="pt-8 px-6 lg:px-10">
                     <WorkbenchHeader 
                         isSaving={isSaving} 
                         onImport={() => setShowModal(true)} 
@@ -340,13 +338,13 @@ export default function Analytics() {
                 </div>
 
                 {allDatasets.length > 0 ? (
-                    <>
-                        <div className="flex items-center gap-6 px-6">
+                    <div className="mt-12 space-y-12">
+                        <div className="flex items-center gap-6 px-6 lg:px-10">
                             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.8em] whitespace-nowrap">Neural Streams</h3>
                             <div className="h-[1px] flex-1 bg-white/5" />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6 lg:px-10">
                             {allDatasets.map(ds => {
                                 const isActive = activeDatasets.some(a => a.id === ds.id);
                                 const health = calculateHealthScore(ds);
@@ -412,18 +410,20 @@ export default function Analytics() {
                             </button>
                         </div>
 
-                        <div className="px-6 pb-12">
+                        <div className="px-6 lg:px-10 pb-12">
+                            {/* FIX: We pass the WHOLE active list for context, but Visualizer will only render charts for the 'readyToVisualize' list */}
                             <Visualizer 
                                 activeDatasets={activeDatasets} 
+                                readyDatasets={readyToVisualize}
                                 chartType={chartType} 
                                 chartTypeSet={setChartType} 
                                 authToken={userToken}
                                 onAIUpdate={handleAIUpdate} 
                             />
                         </div>
-                    </>
+                    </div>
                 ) : (
-                    <div className="px-6 pb-12">
+                    <div className="px-6 lg:px-10 pb-12 mt-12">
                         <div className="text-center py-52 bg-white/[0.01] border-y border-white/5 relative overflow-hidden rounded-[3rem]">
                             <div className="absolute inset-0 bg-radial-gradient from-purple-500/10 to-transparent opacity-40 pointer-events-none" />
                             <MdOutlineAnalytics size={100} className="mx-auto text-slate-900 mb-8" />
@@ -456,7 +456,7 @@ export default function Analytics() {
                     setSelectedSheet={setSelectedSheet} 
                     setCsvToImport={setCsvToImport} 
                     csvToImport={csvToImport} 
-                    onImport={(id, name) => importSelected(id, name)} 
+                    onImport={(ids, names) => importSelected(ids, names)} 
                 />
             )}
         </div>
