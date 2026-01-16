@@ -1,6 +1,6 @@
 /**
  * components/Visualizer.js - MOBILE OPTIMIZED VERSION
- * Optimized: 2026-01-12 - HD PDF Export with Chart Capture
+ * Optimized: 2026-01-16 - Fixed Metric Card Overflow for Long Numbers
  * Constraint: Charts only render after AI response completion.
  */
 import React, { useMemo, useState, useEffect } from "react";
@@ -233,23 +233,35 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
             </div>
             
             <div className="opacity-100 translate-y-0 transition-all duration-1000">
-              {/* Numeric Stats Grid */}
+              {/* Numeric Stats Grid - REVISED FOR PADDING AND OVERFLOW */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
                 {numericCols.slice(0, 4).map((col, idx) => (
-                  <div key={col.col} className="relative overflow-hidden bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border border-zinc-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 text-white shadow-[0_20px_40px_rgba(0,0,0,0.6)]">
+                  <div key={col.col} className="relative overflow-hidden bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border border-zinc-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white shadow-[0_20px_40px_rgba(0,0,0,0.6)] flex flex-col h-full">
                     <p className="text-zinc-500 text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] mb-4 md:mb-6 truncate">{col.col}</p>
-                    <div className="flex items-baseline gap-2 mb-6 md:mb-8">
-                      <span className="text-4xl md:text-5xl font-black tracking-tighter text-white">{col.stats?.avg.toLocaleString(undefined, {maximumFractionDigits: 1}) || 0}</span>
+                    
+                    {/* Fixed main metric overflow with flex-wrap and responsive font sizes */}
+                    <div className="flex flex-wrap items-baseline gap-2 mb-6 md:mb-8 overflow-hidden">
+                      <span className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white break-all">
+                        {col.stats?.avg.toLocaleString(undefined, {maximumFractionDigits: 1}) || 0}
+                      </span>
                       <span className="text-zinc-600 text-[9px] md:text-[11px] font-black uppercase tracking-widest">avg</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 border-t border-zinc-800/50 pt-6">
-                        <div><p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Min</p><p className="text-[10px] md:text-xs font-bold text-zinc-300">{col.stats?.min.toLocaleString() || 0}</p></div>
-                        <div className="border-x border-zinc-800/50 px-2 text-center">
-                            <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Max</p><p className="text-[10px] md:text-xs font-bold text-zinc-300">{col.stats?.max.toLocaleString() || 0}</p>
+
+                    {/* Footer stats with improved spacing and break-word logic */}
+                    <div className="grid grid-cols-3 gap-1 md:gap-2 border-t border-zinc-800/50 pt-6 mt-auto">
+                        <div className="min-w-0">
+                          <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Min</p>
+                          <p className="text-[10px] md:text-xs font-bold text-zinc-300 truncate">{col.stats?.min.toLocaleString() || 0}</p>
                         </div>
-                        <div className="text-right">
+                        <div className="border-x border-zinc-800/50 px-1 md:px-2 text-center min-w-0">
+                            <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Max</p>
+                            <p className="text-[10px] md:text-xs font-bold text-zinc-300 truncate">{col.stats?.max.toLocaleString() || 0}</p>
+                        </div>
+                        <div className="text-right min-w-0">
                             <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Sum</p>
-                            <p className="text-[10px] md:text-xs font-bold text-[#7000FF] truncate">{col.stats?.sum > 1000000 ? (col.stats.sum/1000000).toFixed(1)+'M' : col.stats?.sum.toLocaleString() || 0}</p>
+                            <p className="text-[10px] md:text-xs font-bold text-[#7000FF] truncate">
+                              {col.stats?.sum > 1000000 ? (col.stats.sum/1000000).toFixed(1)+'M' : col.stats?.sum.toLocaleString() || 0}
+                            </p>
                         </div>
                     </div>
                   </div>

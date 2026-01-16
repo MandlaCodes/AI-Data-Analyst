@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-15 - FIX: Forced modal trigger on multi-dataset detection regardless of previous state.
+ * Updated: 2026-01-16 - FIX: Resolved modal clipping/offset issues to prevent sidebar overlap.
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -106,10 +106,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Finalizing Strategic Report..."
     ], [userProfile, intelligenceMode]);
 
-    // FIX: Clear intelligenceMode if datasets increase, forcing the modal to re-evaluate
     useEffect(() => {
         if (datasets.length > 1 && !aiInsights && !loading) {
-            // If we have multiple datasets but no insights yet, force the selector
             setShowModeSelector(true);
         } else if (datasets.length === 1 && !intelligenceMode && !loading && !aiInsights) {
             setIntelligenceMode('standalone');
@@ -207,11 +205,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 {showModeSelector && datasets.length > 1 && (
                     <motion.div 
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4"
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                            className="w-full max-w-xl bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl"
+                            className="w-full max-w-xl bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl mx-auto"
                         >
                             <div className="flex justify-between items-center mb-8">
                                 <div className="flex items-center gap-3">
@@ -355,8 +353,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             {/* Modals for Expanded Cards and Full Report */}
             <AnimatePresence>
                 {expandedCard && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6">
-                        <div className="max-w-4xl w-full bg-[#111116] border border-white/10 rounded-[3rem] p-12 relative shadow-2xl">
+                    <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }} 
+                        className="fixed inset-0 z-[10000] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6 md:pl-[300px]"
+                    >
+                        <div className="max-w-4xl w-full bg-[#111116] border border-white/10 rounded-[3rem] p-12 relative shadow-2xl overflow-y-auto max-h-[90vh]">
                             <button onClick={() => setExpandedCard(null)} className="absolute top-6 right-6 text-white/60 hover:text-white transition-colors"><FiX size={26} /></button>
                             <h3 className="text-white text-2xl font-bold mb-6">
                                 {expandedCard === "root" && "Primary Root Cause"}
@@ -377,11 +380,16 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
             <AnimatePresence>
                 {isFullReportOpen && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-[#0b0b11]/95 backdrop-blur-2xl p-10 flex flex-col overflow-y-auto">
+                    <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }} 
+                        className="fixed inset-0 z-[10001] bg-[#0b0b11]/95 backdrop-blur-2xl p-6 md:p-10 md:pl-[320px] flex flex-col overflow-y-auto"
+                    >
                         <div className="max-w-6xl mx-auto w-full">
                             <div className="flex justify-between items-center mb-12">
                                 <div>
-                                    <h2 className="text-white text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2>
+                                    <h2 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2>
                                     <p className="text-indigo-400 text-xs mt-2 uppercase tracking-[0.3em] font-bold">Strategy: {intelligenceMode || 'Standard'}</p>
                                 </div>
                                 <button onClick={() => setIsFullReportOpen(false)} className="text-white/60 hover:text-white transition-colors"><FiX size={34} /></button>
