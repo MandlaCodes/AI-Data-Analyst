@@ -4,12 +4,12 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  FaChartLine, FaBrain, FaServer, FaArrowRight, FaRocket, FaShieldAlt,
+  FaChartLine, FaBrain, FaArrowRight, FaRocket, FaShieldAlt,
   FaBars, FaTimes, FaPlus, FaMinus, FaCheckCircle, FaMicrochip, 
   FaDatabase, FaMagic, FaBookOpen
 } from "react-icons/fa";
-import Particles from "react-tsparticles";
-import { loadSlim } from "tsparticles-slim";
+import Particles, { initParticlesEngine } from "@tsparticles/react";
+import { loadSlim } from "@tsparticles/slim";
 
 /* ---------------- DATA ---------------- */
 const PRIMARY = "#a855f7";
@@ -175,8 +175,16 @@ body { background: ${DARK}; overflow-x: hidden; color: white; margin: 0; }
 export default function Landing({ onGetStarted }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
+  const [init, setInit] = useState(false);
 
+  // Initialize particles once
   useEffect(() => {
+    initParticlesEngine(async (engine) => {
+      await loadSlim(engine);
+    }).then(() => {
+      setInit(true);
+    });
+
     const els = document.querySelectorAll(".reveal");
     const io = new IntersectionObserver(
       entries => entries.forEach(e => {
@@ -191,25 +199,25 @@ export default function Landing({ onGetStarted }) {
     return () => io.disconnect();
   }, []);
 
-  const particlesInit = engine => loadSlim(engine);
-
   return (
     <div className="min-h-screen bg-[#02010a]">
       <style>{styles}</style>
 
-      <Particles
-        init={particlesInit}
-        options={{
-          fullScreen: { enable: true, zIndex: 0 },
-          particles: { 
-            number: { value: 25 }, 
-            color: { value: PRIMARY }, 
-            links: { enable: true, opacity: 0.1, distance: 150, color: PRIMARY }, 
-            move: { enable: true, speed: 0.4 }, 
-            size: { value: 1.2 } 
-          }
-        }}
-      />
+      {init && (
+        <Particles
+          id="tsparticles"
+          options={{
+            fullScreen: { enable: true, zIndex: 0 },
+            particles: { 
+              number: { value: 25 }, 
+              color: { value: PRIMARY }, 
+              links: { enable: true, opacity: 0.1, distance: 150, color: PRIMARY }, 
+              move: { enable: true, speed: 0.4 }, 
+              size: { value: 1.2 } 
+            }
+          }}
+        />
+      )}
       
       {/* HEADER */}
       <header className="fixed w-full z-[200] bg-[#02010a]/90 backdrop-blur-xl border-b border-white/5">
@@ -276,7 +284,7 @@ export default function Landing({ onGetStarted }) {
               Decisions. <br />
               <span className="gradient-text italic">Automated.</span>
             </h1>
-            <p className="text-lg md:text-xl text-white-400 max-w-xl mb-8 md:mb-10 leading-relaxed reveal-text delay-2 mx-auto lg:mx-0">
+            <p className="text-lg md:text-xl text-gray-400 max-w-xl mb-8 md:mb-10 leading-relaxed reveal-text delay-2 mx-auto lg:mx-0">
               The autonomous AI data analyst that eliminates manual synthesis. Import your streams and get executive-ready intelligence in seconds.
             </p>
             <div className="flex justify-center lg:justify-start reveal-text delay-2">
@@ -288,7 +296,7 @@ export default function Landing({ onGetStarted }) {
         </div>
       </section>
 
-      {/* TRUST MARQUEE - COMPACT ON MOBILE */}
+      {/* TRUST MARQUEE */}
       <div className="py-8 md:py-12 border-y border-white/5 bg-black/20 relative z-10">
         <div className="marquee-container">
           <div className="marquee-content">
@@ -302,7 +310,7 @@ export default function Landing({ onGetStarted }) {
         </div>
       </div>
 
-      {/* FEATURE GRID (THE ENGINE) - RESPONSIVE PADDING */}
+      {/* FEATURE GRID */}
       <section id="solutions" className="py-12 md:py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
@@ -329,7 +337,7 @@ export default function Landing({ onGetStarted }) {
         </div>
       </section>
 
-      {/* STRATEGY BRIEFING (BLOG) - REDUCED TOP MARGIN */}
+      {/* STRATEGY BRIEFING */}
       <section className="pb-12 md:pb-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="glass-morphism rounded-[40px] p-8 md:p-16 border-l-4 border-purple-500 reveal">
@@ -360,7 +368,7 @@ export default function Landing({ onGetStarted }) {
         </div>
       </section>
 
-      {/* PRICING - TIGHTER GAPS */}
+      {/* PRICING */}
       <section id="pricing" className="py-12 md:py-32 px-6">
         <div className="max-w-7xl mx-auto text-center reveal">
           <h2 className="text-4xl md:text-6xl font-black tracking-tighter italic">Executive Plans.</h2>
@@ -390,7 +398,7 @@ export default function Landing({ onGetStarted }) {
         </div>
       </section>
 
-      {/* FAQ - TIGHTER VERTICAL FLOW */}
+      {/* FAQ */}
       <section id="faq" className="py-12 md:py-32 px-6 bg-black/10">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-black tracking-tighter mb-8 md:mb-12 italic text-center">Operations FAQ.</h2>
@@ -415,7 +423,7 @@ export default function Landing({ onGetStarted }) {
         </div>
       </section>
 
-      {/* FOOTER - COMPACT MOBILE PADDING */}
+      {/* FOOTER */}
       <footer className="py-12 md:py-20 border-t border-white/5 bg-black/40 relative">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center">
           <div className="flex items-center gap-2 mb-8 md:mb-10">
