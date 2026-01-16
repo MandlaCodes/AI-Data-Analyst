@@ -1,7 +1,7 @@
 /**
  * Overview.js - VERSION: METRIA AI (PERMANENT HIGH-ENERGY DESIGN)
- * UPDATED: 2026-01-16
- * REASON: Refactored Welcome Screen into Onboard.jsx component
+ * UPDATED: 2026-01-06
+ * REASON: Applied Universal Mapping for Dynamic Backend Keys
  */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
     FiArrowRight, FiShield, FiZap, 
     FiTarget, FiTerminal, FiActivity, FiCpu, FiX, 
-    FiUser, FiSun, FiCloud, FiCloudRain, FiWind
+    FiUser, FiSun, FiCloud, FiCloudRain, FiWind, FiUploadCloud, FiBarChart2
 } from "react-icons/fi";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
@@ -22,9 +22,6 @@ import {
     Tooltip,
     Filler,
 } from "chart.js";
-
-// IMPORT NEW ONBOARD COMPONENT
-import Onboard from "./Onboard"; 
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
@@ -130,9 +127,11 @@ export default function Overview({ profile }) {
                     const datasets = state.allDatasets || [];
                     setAllDatasets(datasets);
 
+                    // EXTRACT RAW DATA
                     const raw = state.ai_insight || datasets[0]?.aiStorage || null;
                     
                     if (raw) {
+                        // MAP INCOMING KEYS TO LOCAL UI VARIABLES (Supports both standard and MN Web formats)
                         setAiInsights({
                             summary: raw["Main Discovery"] || raw.summary || "Scan complete.",
                             risk: raw["Risks to Watch"] || raw.risk || "No major risks detected.",
@@ -143,6 +142,7 @@ export default function Overview({ profile }) {
                     }
                 }
                 
+                // Map trends similarly to ensure history cards display correctly
                 const mappedTrends = (trendsRes.data || []).map(t => ({
                     ...t,
                     summary: t.summary || t["Main Discovery"]
@@ -232,12 +232,43 @@ export default function Overview({ profile }) {
 
             <main className="flex-1 space-y-4 px-4 md:px-8 relative z-10 pb-8">
                 {allDatasets.length === 0 ? (
-                    /* RENDER ONBOARD COMPONENT FOR NEW USERS */
-                    <Onboard 
-                        profile={profile} 
-                        weatherData={weatherData} 
-                        onAction={() => navigate("/dashboard/analytics")} 
-                    />
+                    <motion.div 
+                        variants={itemVariants}
+                        className="w-full flex flex-col items-center justify-center py-12 md:py-20 px-6 border border-white/10 rounded-[2rem] md:rounded-[4rem] bg-white/[0.02] relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-1/2 bg-purple-600/10 blur-[120px] rounded-full" />
+                        
+                        <div className="relative z-10 flex flex-col items-center text-center max-w-2xl">
+                            <div className="mb-8 md:mb-10 relative">
+                                <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-gradient-to-br from-purple-600 to-blue-600 shadow-[0_0_50px_rgba(168,85,247,0.3)]">
+                                    <FiUploadCloud className="text-white animate-bounce w-10 h-10 md:w-[60px] md:h-[60px]" />
+                                </div>
+                                <div className="absolute -bottom-2 -right-2 md:-bottom-4 md:-right-4 bg-black border border-white/10 p-2 md:p-4 rounded-xl md:rounded-2xl">
+                                    <FiBarChart2 className="text-purple-400 w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                            </div>
+
+                            <h1 className="text-4xl md:text-5xl lg:text-7xl font-black tracking-tighter uppercase mb-6 leading-none">
+                                {weatherData.greeting}, <br/>
+                                <span className="text-purple-500">{profile?.first_name || "Agent"}</span>.
+                            </h1>
+                            
+                            <p className="text-lg md:text-xl lg:text-2xl text-white/40 font-light italic mb-8 md:mb-12 tracking-tight px-4">
+                                Welcome to the MetriaAI Dashboard. Initialize your first dataset to activate Metria's intelligence protocols.
+                            </p>
+
+                            <motion.button 
+                                whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(168,85,247,0.5)" }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => navigate("/dashboard/analytics")}
+                                className="group relative px-8 md:px-12 py-4 md:py-6 bg-white text-black rounded-full font-black text-xs md:text-sm uppercase tracking-[0.3em] md:tracking-[0.5em] flex items-center gap-4 md:gap-6 overflow-hidden transition-all"
+                            >
+                                <span className="relative z-10">Initialize Analysis</span>
+                                <FiArrowRight className="relative z-10 group-hover:translate-x-2 transition-transform" size={20} />
+                                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 opacity-0 group-hover:opacity-10 transition-opacity" />
+                            </motion.button>
+                        </div>
+                    </motion.div>
                 ) : (
                     <>
                         <div className="grid grid-cols-12 gap-4">
