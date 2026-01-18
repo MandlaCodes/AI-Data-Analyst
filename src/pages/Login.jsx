@@ -1,8 +1,3 @@
-/**
- * components/Login.js - AUTH SYSTEM
- * Fix: Mobile CTA visibility and overflow issues
- * Update: Added mobile-only desktop recommendation message
- */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt, FaArrowLeft, FaDesktop } from "react-icons/fa";
@@ -83,6 +78,26 @@ export default function Login({ onLoginSuccess }) {
       0%, 100% { opacity: 0.3; transform: scale(1); }
       50% { opacity: 0.6; transform: scale(1.1); }
     }
+    /* Premium Smooth Reveal */
+    @keyframes premium-reveal {
+      from { 
+        opacity: 0; 
+        transform: translateY(30px) scale(0.98); 
+        filter: blur(10px);
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+        filter: blur(0);
+      }
+    }
+    .animate-premium {
+      animation: premium-reveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .stagger-1 { animation-delay: 0.1s; opacity: 0; }
+    .stagger-2 { animation-delay: 0.2s; opacity: 0; }
+    .stagger-3 { animation-delay: 0.3s; opacity: 0; }
+
     .bg-grid {
       background-size: 40px 40px;
       background-image: radial-gradient(circle, rgba(168, 85, 247, 0.1) 1px, transparent 1px);
@@ -94,7 +109,7 @@ export default function Login({ onLoginSuccess }) {
   `;
 
   return (
-    <div className="min-h-screen w-full flex bg-[#02010a] text-white font-sans relative">
+    <div className="min-h-screen w-full flex bg-[#02010a] text-white font-sans relative overflow-hidden">
       <style>{pageStyles}</style>
       
       {isLoggedIn && (
@@ -111,7 +126,7 @@ export default function Login({ onLoginSuccess }) {
       {/* DESKTOP LEFT PANEL */}
       <div className="hidden lg:flex relative w-1/2 h-screen items-center justify-center overflow-hidden border-r border-white/5 bg-grid sticky top-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
-        <div className="relative z-20 text-center px-12">
+        <div className="relative z-20 text-center px-12 animate-premium stagger-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-[9px] font-bold uppercase tracking-[0.2em] mb-8">
             <FaShieldAlt className="animate-pulse" /> Secure Connection
           </div>
@@ -132,7 +147,10 @@ export default function Login({ onLoginSuccess }) {
 
       {/* FORM RIGHT PANEL */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-0 relative py-20 lg:py-0">
-        <div className="w-full max-w-md space-y-8 relative z-10 px-8">
+        <div 
+          key={isSignup ? `signup-${step}` : "login"} 
+          className="w-full max-w-md space-y-8 relative z-10 px-8 animate-premium stagger-2"
+        >
           
           {/* MOBILE OPTIMIZATION NOTICE */}
           <div className="lg:hidden flex items-center gap-4 p-4 bg-purple-500/5 border border-purple-500/10 rounded-2xl mb-8">
@@ -164,7 +182,7 @@ export default function Login({ onLoginSuccess }) {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignup && step === 2 ? (
-              <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                     <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
@@ -197,7 +215,7 @@ export default function Login({ onLoginSuccess }) {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 animate-in fade-in duration-500">
+              <div className="space-y-4">
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
                   <input type="email" name="email" value={formData.email} placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
@@ -220,13 +238,13 @@ export default function Login({ onLoginSuccess }) {
           </form>
 
           {status && (
-            <div className={`text-center font-mono text-[10px] uppercase tracking-[0.1em] p-3 border border-current/20 rounded-lg ${status.type === 'error' ? 'text-red-500 bg-red-500/5' : 'text-purple-400 bg-purple-400/5'}`}>
+            <div className={`text-center font-mono text-[10px] uppercase tracking-[0.1em] p-3 border border-current/20 rounded-lg animate-in fade-in slide-in-from-top-2 ${status.type === 'error' ? 'text-red-500 bg-red-500/5' : 'text-purple-400 bg-purple-400/5'}`}>
               {status.message}
             </div>
           )}
 
           {/* MOBILE TOGGLE CTA */}
-          <div className="text-center lg:hidden pt-4 pb-12">
+          <div className="text-center lg:hidden pt-4 pb-12 stagger-3 animate-premium">
              <button
               type="button"
               onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
