@@ -108,6 +108,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Finalizing Strategic Report..."
     ], [userProfile, intelligenceMode]);
 
+    // Reset redirecting state when paywall is closed
+    useEffect(() => {
+        if (!showPaywall) {
+            setIsRedirecting(false);
+        }
+    }, [showPaywall]);
+
     useEffect(() => {
         if (datasets.length > 1 && !aiInsights && !loading) {
             // Wait for user to click button instead of auto-opening
@@ -235,6 +242,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
                             className="w-full max-w-lg bg-[#0f0f13] border border-white/10 rounded-[3rem] p-10 text-center shadow-3xl overflow-hidden relative"
                         >
+                            {/* Close Button */}
+                            <button 
+                                onClick={() => setShowPaywall(false)}
+                                className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5"
+                            >
+                                <FiX size={24} />
+                            </button>
+
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
                             <div className="mb-8 flex justify-center">
                                 <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center border border-indigo-500/20">
@@ -247,7 +262,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             <div className="space-y-4">
                                 <button 
                                     onClick={handleStartTrial}
-                                    disabled={isRedirecting}
                                     className="w-full py-6 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 group shadow-xl shadow-indigo-500/20"
                                 >
                                     {isRedirecting ? "Connecting to Polar..." : (
