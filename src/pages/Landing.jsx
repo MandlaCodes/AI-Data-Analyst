@@ -289,7 +289,7 @@ export default function Landing({ onGetStarted }) {
             </p>
             <div className="flex justify-center lg:justify-start reveal-text delay-2">
               <button onClick={onGetStarted} className="w-full sm:w-auto px-12 py-5 bg-white text-black rounded-xl font-black text-[14px] uppercase tracking-widest shadow-xl shadow-purple-500/20">
-                Get Started <FaArrowRight className="inline ml-2" />
+                Start your free trial today <FaArrowRight className="inline ml-2" />
               </button>
             </div>
           </div>
@@ -391,7 +391,7 @@ export default function Landing({ onGetStarted }) {
                 ))}
               </div>
               <button onClick={onGetStarted} className="w-full py-5 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest hover:invert transition-all">
-                Hire Your AI Analyst Now
+                Start 7 day free trial
               </button>
             </div>
           </div>
