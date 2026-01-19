@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-16 - FIX: Resolved modal clipping/offset issues to prevent sidebar overlap.
+ * Updated: 2026-01-20 - INTEGRATION: Polar Paywall & Trial Flow
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -9,7 +9,7 @@ import {
     FaRedo, FaSearch, FaRobot, FaVolumeUp, FaLayerGroup
 } from 'react-icons/fa';
 import { 
-    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiTrendingUp, FiActivity
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiTrendingUp, FiActivity, FiLock, FiArrowRight
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
@@ -86,6 +86,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [intelligenceMode, setIntelligenceMode] = useState(null);
     const [showModeSelector, setShowModeSelector] = useState(false);
+    const [showPaywall, setShowPaywall] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
     
     const panelRef = useRef(null);
     const userToken = localStorage.getItem("adt_token");
@@ -108,7 +110,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     useEffect(() => {
         if (datasets.length > 1 && !aiInsights && !loading) {
-            setShowModeSelector(true);
+            // Wait for user to click button instead of auto-opening
         } else if (datasets.length === 1 && !intelligenceMode && !loading && !aiInsights) {
             setIntelligenceMode('standalone');
         }
@@ -127,6 +129,21 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } else { setAnalysisPhase(0); }
         return () => clearInterval(interval);
     }, [loading, phases.length]);
+
+    const handleStartTrial = async () => {
+        setIsRedirecting(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/billing/start-trial`, {}, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+            if (res.data.checkout_url) {
+                window.location.href = res.data.checkout_url;
+            }
+        } catch (err) {
+            console.error("Billing redirect failed", err);
+            setIsRedirecting(false);
+        }
+    };
 
     const toggleSpeech = (textOverride) => {
         if (isSpeaking) {
@@ -190,6 +207,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     const handleInitialClick = () => {
+        // MONETIZATION CHECK
+        if (!userProfile?.is_trial_active) {
+            setShowPaywall(true);
+            return;
+        }
+
         if (datasets.length > 1) {
             setShowModeSelector(true);
         } else {
@@ -200,6 +223,48 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     return (
         <div ref={panelRef} className="relative overflow-hidden px-0 py-8 md:py-16 transition-all duration-700 min-h-[600px]">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
+
+            {/* PAYWALL MODAL */}
+            <AnimatePresence>
+                {showPaywall && (
+                    <motion.div 
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[10005] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+                            className="w-full max-w-lg bg-[#0f0f13] border border-white/10 rounded-[3rem] p-10 text-center shadow-3xl overflow-hidden relative"
+                        >
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
+                            <div className="mb-8 flex justify-center">
+                                <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center border border-indigo-500/20">
+                                    <FiLock className="text-indigo-400 text-3xl" />
+                                </div>
+                            </div>
+                            <h2 className="text-white text-3xl font-black mb-4 tracking-tight uppercase">Neural Core Locked</h2>
+                            <p className="text-white/60 mb-10 leading-relaxed">Advanced synergy audits and correlation mapping require an active Pro license. Start your 7-day trial to unlock full strategic intelligence.</p>
+                            
+                            <div className="space-y-4">
+                                <button 
+                                    onClick={handleStartTrial}
+                                    disabled={isRedirecting}
+                                    className="w-full py-6 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 group shadow-xl shadow-indigo-500/20"
+                                >
+                                    {isRedirecting ? "Connecting to Polar..." : (
+                                        <>Start 7 Days Free <FiArrowRight className="group-hover:translate-x-1 transition-transform" /></>
+                                    )}
+                                </button>
+                                <button 
+                                    onClick={() => setShowPaywall(false)}
+                                    className="w-full py-4 text-white/30 hover:text-white/60 text-[11px] font-bold uppercase tracking-[0.2em] transition-all"
+                                >
+                                    Review data first
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <AnimatePresence>
                 {showModeSelector && datasets.length > 1 && (

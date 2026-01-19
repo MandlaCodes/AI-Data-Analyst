@@ -311,7 +311,33 @@ export default function Analytics() {
 
     // LOGIC FIX: Filter the datasets passed to the visualizer
     // Only pass datasets where aiStorage (AI Analysis) has finished.
-    const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('session') === 'success') {
+            // 1. Clean the URL immediately
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // 2. Fetch the updated profile from your backend
+            const refreshProfile = async () => {
+                try {
+                    const token = localStorage.getItem("adt_token");
+                    const res = await axios.get(`${API_BASE_URL}/auth/me`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    // Update local storage so the AI Panel knows is_trial_active is now true
+                    localStorage.setItem("adt_profile", JSON.stringify(res.data));
+                    // Force a page reload or state update to unlock the button
+                    window.location.reload(); 
+                } catch (err) {
+                    console.error("Failed to sync Polar status", err);
+                }
+            };
+            refreshProfile();
+        }
+    }, []);
+    // --- LOGIC GATE: Filter active datasets that are actually ready (have AI data) ---
+const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
+    
 
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
