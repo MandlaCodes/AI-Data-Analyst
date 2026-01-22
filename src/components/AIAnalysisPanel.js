@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-22 - FIX: Dynamic Profile Refresh & Paywall Unlock
+ * Updated: 2026-01-22 - FIX: Smooth Post-Payment Landing & Full Component Restore
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -14,6 +14,7 @@ import {
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
+// --- SUB-COMPONENTS ---
 const AudioWaveform = ({ color = "#bc13fe" }) => (
     <div className="flex items-center gap-1 h-4">
         {[...Array(4)].map((_, i) => (
@@ -78,6 +79,7 @@ const TypewriterText = ({ text, delay = 5 }) => {
     return <span>{displayedText}</span>;
 };
 
+// --- MAIN COMPONENT ---
 const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [loading, setLoading] = useState(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
@@ -89,11 +91,24 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [showPaywall, setShowPaywall] = useState(false);
     const [isRedirecting, setIsRedirecting] = useState(false);
     
-    // --- FRESH PROFILE LOGIC ---
+    // SMOOTH LANDING STATES
+    const [isLandingAfterPayment, setIsLandingAfterPayment] = useState(false);
     const [profile, setProfile] = useState(null);
     const userToken = localStorage.getItem("adt_token");
+    const panelRef = useRef(null);
+    const initializeButtonRef = useRef(null);
+    const aiInsights = datasets[0]?.aiStorage;
 
-    // Fetch fresh profile status whenever panel mounts or token exists
+    // 1. DETECTION: Catch the redirect immediately
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('success') === 'true' || params.get('session_id')) {
+            setIsLandingAfterPayment(true);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    // 2. FRESH PROFILE LOGIC + SMOOTH SCROLL
     useEffect(() => {
         const syncProfile = async () => {
             if (!userToken) return;
@@ -102,20 +117,27 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     headers: { Authorization: `Bearer ${userToken}` }
                 });
                 setProfile(res.data);
-                // Update local storage so other components stay in sync
                 localStorage.setItem("adt_profile", JSON.stringify(res.data));
+
+                // If landing after payment, hide overlay and scroll
+                if (isLandingAfterPayment) {
+                    setTimeout(() => {
+                        setIsLandingAfterPayment(false);
+                        setShowPaywall(false);
+                        setTimeout(() => {
+                            initializeButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 800);
+                    }, 2000);
+                }
             } catch (err) {
                 console.error("Profile sync failed:", err);
-                // Fallback to local storage if API fails
+                setIsLandingAfterPayment(false);
                 const stored = localStorage.getItem("adt_profile");
                 if (stored) setProfile(JSON.parse(stored));
             }
         };
         syncProfile();
-    }, [userToken]);
-
-    const panelRef = useRef(null);
-    const aiInsights = datasets[0]?.aiStorage;
+    }, [userToken, isLandingAfterPayment]);
 
     const phases = useMemo(() => [
         "Initializing AI Analyst...",
@@ -222,7 +244,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     const handleInitialClick = () => {
-        // --- UPDATED CHECK: Uses the dynamic 'profile' state ---
         if (!profile?.is_trial_active) {
             setShowPaywall(true);
             return;
@@ -239,6 +260,23 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         <div ref={panelRef} className="relative overflow-hidden px-0 py-8 md:py-16 transition-all duration-700 min-h-[600px]">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
+            {/* --- SMOOTH LANDING OVERLAY --- */}
+            <AnimatePresence>
+                {isLandingAfterPayment && (
+                    <motion.div 
+                        initial={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[20000] bg-[#0a0a0f] flex flex-col items-center justify-center text-center"
+                    >
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative p-12">
+                            <div className="absolute inset-0 bg-indigo-500/10 blur-[100px] rounded-full animate-pulse" />
+                            <FiCheckCircle className="text-emerald-400 text-6xl mx-auto mb-6" />
+                            <h2 className="text-white text-3xl font-black uppercase tracking-[0.3em] mb-2">Neural Link Established</h2>
+                            <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest">AI Data Analyst Activated</p>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* PAYWALL MODAL */}
             <AnimatePresence>
                 {showPaywall && (
@@ -250,13 +288,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
                             className="w-full max-w-lg bg-[#0f0f13] border border-white/10 rounded-[3rem] p-10 text-center shadow-3xl overflow-hidden relative"
                         >
-                            <button 
-                                onClick={() => setShowPaywall(false)}
-                                className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5"
-                            >
-                                <FiX size={24} />
-                            </button>
-
+                            <button onClick={() => setShowPaywall(false)} className="absolute top-8 right-8 text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5"><FiX size={24} /></button>
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
                             <div className="mb-8 flex justify-center">
                                 <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center border border-indigo-500/20">
@@ -264,74 +296,50 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 </div>
                             </div>
                             <h2 className="text-white text-3xl font-black mb-4 tracking-tight uppercase">Neural Core Locked</h2>
-                            <p className="text-white/60 mb-10 leading-relaxed">Advanced synergy audits and correlation mapping require an active Pro license. Start your 7-day trial to unlock full strategic intelligence.</p>
-                            
+                            <p className="text-white/60 mb-10 leading-relaxed">Advanced synergy audits and correlation mapping require an active Pro license.</p>
                             <div className="space-y-4">
-                                <button 
-                                    onClick={handleStartTrial}
-                                    className="w-full py-6 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 group shadow-xl shadow-indigo-500/20"
-                                >
-                                    {isRedirecting ? "Connecting to Polar..." : (
-                                        <>Start 7 Days Free <FiArrowRight className="group-hover:translate-x-1 transition-transform" /></>
-                                    )}
+                                <button onClick={handleStartTrial} className="w-full py-6 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 group shadow-xl shadow-indigo-500/20">
+                                    {isRedirecting ? "Connecting to Polar..." : <>Start 7 Days Free <FiArrowRight className="group-hover:translate-x-1 transition-transform" /></>}
                                 </button>
-                                <button 
-                                    onClick={() => setShowPaywall(false)}
-                                    className="w-full py-4 text-white/30 hover:text-white/60 text-[11px] font-bold uppercase tracking-[0.2em] transition-all"
-                                >
-                                    Review data first
-                                </button>
+                                <button onClick={() => setShowPaywall(false)} className="w-full py-4 text-white/30 hover:text-white/60 text-[11px] font-bold uppercase tracking-[0.2em]">Review data first</button>
                             </div>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* MODE SELECTOR */}
             <AnimatePresence>
                 {showModeSelector && datasets.length > 1 && (
                     <motion.div 
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4"
                     >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                            className="w-full max-w-xl bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl mx-auto"
-                        >
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-xl bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl">
                             <div className="flex justify-between items-center mb-8">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                                        <FaLayerGroup className="text-indigo-400" size={26} />
-                                    </div>
+                                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10"><FaLayerGroup className="text-indigo-400" size={26} /></div>
                                     <h2 className="text-white font-black text-lg md:text-2xl tracking-tight">Intelligence Strategy</h2>
                                 </div>
-                                <button onClick={() => setShowModeSelector(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white">
-                                    <FiX size={18} />
-                                </button>
+                                <button onClick={() => setShowModeSelector(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white"><FiX size={18} /></button>
                             </div>
-                            <p className="text-white/50 text-sm md:text-base mb-8">System detected {datasets.length} data streams. Configure neural synthesis mode.</p>
                             <div className="grid grid-cols-1 gap-4">
                                 <button onClick={() => handleSelectMode('correlation')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-400 hover:bg-indigo-500/5 transition-all text-left group">
-                                    <FiZap className="text-indigo-400 mb-3 group-hover:scale-110 transition-transform" size={22} />
-                                    <h4 className="text-white font-bold mb-1 text-sm md:text-base">Cross-Correlation</h4>
-                                    <p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Map cross-stream dependencies</p>
+                                    <FiZap className="text-indigo-400 mb-3 group-hover:scale-110" size={22} /><h4 className="text-white font-bold mb-1">Cross-Correlation</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Map cross-stream dependencies</p>
                                 </button>
                                 <button onClick={() => handleSelectMode('compare')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-400 hover:bg-emerald-500/5 transition-all text-left group">
-                                    <FiTarget className="text-emerald-400 mb-3 group-hover:scale-110 transition-transform" size={22} />
-                                    <h4 className="text-white font-bold mb-1 text-sm md:text-base">Comparative Benchmark</h4>
-                                    <p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Analyze performance deltas</p>
+                                    <FiTarget className="text-emerald-400 mb-3 group-hover:scale-110" size={22} /><h4 className="text-white font-bold mb-1">Comparative Benchmark</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Analyze performance deltas</p>
                                 </button>
                                 <button onClick={() => handleSelectMode('standalone')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-white/40 hover:bg-white/5 transition-all text-left group">
-                                    <FiCpu className="text-white/50 mb-3 group-hover:scale-110 transition-transform" size={22} />
-                                    <h4 className="text-white font-bold mb-1 text-sm md:text-base">Independent Streams</h4>
-                                    <p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Autonomous silo deep-dive</p>
+                                    <FiCpu className="text-white/50 mb-3 group-hover:scale-110" size={22} /><h4 className="text-white font-bold mb-1">Independent Streams</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Autonomous silo deep-dive</p>
                                 </button>
                             </div>
-                            <button onClick={() => setShowModeSelector(false)} className="mt-6 w-full text-center text-white/30 hover:text-white/60 text-[10px] uppercase tracking-widest transition-colors">Continue without choosing</button>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* HEADER AREA */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
                 <div className="flex items-center gap-6">
                     <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
@@ -363,6 +371,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </div>
 
+            {/* MAIN CONTENT SWITCHER */}
             <AnimatePresence mode="wait">
                 {loading ? (
                     <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-48 flex flex-col items-center justify-center relative z-10"> 
@@ -375,39 +384,24 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/[0.07] via-transparent to-purple-500/[0.07] pointer-events-none" />
-                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full" />
-                            
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 mb-10">
                                     <div className="h-1 w-12 bg-indigo-400 rounded-full" />
                                     <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
-                                    {intelligenceMode === 'correlation' && (
-                                        <span className="ml-auto bg-indigo-500/20 text-indigo-400 text-[9px] font-bold px-3 py-1 rounded-full border border-indigo-500/30 tracking-widest">NEURAL CORRELATION</span>
-                                    )}
-                                    {intelligenceMode === 'standalone' && (
-                                        <span className="ml-auto bg-white/5 text-white/40 text-[9px] font-bold px-3 py-1 rounded-full border border-white/10 tracking-widest">INDEPENDENT AUDIT</span>
-                                    )}
                                 </div>
-                                
                                 <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl mb-12">
                                     <TypewriterText text={aiInsights.summary} />
                                 </div>
-
                                 <div className="flex flex-wrap gap-4 pt-8 border-t border-white/5">
-                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10 group hover:border-emerald-500/50 transition-all">
-                                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                                            <FiTrendingUp size={18} />
-                                        </div>
+                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10">
+                                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><FiTrendingUp size={18} /></div>
                                         <div>
                                             <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Projected ROI Impact</p>
                                             <p className="text-white font-bold text-sm uppercase">{aiInsights.roi_impact || "Calculating..."}</p>
                                         </div>
                                     </div>
-
-                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10 group hover:border-indigo-500/50 transition-all">
-                                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-                                            <FiActivity size={18} />
-                                        </div>
+                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10">
+                                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400"><FiActivity size={18} /></div>
                                         <div>
                                             <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Neural Confidence</p>
                                             <p className="text-white font-bold text-sm uppercase">{aiInsights.confidence || "94.2%"}</p>
@@ -416,7 +410,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 </div>
                             </div>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <InsightCard title="Primary Root Cause" content={aiInsights.root_cause} icon={FaSearch} isPurple={false} onClick={() => setExpandedCard("root")} />
                             <InsightCard title="Risk Exposure" content={aiInsights.risk} icon={FiShield} isPurple={true} onClick={() => setExpandedCard("risk")} />
@@ -427,6 +420,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 ) : (
                     <div className="py-48 flex flex-col items-center justify-center relative z-10">
                         <button 
+                            ref={initializeButtonRef}
                             onClick={handleInitialClick}
                             className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40"
                         >
@@ -436,62 +430,30 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
-            {/* Modals for Expanded Cards and Full Report */}
+            {/* EXPANDED CARD MODAL */}
             <AnimatePresence>
                 {expandedCard && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }} 
-                        className="fixed inset-0 z-[10000] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6 md:pl-[300px]"
-                    >
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[10000] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6 md:pl-[300px]">
                         <div className="max-w-4xl w-full bg-[#111116] border border-white/10 rounded-[3rem] p-12 relative shadow-2xl overflow-y-auto max-h-[90vh]">
-                            <button onClick={() => setExpandedCard(null)} className="absolute top-6 right-6 text-white/60 hover:text-white transition-colors"><FiX size={26} /></button>
-                            <h3 className="text-white text-2xl font-bold mb-6">
-                                {expandedCard === "root" && "Primary Root Cause"}
-                                {expandedCard === "risk" && "Risk Exposure"}
-                                {expandedCard === "opp" && "Growth Opportunity"}
-                                {expandedCard === "action" && "Recommended Action"}
-                            </h3>
-                            <p className="text-white/80 text-lg leading-relaxed font-light">
-                                {expandedCard === "root" && aiInsights.root_cause}
-                                {expandedCard === "risk" && aiInsights.risk}
-                                {expandedCard === "opp" && aiInsights.opportunity}
-                                {expandedCard === "action" && aiInsights.action}
-                            </p>
+                            <button onClick={() => setExpandedCard(null)} className="absolute top-6 right-6 text-white/60 hover:text-white"><FiX size={26} /></button>
+                            <h3 className="text-white text-2xl font-bold mb-6">Insight Details</h3>
+                            <p className="text-white/80 text-lg leading-relaxed font-light">{aiInsights?.[expandedCard === 'root' ? 'root_cause' : expandedCard === 'opp' ? 'opportunity' : expandedCard]}</p>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* FULL REPORT MODAL */}
             <AnimatePresence>
                 {isFullReportOpen && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }} 
-                        className="fixed inset-0 z-[10001] bg-[#0b0b11]/95 backdrop-blur-2xl p-6 md:p-10 md:pl-[320px] flex flex-col overflow-y-auto"
-                    >
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[10001] bg-[#0b0b11]/95 backdrop-blur-2xl p-6 md:p-10 md:pl-[320px] flex flex-col overflow-y-auto">
                         <div className="max-w-6xl mx-auto w-full">
                             <div className="flex justify-between items-center mb-12">
-                                <div>
-                                    <h2 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2>
-                                    <p className="text-indigo-400 text-xs mt-2 uppercase tracking-[0.3em] font-bold">Strategy: {intelligenceMode || 'Standard'}</p>
-                                </div>
-                                <button onClick={() => setIsFullReportOpen(false)} className="text-white/60 hover:text-white transition-colors"><FiX size={34} /></button>
+                                <div><h2 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2></div>
+                                <button onClick={() => setIsFullReportOpen(false)} className="text-white/60 hover:text-white"><FiX size={34} /></button>
                             </div>
                             <div className="space-y-12">
                                 <Section label="Executive Summary" text={aiInsights.summary} />
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
-                                        <h4 className="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-2">ROI Impact</h4>
-                                        <p className="text-white text-xl font-bold">{aiInsights.roi_impact || "High Strategic Yield"}</p>
-                                    </div>
-                                    <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
-                                        <h4 className="text-indigo-400 text-[10px] font-black uppercase tracking-widest mb-2">Confidence Level</h4>
-                                        <p className="text-white text-xl font-bold">{aiInsights.confidence || "94.2% Neural Match"}</p>
-                                    </div>
-                                </div>
                                 <Section label="Primary Root Cause" text={aiInsights.root_cause} />
                                 <Section label="Risk Exposure" text={aiInsights.risk} />
                                 <Section label="Opportunity" text={aiInsights.opportunity} />
