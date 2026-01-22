@@ -1,6 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-20 - INTEGRATION: Polar Paywall & Trial Flow
+ * Updated: 2026-01-22 - FIX: Dynamic Profile Refresh & Paywall Unlock
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -89,39 +89,47 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [showPaywall, setShowPaywall] = useState(false);
     const [isRedirecting, setIsRedirecting] = useState(false);
     
-    const panelRef = useRef(null);
+    // --- FRESH PROFILE LOGIC ---
+    const [profile, setProfile] = useState(null);
     const userToken = localStorage.getItem("adt_token");
-    const userProfile = useMemo(() => {
-        const stored = localStorage.getItem("adt_profile");
-        return stored ? JSON.parse(stored) : null;
-    }, []);
 
+    // Fetch fresh profile status whenever panel mounts or token exists
+    useEffect(() => {
+        const syncProfile = async () => {
+            if (!userToken) return;
+            try {
+                const res = await axios.get(`${API_BASE_URL}/auth/me`, {
+                    headers: { Authorization: `Bearer ${userToken}` }
+                });
+                setProfile(res.data);
+                // Update local storage so other components stay in sync
+                localStorage.setItem("adt_profile", JSON.stringify(res.data));
+            } catch (err) {
+                console.error("Profile sync failed:", err);
+                // Fallback to local storage if API fails
+                const stored = localStorage.getItem("adt_profile");
+                if (stored) setProfile(JSON.parse(stored));
+            }
+        };
+        syncProfile();
+    }, [userToken]);
+
+    const panelRef = useRef(null);
     const aiInsights = datasets[0]?.aiStorage;
 
     const phases = useMemo(() => [
         "Initializing AI Analyst...",
-        `Aligning with ${userProfile?.organization || 'Corporate'} standards...`,
+        `Aligning with ${profile?.organization || 'Corporate'} standards...`,
         "Syncing Neural models...",
         intelligenceMode === 'correlation' ? "Mapping cross-dataset dependencies..." : 
         intelligenceMode === 'compare' ? "Calculating performance variance..." : "Auditing standalone silos...",
         "Simulating ROI Impact...",
         "Finalizing Strategic Report..."
-    ], [userProfile, intelligenceMode]);
+    ], [profile, intelligenceMode]);
 
-    // Reset redirecting state when paywall is closed
     useEffect(() => {
-        if (!showPaywall) {
-            setIsRedirecting(false);
-        }
+        if (!showPaywall) setIsRedirecting(false);
     }, [showPaywall]);
-
-    useEffect(() => {
-        if (datasets.length > 1 && !aiInsights && !loading) {
-            // Wait for user to click button instead of auto-opening
-        } else if (datasets.length === 1 && !intelligenceMode && !loading && !aiInsights) {
-            setIntelligenceMode('standalone');
-        }
-    }, [datasets.length, loading, aiInsights]);
 
     useEffect(() => {
         window.speechSynthesis.getVoices();
@@ -214,8 +222,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     const handleInitialClick = () => {
-        // MONETIZATION CHECK
-        if (!userProfile?.is_trial_active) {
+        // --- UPDATED CHECK: Uses the dynamic 'profile' state ---
+        if (!profile?.is_trial_active) {
             setShowPaywall(true);
             return;
         }
@@ -242,7 +250,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
                             className="w-full max-w-lg bg-[#0f0f13] border border-white/10 rounded-[3rem] p-10 text-center shadow-3xl overflow-hidden relative"
                         >
-                            {/* Close Button */}
                             <button 
                                 onClick={() => setShowPaywall(false)}
                                 className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5"
@@ -332,7 +339,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </div>
                     <div>
                         <h2 className="text-[13px] font-black uppercase tracking-[0.6em] text-white">
-                            {userProfile?.organization || "STRATEGIC"} <span className="text-indigo-400">INTELLIGENCE</span>
+                            {profile?.organization || "STRATEGIC"} <span className="text-indigo-400">INTELLIGENCE</span>
                         </h2>
                         <div className="flex items-center gap-3 mt-2">
                             <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
