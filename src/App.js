@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import axios from "axios"; // Added for backend sync
 
 // Page Components
 import Landing from "./pages/Landing";
@@ -90,18 +91,31 @@ function AppWrapper() {
   // Initialize scroll reset
   useScrollToTop();
 
-  const refetchProfile = () => {
-    const savedProfile = localStorage.getItem("adt_profile");
+  // FIXED: Now an async function that fetches fresh data from the backend
+  const refetchProfile = async () => {
     const savedToken = localStorage.getItem("adt_token"); 
 
-    if (savedProfile && savedToken) {
+    if (savedToken) {
       try {
-        const userProfile = JSON.parse(savedProfile);
-        setProfile({ ...userProfile, token: savedToken });
-        return true;
+        // Fetch the latest user state (crucial for detecting payment success)
+        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'}/users/profile`, {
+          headers: { Authorization: `Bearer ${savedToken}` }
+        });
+
+        if (response.data) {
+          const updatedProfile = { ...response.data, token: savedToken };
+          setProfile(updatedProfile);
+          localStorage.setItem("adt_profile", JSON.stringify(response.data));
+          return true;
+        }
       } catch (e) {
-        console.error("Profile Parse Error:", e);
-        return false;
+        console.error("Neural Sync Error:", e);
+        // Fallback to local storage if backend is unreachable
+        const savedProfile = localStorage.getItem("adt_profile");
+        if (savedProfile) {
+          setProfile({ ...JSON.parse(savedProfile), token: savedToken });
+          return true;
+        }
       }
     }
     setProfile(null);
@@ -116,8 +130,11 @@ function AppWrapper() {
   };
 
   useEffect(() => {
-    refetchProfile(); 
-    setLoading(false);
+    const initApp = async () => {
+      await refetchProfile(); 
+      setLoading(false);
+    };
+    initApp();
   }, [location.pathname]);
 
   const handleLogout = () => {
