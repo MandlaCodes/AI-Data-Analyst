@@ -1,6 +1,6 @@
 /**
  * components/Visualizer.js - RE-ENGINEERED FOR 2026 KPI DATASETS
- * Optimized: 2026-01-23 - Robust Numeric Detection & Trend Analysis
+ * Optimized: 2026-01-23 - Zero-Value Retention & Robust Numeric Analysis
  */
 import React, { useMemo, useState, useEffect } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
@@ -25,16 +25,20 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 
 const COLORS = ["#00F2FF", "#7000FF", "#FF007A", "#ADFF2F", "#FF8A00", "#00FF94", "#00E5FF", "#FF4081"];
 
-// IMPROVED: Robust number parsing for "12,975", "$100", etc.
+/**
+ * CRITICAL FIX: Robust number parsing for "12,975", "$100", etc.
+ * Now treats empty strings as 0 to ensure continuity, but respects 0 as a real value.
+ */
 const toNumber = (v) => {
   if (typeof v === "number") return v;
-  if (v === null || v === undefined) return null;
+  if (v === null || v === undefined) return 0;
   const s = String(v).trim();
-  if (!s || s === "null" || s === "undefined") return null;
+  if (!s || s === "null" || s === "undefined" || s === "") return 0;
+  
   // Remove currency, commas, and percentage signs
   const cleaned = s.replace(/[$,%]/g, "").replace(/,/g, "").trim();
   const n = parseFloat(cleaned);
-  return isNaN(n) ? null : n;
+  return isNaN(n) ? 0 : n;
 };
 
 const chartOptions = {
@@ -134,20 +138,19 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
         ? rawData.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
         : rawData;
         
-      // Auto-detect the best label column (usually Name or Sub-Area)
       const labelCol = columns.find(c => c.toLowerCase().includes('name') || c.toLowerCase().includes('area')) || columns[0];
 
       const analysis = columns.map(col => {
         const numeric = rows.map(r => toNumber(r[col]));
-        const validNumeric = numeric.filter(v => v !== null);
         
-        const isNumeric = validNumeric.length > rows.length * 0.5; // If >50% are numbers, treat as numeric
+        // 2026 KPI DATA FIX: Use keyword detection for numeric columns
+        const isNumeric = /Actual|KPI|Total|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i.test(col);
         
         const stats = isNumeric ? {
-            avg: validNumeric.reduce((a,b)=>a+b,0) / validNumeric.length,
-            min: Math.min(...validNumeric),
-            max: Math.max(...validNumeric),
-            sum: validNumeric.reduce((a,b)=>a+b,0)
+            avg: numeric.reduce((a,b)=>a+b,0) / numeric.length,
+            min: Math.min(...numeric),
+            max: Math.max(...numeric),
+            sum: numeric.reduce((a,b)=>a+b,0)
         } : null;
 
         const freq = {};
@@ -170,7 +173,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
   return (
     <div className="mt-6 md:mt-10 space-y-8 md:space-y-12 pb-32 max-w-[1500px] mx-auto px-4 md:px-6">
       
-      {/* Modal Expanded View */}
       {expandedChart && (
         <div className="fixed inset-0 z-[300] flex flex-col bg-black/95 backdrop-blur-2xl p-4 md:p-8">
             <div className="flex justify-between items-center mb-6">
@@ -202,11 +204,12 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
         const isReady = !!readyStates[ds.id];
         if (!isReady) return null;
 
-        const numericCols = ds.analysis.filter(c => c.isNumeric);
+        // Ensure we only show numeric columns that contain actual performance data
+        const numericCols = ds.analysis.filter(c => c.isNumeric && (c.stats.sum > 0 || c.col.toLowerCase().includes('actual')));
         const categoricalCols = ds.analysis.filter(c => !c.isNumeric && Object.keys(c.freq).length > 1);
 
         return (
-          <div key={ds.id} className="space-y-10 id={`report-${ds.id}`}">
+          <div key={ds.id} className="space-y-10" id={`report-${ds.id}`}>
             
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-800 pb-8 gap-6">
                 <div>
@@ -226,9 +229,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
                 </button>
             </div>
             
-            {/* Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                {numericCols.slice(0, 8).map((col, idx) => (
+                {numericCols.slice(0, 8).map((col) => (
                   <div key={col.col} className="bg-zinc-900/50 border border-zinc-800 rounded-[2rem] p-6 text-white hover:border-[#7000FF]/50 transition-colors">
                     <p className="text-zinc-500 text-[9px] font-black uppercase tracking-widest mb-4 truncate">{col.col}</p>
                     <div className="flex items-baseline gap-2 mb-4">
@@ -245,7 +247,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
                 ))}
             </div>
 
-            {/* Main Charts - Forces Bar/Line for every column */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                 {numericCols.map((col, idx) => {
                   const currentChartType = localChartTypes[`${ds.id}-${col.col}`] || (col.col.toLowerCase().includes('total') ? 'bar' : 'line');
@@ -290,7 +291,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
                 })}
             </div>
 
-            {/* Categorical Distribution */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                  {categoricalCols.slice(0, 3).map((col) => (
                      <div key={col.col} className="p-8 border border-zinc-800 rounded-[2rem] bg-zinc-900/30">
