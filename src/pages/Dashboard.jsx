@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { FiMenu, FiX } from "react-icons/fi";
+// Import the context hook
+import { useData } from "../contexts/DataContext";
 
 // Individual components for nested routes
 import Analytics from "./Analytics";
@@ -10,18 +12,21 @@ import Profile from "./Profile";
 import Overview from "./Overview";
 import Trends from "./Trends";
 
-const IntegrationsWrapper = ({ profile, onLogout, refetchProfile }) => {
+const IntegrationsWrapper = ({ onLogout }) => {
+    const { profile, refreshAll } = useData(); 
     const userId = profile?.id; 
     return (
         <Integrations 
             userId={userId} 
             onLogout={onLogout} 
-            refetchProfile={refetchProfile}
+            refetchProfile={refreshAll}
         />
     );
 };
 
-export default function Dashboard({ profile, onLogout, refetchProfile }) { 
+export default function Dashboard({ onLogout }) { 
+    // Pull global state from context
+    const { profile } = useData();
     const location = useLocation();
     const currentTab = location.pathname.split("/").pop(); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);

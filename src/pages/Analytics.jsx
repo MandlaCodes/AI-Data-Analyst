@@ -2,7 +2,7 @@
  * pages/Analytics.js - VERSION: METRIA AI HIGH-ENERGY
  * Full production file with Session Persistence and Neural Stream processing.
  * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
- * FIX: Logical Gate - Charts only display AFTER aiStorage is populated.
+ * FIX: Removed SDK dependency; Updated Scopes Logic; Logical Gate for aiStorage.
  */
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -240,6 +240,7 @@ export default function Analytics() {
         try {
             if (selectedApps.includes("google_sheets") && Array.isArray(manualIds)) {
                 const importPromises = manualIds.map(async (id, index) => {
+                    // Using direct axios call as SDK is removed
                     const res = await axios.get(`${API_BASE_URL}/google/sheets/${id}`, { 
                         headers: { Authorization: `Bearer ${userToken}` } 
                     });
@@ -269,7 +270,6 @@ export default function Analytics() {
     
                 const newDatasets = (await Promise.all(importPromises)).filter(ds => ds !== null);
                 setAllDatasets(prev => [...prev, ...newDatasets]);
-                // NOTE: We add to active list, but Visualizer handles the "ready" check
                 setActiveDatasets(prev => [...prev, ...newDatasets]);
             } 
             else if (selectedApps.includes("other") && csvToImport) {
@@ -309,24 +309,18 @@ export default function Analytics() {
         }
     };
 
-    // LOGIC FIX: Filter the datasets passed to the visualizer
-    // Only pass datasets where aiStorage (AI Analysis) has finished.
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('session') === 'success') {
-            // 1. Clean the URL immediately
             window.history.replaceState({}, document.title, window.location.pathname);
             
-            // 2. Fetch the updated profile from your backend
             const refreshProfile = async () => {
                 try {
                     const token = localStorage.getItem("adt_token");
                     const res = await axios.get(`${API_BASE_URL}/auth/me`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
-                    // Update local storage so the AI Panel knows is_trial_active is now true
                     localStorage.setItem("adt_profile", JSON.stringify(res.data));
-                    // Force a page reload or state update to unlock the button
                     window.location.reload(); 
                 } catch (err) {
                     console.error("Failed to sync Polar status", err);
@@ -335,10 +329,9 @@ export default function Analytics() {
             refreshProfile();
         }
     }, []);
-    // --- LOGIC GATE: Filter active datasets that are actually ready (have AI data) ---
-const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
-    
 
+    const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
+    
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
             {(isInitializing || isImporting) && (
@@ -437,7 +430,6 @@ const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
                         </div>
 
                         <div className="px-6 lg:px-10 pb-12">
-                            {/* FIX: We pass the WHOLE active list for context, but Visualizer will only render charts for the 'readyToVisualize' list */}
                             <Visualizer 
                                 activeDatasets={activeDatasets} 
                                 readyDatasets={readyToVisualize}

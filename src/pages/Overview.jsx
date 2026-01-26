@@ -1,7 +1,7 @@
 /**
  * Overview.js - VERSION: METRIA AI (PERMANENT HIGH-ENERGY DESIGN)
  * UPDATED: 2026-01-06
- * REASON: Applied Universal Mapping for Dynamic Backend Keys
+ * REASON: Applied Universal Mapping for Dynamic Backend Keys + Context Integration
  */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +22,9 @@ import {
     Tooltip,
     Filler,
 } from "chart.js";
+
+// Import the context hook
+import { useData } from "../contexts/DataContext";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
@@ -45,10 +48,13 @@ const textFadeVariants = {
     visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } }
 };
 
-export default function Overview({ profile }) {
+export default function Overview() {
     const navigate = useNavigate();
     const userToken = localStorage.getItem("adt_token");
     
+    // Pull global state and refresh functions from context
+    const { profile, allDatasets: contextDatasets, refreshAll } = useData();
+
     const [allDatasets, setAllDatasets] = useState([]);
     const [aiInsights, setAiInsights] = useState(null);
     const [trends, setTrends] = useState([]);

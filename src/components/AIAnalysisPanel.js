@@ -1,6 +1,7 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-22 - FIX: Smooth Post-Payment Landing & Full Component Restore
+ * Updated: 2026-01-26 - FIX: Smooth Post-Payment Landing & Full Component Restore
+ * Note: SDK and Scopes remain removed as per previous updates.
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -104,6 +105,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('success') === 'true' || params.get('session_id')) {
             setIsLandingAfterPayment(true);
+            // Clean URL to prevent re-triggering on refresh
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, []);
@@ -119,8 +121,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 setProfile(res.data);
                 localStorage.setItem("adt_profile", JSON.stringify(res.data));
 
-                // If landing after payment, hide overlay and scroll
                 if (isLandingAfterPayment) {
+                    // Show success screen for 2 seconds then scroll to action
                     setTimeout(() => {
                         setIsLandingAfterPayment(false);
                         setShowPaywall(false);
@@ -191,24 +193,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
         let contentToRead = textOverride;
         if (isFullReportOpen) {
-            contentToRead = `Right... Let's take a look at the strategic REPORT. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
+            contentToRead = `Executive Summary: ${aiInsights.summary}. Discovery: ${aiInsights.root_cause}. Risks: ${aiInsights.risk}. Opportunity: ${aiInsights.opportunity}. Priority: ${aiInsights.action}.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
         const voices = window.speechSynthesis.getVoices();
-        const britishVoice = voices.find(v => 
-            (v.lang === 'en-GB' || v.lang.startsWith('en-GB')) && 
-            (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Hazel') || v.name.includes('Serena'))
-        );
+        const britishVoice = voices.find(v => v.lang.startsWith('en-GB'));
 
         utterance.voice = britishVoice || voices[0];
-        utterance.rate = 0.85; 
-        utterance.pitch = 1.1;
+        utterance.rate = 0.9; 
         
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
         window.speechSynthesis.speak(utterance);
     };
 
@@ -248,7 +244,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             setShowPaywall(true);
             return;
         }
-
         if (datasets.length > 1) {
             setShowModeSelector(true);
         } else {
@@ -289,7 +284,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             className="w-full max-w-lg bg-[#0f0f13] border border-white/10 rounded-[3rem] p-10 text-center shadow-3xl overflow-hidden relative"
                         >
                             <button onClick={() => setShowPaywall(false)} className="absolute top-8 right-8 text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5"><FiX size={24} /></button>
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
                             <div className="mb-8 flex justify-center">
                                 <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center border border-indigo-500/20">
                                     <FiLock className="text-indigo-400 text-3xl" />
@@ -299,7 +293,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             <p className="text-white/60 mb-10 leading-relaxed">Advanced synergy audits and correlation mapping require an active Pro license.</p>
                             <div className="space-y-4">
                                 <button onClick={handleStartTrial} className="w-full py-6 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 group shadow-xl shadow-indigo-500/20">
-                                    {isRedirecting ? "Connecting to Polar..." : <>Start 7 Days Free <FiArrowRight className="group-hover:translate-x-1 transition-transform" /></>}
+                                    {isRedirecting ? "Connecting..." : <>Start 7 Days Free <FiArrowRight className="group-hover:translate-x-1 transition-transform" /></>}
                                 </button>
                                 <button onClick={() => setShowPaywall(false)} className="w-full py-4 text-white/30 hover:text-white/60 text-[11px] font-bold uppercase tracking-[0.2em]">Review data first</button>
                             </div>
@@ -325,13 +319,10 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 <button onClick={() => handleSelectMode('correlation')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-400 hover:bg-indigo-500/5 transition-all text-left group">
-                                    <FiZap className="text-indigo-400 mb-3 group-hover:scale-110" size={22} /><h4 className="text-white font-bold mb-1">Cross-Correlation</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Map cross-stream dependencies</p>
+                                    <FiZap className="text-indigo-400 mb-3" size={22} /><h4 className="text-white font-bold mb-1">Cross-Correlation</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Map cross-stream dependencies</p>
                                 </button>
                                 <button onClick={() => handleSelectMode('compare')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-400 hover:bg-emerald-500/5 transition-all text-left group">
-                                    <FiTarget className="text-emerald-400 mb-3 group-hover:scale-110" size={22} /><h4 className="text-white font-bold mb-1">Comparative Benchmark</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Analyze performance deltas</p>
-                                </button>
-                                <button onClick={() => handleSelectMode('standalone')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-white/40 hover:bg-white/5 transition-all text-left group">
-                                    <FiCpu className="text-white/50 mb-3 group-hover:scale-110" size={22} /><h4 className="text-white font-bold mb-1">Independent Streams</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Autonomous silo deep-dive</p>
+                                    <FiTarget className="text-emerald-400 mb-3" size={22} /><h4 className="text-white font-bold mb-1">Comparative Benchmark</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Analyze performance deltas</p>
                                 </button>
                             </div>
                         </motion.div>
@@ -342,31 +333,20 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             {/* HEADER AREA */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
                 <div className="flex items-center gap-6">
-                    <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
+                    <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
                         <FiCpu className="text-indigo-400 w-8 h-8" />
                     </div>
                     <div>
                         <h2 className="text-[13px] font-black uppercase tracking-[0.6em] text-white">
                             {profile?.organization || "STRATEGIC"} <span className="text-indigo-400">INTELLIGENCE</span>
                         </h2>
-                        <div className="flex items-center gap-3 mt-2">
-                            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
-                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">
-                                {loading ? "Computing Logic" : intelligenceMode ? `${intelligenceMode.toUpperCase()} MODE ACTIVE` : "Decision Support Active"}
-                            </span>
-                        </div>
                     </div>
                 </div>
                 {aiInsights && !loading && (
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
+                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
                            <FiFileText /> View full report
                         </button>
-                        {datasets.length > 1 && (
-                            <button onClick={() => setShowModeSelector(true)} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                                <FaRedo className="text-[9px]" /> Strategic Switch
-                            </button>
-                        )}
                     </div>
                 )}
             </div>
@@ -383,7 +363,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/[0.07] via-transparent to-purple-500/[0.07] pointer-events-none" />
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 mb-10">
                                     <div className="h-1 w-12 bg-indigo-400 rounded-full" />
@@ -397,14 +376,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                         <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><FiTrendingUp size={18} /></div>
                                         <div>
                                             <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Projected ROI Impact</p>
-                                            <p className="text-white font-bold text-sm uppercase">{aiInsights.roi_impact || "Calculating..."}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10">
-                                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400"><FiActivity size={18} /></div>
-                                        <div>
-                                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Neural Confidence</p>
-                                            <p className="text-white font-bold text-sm uppercase">{aiInsights.confidence || "94.2%"}</p>
+                                            <p className="text-white font-bold text-sm uppercase">{aiInsights.roi_impact || "N/A"}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -422,24 +394,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         <button 
                             ref={initializeButtonRef}
                             onClick={handleInitialClick}
-                            className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-indigo-500/40"
+                            className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl"
                         >
-                            Initialize Neural Analysis
+                            Initialize Analysis
                         </button>
                     </div>
-                )}
-            </AnimatePresence>
-
-            {/* EXPANDED CARD MODAL */}
-            <AnimatePresence>
-                {expandedCard && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[10000] bg-[#0a0a0f]/90 backdrop-blur-xl flex items-center justify-center p-6 md:pl-[300px]">
-                        <div className="max-w-4xl w-full bg-[#111116] border border-white/10 rounded-[3rem] p-12 relative shadow-2xl overflow-y-auto max-h-[90vh]">
-                            <button onClick={() => setExpandedCard(null)} className="absolute top-6 right-6 text-white/60 hover:text-white"><FiX size={26} /></button>
-                            <h3 className="text-white text-2xl font-bold mb-6">Insight Details</h3>
-                            <p className="text-white/80 text-lg leading-relaxed font-light">{aiInsights?.[expandedCard === 'root' ? 'root_cause' : expandedCard === 'opp' ? 'opportunity' : expandedCard]}</p>
-                        </div>
-                    </motion.div>
                 )}
             </AnimatePresence>
 
@@ -449,7 +408,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[10001] bg-[#0b0b11]/95 backdrop-blur-2xl p-6 md:p-10 md:pl-[320px] flex flex-col overflow-y-auto">
                         <div className="max-w-6xl mx-auto w-full">
                             <div className="flex justify-between items-center mb-12">
-                                <div><h2 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2></div>
+                                <h2 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2>
                                 <button onClick={() => setIsFullReportOpen(false)} className="text-white/60 hover:text-white"><FiX size={34} /></button>
                             </div>
                             <div className="space-y-12">
@@ -460,8 +419,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 <Section label="Recommended Action" text={aiInsights.action} />
                             </div>
                             <div className="flex justify-end mt-12 gap-6 pb-20">
-                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                                    <FaVolumeUp /> {isSpeaking ? "Stop Briefing" : "Read Out Loud"}
+                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest transition-all">
+                                    <FaVolumeUp /> {isSpeaking ? "Stop" : "Read Briefing"}
                                 </button>
                             </div>
                         </div>

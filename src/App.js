@@ -1,9 +1,10 @@
 /**
  * App.js - Metria Neural Engine Core Routing
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import axios from "axios"; // Added for backend sync
+// 1. Import your new Context providers
+import { DataProvider, useData } from "./contexts/DataContext";
 
 // Page Components
 import Landing from "./pages/Landing";
@@ -80,62 +81,22 @@ const Contact = () => (
 );
 
 /**
- * AppWrapper - Handles state logic and authenticated routing
+ * AppWrapper - Handles authenticated routing using DataContext
  */
 function AppWrapper() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [profile, setProfile] = useState(null); 
-  const [loading, setLoading] = useState(true);
+  // 2. Use DataContext instead of local states
+  const { profile, refreshAll, setProfile } = useData();
 
   // Initialize scroll reset
   useScrollToTop();
 
-  // FIXED: Now an async function that fetches fresh data from the backend
-  const refetchProfile = async () => {
-    const savedToken = localStorage.getItem("adt_token"); 
-
-    if (savedToken) {
-      try {
-        // Fetch the latest user state (crucial for detecting payment success)
-        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'}/users/profile`, {
-          headers: { Authorization: `Bearer ${savedToken}` }
-        });
-
-        if (response.data) {
-          const updatedProfile = { ...response.data, token: savedToken };
-          setProfile(updatedProfile);
-          localStorage.setItem("adt_profile", JSON.stringify(response.data));
-          return true;
-        }
-      } catch (e) {
-        console.error("Neural Sync Error:", e);
-        // Fallback to local storage if backend is unreachable
-        const savedProfile = localStorage.getItem("adt_profile");
-        if (savedProfile) {
-          setProfile({ ...JSON.parse(savedProfile), token: savedToken });
-          return true;
-        }
-      }
-    }
-    setProfile(null);
-    return false;
-  };
-
   const handleLoginSuccess = (userId, token) => { 
-    const savedProfile = JSON.parse(localStorage.getItem("adt_profile"));
-    const newProfile = { user_id: userId, email: savedProfile?.email || "User", token: token }; 
-    setProfile(newProfile);
+    // On login, we manually set the profile and let refreshAll handle the rest
+    localStorage.setItem("adt_token", token);
+    refreshAll(); 
     navigate(`/dashboard/overview`);
   };
-
-  useEffect(() => {
-    const initApp = async () => {
-      await refetchProfile(); 
-      setLoading(false);
-    };
-    initApp();
-  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("adt_profile");
@@ -143,8 +104,6 @@ function AppWrapper() {
     setProfile(null);
     navigate("/");
   };
-
-  if (loading) return null;
 
   return (
     <Routes>
@@ -168,36 +127,30 @@ function AppWrapper() {
         )}
       />
 
-      {/* Dashboard Sub-Routes */}
+      {/* Dashboard Sub-Routes - Components now consume context internally */}
       <Route
         path="/dashboard/*"
         element={profile ? (
-          <Dashboard profile={profile} onLogout={handleLogout} refetchProfile={refetchProfile} /> 
+          <Dashboard onLogout={handleLogout} /> 
         ) : (
           <Navigate to="/" replace />
         )}
       >
-        <Route path="overview" element={<Dashboard.Overview profile={profile} />} />
-        <Route path="analytics" element={<Dashboard.Analytics profile={profile} onLogout={handleLogout} />} />
+        <Route path="overview" element={<Dashboard.Overview />} />
+        <Route path="analytics" element={<Dashboard.Analytics onLogout={handleLogout} />} />
         <Route 
           path="integrations" 
-          element={
-            <Dashboard.Integrations 
-              profile={profile} 
-              onLogout={handleLogout} 
-              refetchProfile={refetchProfile} 
-            />
-          } 
+          element={<Dashboard.Integrations onLogout={handleLogout} />} 
         /> 
-        <Route path="profile" element={<Dashboard.Profile profile={profile} />} />
-        <Route path="trends" element={<Dashboard.Trends profile={profile} />} />
+        <Route path="profile" element={<Dashboard.Profile />} />
+        <Route path="trends" element={<Dashboard.Trends />} />
         <Route index element={<Navigate replace to="overview" />} />
       </Route>
 
       {/* Specialized Tools */}
       <Route
         path="/google-sheets-analysis"
-        element={profile ? <GoogleSheetsAnalysis profile={profile} /> : <Navigate to="/" replace />}
+        element={profile ? <GoogleSheetsAnalysis /> : <Navigate to="/" replace />}
       />
 
       {/* Static / Information Pages */}
@@ -213,14 +166,16 @@ function AppWrapper() {
 }
 
 /**
- * Main Entry Point
+ * Main Entry Point - Wrapped in DataProvider
  */
 export default function App() {
   return (
     <div className="min-h-screen w-full bg-[#02010a] m-0 p-0 flex flex-col relative"> 
-      <Router>
-        <AppWrapper />
-      </Router>
+      <DataProvider>
+        <Router>
+          <AppWrapper />
+        </Router>
+      </DataProvider>
     </div>
   );
 }
