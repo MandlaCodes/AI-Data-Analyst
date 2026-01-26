@@ -288,8 +288,8 @@ export default function Landing({ onGetStarted }) {
               The autonomous AI data analyst that eliminates manual synthesis. Import your streams and get executive-ready intelligence in seconds.
             </p>
             <div className="flex justify-center lg:justify-start reveal-text delay-2">
-              <button onClick={onGetStarted} className="w-full sm:w-auto px-12 py-5 bg-white text-black rounded-xl font-black text-[14px] uppercase tracking-widest shadow-xl shadow-purple-500/20">
-                Start your free trial today <FaArrowRight className="inline ml-2" />
+              <button onClick={onGetStarted} className="w-full sm:w-auto px-12 py-4 bg-white text-black rounded-xl font-black text-[14px] uppercase tracking-widest shadow-xl shadow-purple-500/20">
+                Start free trial<FaArrowRight className="inline ml-2" />
               </button>
             </div>
           </div>

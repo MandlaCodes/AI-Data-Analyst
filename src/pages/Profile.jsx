@@ -1,16 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, Briefcase, Mail, ShieldCheck, LogOut, Target, Cpu } from 'lucide-react';
+import { User, Building2, Briefcase, Mail, ShieldCheck, LogOut, Target, Cpu, CreditCard, ExternalLink, Zap, XCircle, Loader2 } from 'lucide-react';
 
 const API_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('adt_token');
     localStorage.removeItem('adt_profile');
     window.location.href = '/login'; 
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm("Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.")) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const token = localStorage.getItem('adt_token');
+      const response = await fetch(`${API_URL}/payments/cancel`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        alert("Subscription cancellation request sent successfully.");
+        // Refresh profile to update UI status if backend provides it
+        window.location.reload();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.detail || "Failed to cancel subscription"}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error. Please try again later.");
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   useEffect(() => {
@@ -32,7 +65,7 @@ const Profile = () => {
   }, []);
 
   if (loading) return (
-    <div className="h-screen w-full  flex items-center justify-center">
+    <div className="h-screen w-full  flex items-center justify-center bg-black">
       <div className="relative">
         <div className="w-24 h-24 border-2 border-purple-500/20 rounded-full animate-ping"></div>
         <Cpu className="absolute inset-0 m-auto text-purple-500 animate-pulse" size={32} />
@@ -83,6 +116,7 @@ const Profile = () => {
 
         {/* --- MAIN CONTENT AREA --- */}
         <main className="py-12 space-y-12">
+          
           {/* Data Grid */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <ProfileItem 
@@ -100,10 +134,67 @@ const Profile = () => {
                 label="Industry" 
                 value={profile?.industry || "N/A"} 
             />
+          </section>
+
+          {/* --- BILLING & SUBSCRIPTION SECTION --- */}
+          <section className="relative overflow-hidden bg-gradient-to-r from-zinc-900 to-black border border-white/10 rounded-[3.5rem] p-10 md:p-14 shadow-2xl">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Zap size={120} className="text-purple-500" />
+            </div>
+            
+            <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-10">
+              <div className="space-y-4 text-center lg:text-left">
+                <div className="flex items-center justify-center lg:justify-start gap-3">
+                  <CreditCard className="text-purple-500" size={24} />
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/50">Billing_Protocol_V1</h3>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter">
+                  Subscription <span className="text-purple-500">Active</span>
+                </h2>
+                <p className="text-zinc-400 max-w-md text-sm md:text-base">
+                  Manage your data access tiers, update payment methods, or terminate your active subscription.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <a 
+                  href="https://polar.sh/customer-portal" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-4 bg-white text-black px-8 py-5 rounded-2xl hover:bg-purple-500 hover:text-white transition-all transform active:scale-95 shadow-xl justify-center"
+                >
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em]">Billing Portal</span>
+                  <ExternalLink size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                </a>
+
+                <button 
+                  onClick={handleCancelSubscription}
+                  disabled={isCancelling}
+                  className="group flex items-center gap-4 bg-red-500/10 border border-red-500/30 text-red-500 px-8 py-5 rounded-2xl hover:bg-red-500 hover:text-white transition-all transform active:scale-95 shadow-xl justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCancelling ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <XCircle size={18} />
+                  )}
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em]">
+                    {isCancelling ? "Processing..." : "Cancel Plan"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ProfileItem 
                 icon={<Target size={24} className="text-amber-500" />} 
                 label="Node Type" 
                 value="Remote Operational Node" 
+            />
+             <ProfileItem 
+                icon={<Cpu size={24} className="text-zinc-400" />} 
+                label="System Architecture" 
+                value="Metria Universal 2026" 
             />
           </section>
 
