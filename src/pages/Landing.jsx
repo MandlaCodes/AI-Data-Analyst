@@ -284,7 +284,7 @@ export default function Landing({ onGetStarted }) {
               Decisions. <br />
               <span className="gradient-text italic">Automated.</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 max-w-xl mb-8 md:mb-10 leading-relaxed reveal-text delay-2 mx-auto lg:mx-0">
+            <p className="text-lg md:text-xl text-white-400 max-w-xl mb-8 md:mb-10 leading-relaxed reveal-text delay-2 mx-auto lg:mx-0">
               The autonomous AI data analyst that eliminates manual synthesis. Import your streams and get executive-ready intelligence in seconds.
             </p>
             <div className="flex justify-center lg:justify-start reveal-text delay-2">
