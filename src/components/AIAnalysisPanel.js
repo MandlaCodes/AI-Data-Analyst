@@ -390,7 +390,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         </motion.div>
                         <h3 className="text-white/80 text-[12px] font-bold uppercase tracking-[0.8em] text-center">{phases[analysisPhase]}</h3>
                     </motion.div>
-                ) : aiInsights ? (
+                ) : aiInsights && (intelligenceMode || datasets.length === 1) ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
                             <div className="relative z-10">
@@ -426,7 +426,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             onClick={handleInitialClick}
                             className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl"
                         >
-                            Initialize Analysis
+                            {datasets.length > 1 ? "Initialize Multi-Dataset Analysis" : "Initialize Analysis"}
                         </button>
                     </div>
                 )}
