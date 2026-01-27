@@ -1,7 +1,6 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-26 - FIX: Smooth Post-Payment Landing & Full Component Restore
- * Note: SDK and Scopes remain removed as per previous updates.
+ * Updated: 2026-01-26 - FIX: Smooth Post-Payment Landing & Auto-Run Sequence
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -103,33 +102,43 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     // 1. DETECTION: Catch the redirect immediately
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('success') === 'true' || params.get('session_id')) {
+        if (params.get('session') === 'success' || params.get('success') === 'true' || params.get('session_id')) {
             setIsLandingAfterPayment(true);
             // Clean URL to prevent re-triggering on refresh
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, []);
 
-    // 2. FRESH PROFILE LOGIC + SMOOTH SCROLL
+    // 2. FRESH PROFILE LOGIC + AUTO-RUN
     useEffect(() => {
-        const syncProfile = async () => {
+        const syncProfileAndAutoRun = async () => {
             if (!userToken) return;
             try {
                 const res = await axios.get(`${API_BASE_URL}/auth/me`, {
                     headers: { Authorization: `Bearer ${userToken}` }
                 });
-                setProfile(res.data);
-                localStorage.setItem("adt_profile", JSON.stringify(res.data));
+                const freshProfile = res.data;
+                setProfile(freshProfile);
+                localStorage.setItem("adt_profile", JSON.stringify(freshProfile));
 
                 if (isLandingAfterPayment) {
-                    // Show success screen for 2 seconds then scroll to action
+                    // Show success screen for 2.5 seconds
                     setTimeout(() => {
                         setIsLandingAfterPayment(false);
                         setShowPaywall(false);
+
+                        // Trigger Auto-Run sequence after overlay closes
                         setTimeout(() => {
-                            initializeButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }, 800);
-                    }, 2000);
+                            if (datasets.length > 0) {
+                                // Decide mode based on dataset count
+                                const autoMode = datasets.length > 1 ? 'correlation' : 'standalone';
+                                handleSelectMode(autoMode);
+                                
+                                // Smooth scroll to the processing area
+                                panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 600);
+                    }, 2500);
                 }
             } catch (err) {
                 console.error("Profile sync failed:", err);
@@ -138,7 +147,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 if (stored) setProfile(JSON.parse(stored));
             }
         };
-        syncProfile();
+        syncProfileAndAutoRun();
     }, [userToken, isLandingAfterPayment]);
 
     const phases = useMemo(() => [
@@ -259,14 +268,35 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             <AnimatePresence>
                 {isLandingAfterPayment && (
                     <motion.div 
-                        initial={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[20000] bg-[#0a0a0f] flex flex-col items-center justify-center text-center"
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[20000] bg-[#0a0a0f] flex flex-col items-center justify-center text-center px-6"
                     >
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative p-12">
-                            <div className="absolute inset-0 bg-indigo-500/10 blur-[100px] rounded-full animate-pulse" />
-                            <FiCheckCircle className="text-emerald-400 text-6xl mx-auto mb-6" />
-                            <h2 className="text-white text-3xl font-black uppercase tracking-[0.3em] mb-2">Neural Link Established</h2>
-                            <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest">AI Data Analyst Activated</p>
+                        <motion.div 
+                            initial={{ scale: 0.8, opacity: 0 }} 
+                            animate={{ scale: 1, opacity: 1 }} 
+                            transition={{ type: "spring", damping: 20 }}
+                            className="relative p-12 max-w-lg"
+                        >
+                            <div className="absolute inset-0 bg-indigo-500/10 blur-[120px] rounded-full animate-pulse" />
+                            <div className="relative mb-8">
+                                <motion.div 
+                                    animate={{ rotate: 360 }} 
+                                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                                    className="absolute -inset-4 border border-dashed border-emerald-500/30 rounded-full"
+                                />
+                                <FiCheckCircle className="text-emerald-400 text-7xl mx-auto relative z-10" />
+                            </div>
+                            <h2 className="text-white text-3xl md:text-4xl font-black uppercase tracking-[0.3em] mb-4">Neural Link Established</h2>
+                            <p className="text-indigo-400 text-sm font-bold uppercase tracking-[0.4em] animate-pulse">AI Data Analyst Activated</p>
+                            
+                            <div className="mt-12 flex items-center justify-center gap-2">
+                                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce" />
+                                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                                <span className="text-[10px] text-white/40 uppercase tracking-widest ml-2">Initiating Auto-Run</span>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}
