@@ -1,8 +1,9 @@
 /**
  * App.js - Metria Neural Engine Core Routing
  */
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react"; // Added useState
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { FiCheckCircle } from "react-icons/fi"; // Added for the shield icon
 // 1. Import your new Context providers
 import { DataProvider, useData } from "./contexts/DataContext";
 
@@ -85,17 +86,24 @@ const Contact = () => (
  */
 function AppWrapper() {
   const navigate = useNavigate();
-  // 2. Use DataContext instead of local states
   const { profile, refreshAll, setProfile } = useData();
+  
+  // FIX: Transition state to block the flicker
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Initialize scroll reset
   useScrollToTop();
 
   const handleLoginSuccess = (userId, token) => { 
-    // On login, we manually set the profile and let refreshAll handle the rest
     localStorage.setItem("adt_token", token);
+    setIsTransitioning(true); // Start the shield
     refreshAll(); 
-    navigate(`/dashboard/overview`);
+    
+    // Hold the shield until the animation in Login.jsx is done
+    setTimeout(() => {
+      navigate(`/dashboard/overview`);
+      setIsTransitioning(false); // Drop the shield
+    }, 1500);
   };
 
   const handleLogout = () => {
@@ -106,62 +114,76 @@ function AppWrapper() {
   };
 
   return (
-    <Routes>
-      {/* Landing Page */}
-      <Route
-        path="/"
-        element={profile ? (
-          <Navigate to="/dashboard/overview" replace />
-        ) : (
-          <Landing onGetStarted={() => navigate("/login")} /> 
-        )}
-      />
+    <>
+      {/* THE FIX: Transition Shield Overlay */}
+      {isTransitioning && (
+        <div className="fixed inset-0 z-[9999] bg-[#02010a] flex flex-col items-center justify-center">
+          <div className="relative">
+             <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
+             <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
+          </div>
+          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-white">Success</h2>
+          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">OPENING DASHBOARD...</p>
+        </div>
+      )}
 
-      {/* Auth */}
-      <Route
-        path="/login"
-        element={profile ? (
-          <Navigate to="/dashboard/overview" replace />
-        ) : (
-          <Login onLoginSuccess={handleLoginSuccess} /> 
-        )}
-      />
+      <Routes>
+        {/* Landing Page */}
+        <Route
+          path="/"
+          element={profile && !isTransitioning ? (
+            <Navigate to="/dashboard/overview" replace />
+          ) : (
+            <Landing onGetStarted={() => navigate("/login")} /> 
+          )}
+        />
 
-      {/* Dashboard Sub-Routes - Components now consume context internally */}
-      <Route
-        path="/dashboard/*"
-        element={profile ? (
-          <Dashboard onLogout={handleLogout} /> 
-        ) : (
-          <Navigate to="/" replace />
-        )}
-      >
-        <Route path="overview" element={<Dashboard.Overview />} />
-        <Route path="analytics" element={<Dashboard.Analytics onLogout={handleLogout} />} />
-        <Route 
-          path="integrations" 
-          element={<Dashboard.Integrations onLogout={handleLogout} />} 
-        /> 
-        <Route path="profile" element={<Dashboard.Profile />} />
-        <Route path="trends" element={<Dashboard.Trends />} />
-        <Route index element={<Navigate replace to="overview" />} />
-      </Route>
+        {/* Auth */}
+        <Route
+          path="/login"
+          element={profile && !isTransitioning ? (
+            <Navigate to="/dashboard/overview" replace />
+          ) : (
+            <Login onLoginSuccess={handleLoginSuccess} /> 
+          )}
+        />
 
-      {/* Specialized Tools */}
-      <Route
-        path="/google-sheets-analysis"
-        element={profile ? <GoogleSheetsAnalysis /> : <Navigate to="/" replace />}
-      />
+        {/* Dashboard Sub-Routes */}
+        <Route
+          path="/dashboard/*"
+          element={profile ? (
+            <Dashboard onLogout={handleLogout} /> 
+          ) : (
+            <Navigate to="/" replace />
+          )}
+        >
+          <Route path="overview" element={<Dashboard.Overview />} />
+          <Route path="analytics" element={<Dashboard.Analytics onLogout={handleLogout} />} />
+          <Route 
+            path="integrations" 
+            element={<Dashboard.Integrations onLogout={handleLogout} />} 
+          /> 
+          <Route path="profile" element={<Dashboard.Profile />} />
+          <Route path="trends" element={<Dashboard.Trends />} />
+          <Route index element={<Navigate replace to="overview" />} />
+        </Route>
 
-      {/* Static / Information Pages */}
-      <Route path="/blog" element={<Blog />} />
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/terms" element={<Terms />} />
-      <Route path="/contact" element={<Contact />} />
+        {/* Specialized Tools */}
+        <Route
+          path="/google-sheets-analysis"
+          element={profile ? <GoogleSheetsAnalysis /> : <Navigate to="/" replace />}
+        />
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Static / Information Pages */}
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/contact" element={<Contact />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 

@@ -108,21 +108,25 @@ export default function Login({ onLoginSuccess }) {
     }
   `;
 
+  // FIX: Early return when logged in to prevent any flicker of the form or landing page elements
+  if (isLoggedIn) {
+    return (
+      <div className="fixed inset-0 z-[999] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
+        <style>{pageStyles}</style>
+        <div className="relative">
+           <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
+           <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
+        </div>
+        <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-white">Success</h2>
+        <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">OPENING DASHBOARD...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full flex bg-[#02010a] text-white font-sans relative overflow-hidden">
       <style>{pageStyles}</style>
       
-      {isLoggedIn && (
-        <div className="fixed inset-0 z-[100] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
-          <div className="relative">
-             <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
-             <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
-          </div>
-          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic">Success</h2>
-          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">OPENING DASHBOARD...</p>
-        </div>
-      )}
-
       {/* DESKTOP LEFT PANEL */}
       <div className="hidden lg:flex relative w-1/2 h-screen items-center justify-center overflow-hidden border-r border-white/5 bg-grid sticky top-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full animate-pulse-slow" />
