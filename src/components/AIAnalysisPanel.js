@@ -1,15 +1,15 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-26 - FIX: Smooth Post-Payment Landing & Auto-Run Sequence
+ * Updated: 2026-01-28 - INTEGRATION: Persistent Strategy Chat & Session Tracking
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaRedo, FaSearch, FaRobot, FaVolumeUp, FaLayerGroup
+    FaRedo, FaSearch, FaRobot, FaVolumeUp, FaLayerGroup, FaDownload, FaPaperPlane
 } from 'react-icons/fa';
 import { 
-    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiTrendingUp, FiActivity, FiLock, FiArrowRight
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiTrendingUp, FiActivity, FiLock, FiArrowRight, FiDownload, FiMessageSquare, FiCornerDownRight
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
@@ -82,6 +82,7 @@ const TypewriterText = ({ text, delay = 5 }) => {
 // --- MAIN COMPONENT ---
 const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [loading, setLoading] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
     const [expandedCard, setExpandedCard] = useState(null); 
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
@@ -91,6 +92,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [showPaywall, setShowPaywall] = useState(false);
     const [isRedirecting, setIsRedirecting] = useState(false);
     
+    // CHAT STATES
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [userQuery, setUserQuery] = useState("");
+    const [isChatLoading, setIsChatLoading] = useState(false);
+    const [activeSessionId, setActiveSessionId] = useState(null);
+    const chatEndRef = useRef(null);
+
     // SMOOTH LANDING STATES
     const [isLandingAfterPayment, setIsLandingAfterPayment] = useState(false);
     const [profile, setProfile] = useState(null);
@@ -104,7 +113,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('session') === 'success' || params.get('success') === 'true' || params.get('session_id')) {
             setIsLandingAfterPayment(true);
-            // Clean URL to prevent re-triggering on refresh
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, []);
@@ -122,19 +130,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 localStorage.setItem("adt_profile", JSON.stringify(freshProfile));
 
                 if (isLandingAfterPayment) {
-                    // Show success screen for 2.5 seconds
                     setTimeout(() => {
                         setIsLandingAfterPayment(false);
                         setShowPaywall(false);
 
-                        // Trigger Auto-Run sequence after overlay closes
                         setTimeout(() => {
                             if (datasets.length > 0) {
-                                // Decide mode based on dataset count
                                 const autoMode = datasets.length > 1 ? 'correlation' : 'standalone';
                                 handleSelectMode(autoMode);
-                                
-                                // Smooth scroll to the processing area
                                 panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }
                         }, 600);
@@ -178,6 +181,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         return () => clearInterval(interval);
     }, [loading, phases.length]);
 
+    // CHAT AUTO-SCROLL
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatMessages]);
+
     const handleStartTrial = async () => {
         setIsRedirecting(true);
         try {
@@ -215,6 +223,33 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
         window.speechSynthesis.speak(utterance);
+    };
+
+    const handleDownloadPDF = async () => {
+        if (!aiInsights || isDownloading) return;
+        setIsDownloading(true);
+        try {
+            const response = await axios.post(`${API_BASE_URL}/ai/generate-report`, {
+                insights: aiInsights,
+                organization: profile?.organization || "Strategic Intelligence"
+            }, {
+                headers: { Authorization: `Bearer ${userToken}` },
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Intelligence_Briefing_${new Date().toISOString().split('T')[0]}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error("PDF Download failed:", error);
+            alert("Failed to generate PDF report. Please try again.");
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const runAnalysis = async (selectedMode) => {
@@ -257,6 +292,37 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             setShowModeSelector(true);
         } else {
             handleSelectMode('standalone');
+        }
+    };
+
+    // --- CHAT LOGIC ---
+    const handleSendChatMessage = async () => {
+        if (!userQuery.trim() || isChatLoading) return;
+        
+        const newMessage = { role: 'user', content: userQuery };
+        const updatedHistory = [...chatMessages, newMessage];
+        
+        setChatMessages(updatedHistory);
+        setUserQuery("");
+        setIsChatLoading(true);
+
+        try {
+            const res = await axios.post(`${API_BASE_URL}/ai/chat`, {
+                messages: updatedHistory,
+                context: aiInsights,
+                dashboard_id: datasets[0]?.id,
+                session_id: activeSessionId
+            }, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+
+            setChatMessages(prev => [...prev, { role: 'assistant', content: res.data.message }]);
+            if (res.data.session_id) setActiveSessionId(res.data.session_id);
+        } catch (err) {
+            console.error("Chat failed:", err);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: "Neural link disrupted. Re-attempting synchronization..." }]);
+        } finally {
+            setIsChatLoading(false);
         }
     };
 
@@ -374,6 +440,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 </div>
                 {aiInsights && !loading && (
                     <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => setIsChatOpen(true)}
+                            className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[14px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all"
+                        >
+                            <FiMessageSquare /> Ask Metria
+                        </button>
                         <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
                            <FiFileText /> View full report
                         </button>
@@ -432,6 +504,78 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
+            {/* --- STRATEGY CHAT TERMINAL --- */}
+            <AnimatePresence>
+                {isChatOpen && (
+                    <motion.div 
+                        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="fixed top-0 right-0 w-full md:w-[500px] h-full bg-[#0d0d12] z-[20000] border-l border-white/10 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col"
+                    >
+                        <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111116]">
+                            <div>
+                                <h3 className="text-white font-black uppercase tracking-widest text-sm">Strategy Terminal</h3>
+                                <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest">Active Intelligence Session</p>
+                            </div>
+                            <button onClick={() => setIsChatOpen(false)} className="p-3 bg-white/5 rounded-xl text-white/40 hover:text-white"><FiX size={20}/></button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 space-y-6 scrollbar-hide">
+                            {chatMessages.length === 0 && (
+                                <div className="text-center py-20">
+                                    <FiCpu className="text-white/5 text-6xl mx-auto mb-6" />
+                                    <p className="text-white/30 text-xs font-bold uppercase tracking-[0.3em]">Neural Link Open.<br/>Awaiting Tactical Inquiry.</p>
+                                </div>
+                            )}
+                            {chatMessages.map((msg, idx) => (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                    key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                >
+                                    <div className={`max-w-[85%] p-5 rounded-2xl text-sm leading-relaxed ${
+                                        msg.role === 'user' 
+                                        ? 'bg-indigo-600 text-white font-bold rounded-tr-none shadow-lg' 
+                                        : 'bg-white/5 text-white/80 border border-white/10 rounded-tl-none'
+                                    }`}>
+                                        {msg.content}
+                                    </div>
+                                </motion.div>
+                            ))}
+                            {isChatLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/10 flex gap-2">
+                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
+                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        <div className="p-8 bg-[#111116] border-t border-white/10">
+                            <div className="relative">
+                                <textarea 
+                                    value={userQuery}
+                                    onChange={(e) => setUserQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendChatMessage())}
+                                    placeholder="Inquire on tactical pivots..."
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 pr-16 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all resize-none h-24"
+                                />
+                                <button 
+                                    onClick={handleSendChatMessage}
+                                    disabled={!userQuery.trim() || isChatLoading}
+                                    className="absolute bottom-4 right-4 p-4 bg-indigo-500 text-white rounded-xl hover:bg-indigo-400 transition-all disabled:opacity-30 disabled:grayscale"
+                                >
+                                    <FaPaperPlane size={14} />
+                                </button>
+                            </div>
+                            <p className="text-[9px] text-white/20 uppercase tracking-widest mt-4 font-bold text-center">Encrypted Neural Uplink Active</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* FULL REPORT MODAL */}
             <AnimatePresence>
                 {isFullReportOpen && (
@@ -448,8 +592,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 <Section label="Opportunity" text={aiInsights.opportunity} />
                                 <Section label="Recommended Action" text={aiInsights.action} />
                             </div>
-                            <div className="flex justify-end mt-12 gap-6 pb-20">
-                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest transition-all">
+                            
+                            {/* ACTION FOOTER */}
+                            <div className="flex flex-wrap justify-end mt-12 gap-4 pb-20">
+                                <button 
+                                    onClick={handleDownloadPDF} 
+                                    disabled={isDownloading}
+                                    className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[13px] font-black uppercase tracking-widest transition-all hover:bg-white/10 disabled:opacity-50"
+                                >
+                                    <FiDownload className={isDownloading ? "animate-bounce" : ""} /> 
+                                    {isDownloading ? "Generating PDF..." : "Download Full Report (PDF)"}
+                                </button>
+                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest transition-all hover:bg-indigo-400">
                                     <FaVolumeUp /> {isSpeaking ? "Stop" : "Read Briefing"}
                                 </button>
                             </div>

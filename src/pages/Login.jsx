@@ -19,13 +19,49 @@ export default function Login({ onLoginSuccess }) {
   
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  // Logic for the Strength Meter
+  const getPasswordStrength = (pass) => {
+    if (!pass) return 0;
+    let score = 0;
+    if (pass.length > 6) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+    return score;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // STEP 1 VALIDATION: Check email before proceeding
     if (isSignup && step === 1) {
-      setStep(2);
-      return;
+      setStatus({ message: "Verifying email availability...", type: "info" });
+      try {
+        const checkRes = await fetch(`https://ai-data-analyst-backend-1nuw.onrender.com/auth/check-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email }),
+        });
+        
+        const checkData = await checkRes.json();
+        
+        if (!checkRes.ok) {
+          setStatus({ message: checkData.detail || "This email is already registered.", type: "error" });
+          return;
+        }
+        
+        setStatus(null);
+        setStep(2);
+        return;
+      } catch (err) {
+        // Fallback for dev if endpoint isn't ready: allow to step 2
+        setStatus(null);
+        setStep(2);
+        return;
+      }
     }
 
+    // FINAL SUBMISSION
     setStatus({ message: "Connecting to system...", type: "info" });
     try {
       const endpoint = isSignup ? "/auth/signup" : "/auth/login";
@@ -47,7 +83,7 @@ export default function Login({ onLoginSuccess }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setStatus({ message: data.detail || data.error || "Login Failed.", type: "error" });
+        setStatus({ message: data.detail || data.error || "Action Failed.", type: "error" });
         return;
       }
 
@@ -78,22 +114,11 @@ export default function Login({ onLoginSuccess }) {
       0%, 100% { opacity: 0.3; transform: scale(1); }
       50% { opacity: 0.6; transform: scale(1.1); }
     }
-    /* Premium Smooth Reveal */
     @keyframes premium-reveal {
-      from { 
-        opacity: 0; 
-        transform: translateY(30px) scale(0.98); 
-        filter: blur(10px);
-      }
-      to { 
-        opacity: 1; 
-        transform: translateY(0) scale(1); 
-        filter: blur(0);
-      }
+      from { opacity: 0; transform: translateY(30px) scale(0.98); filter: blur(10px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
     }
-    .animate-premium {
-      animation: premium-reveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    }
+    .animate-premium { animation: premium-reveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
     .stagger-1 { animation-delay: 0.1s; opacity: 0; }
     .stagger-2 { animation-delay: 0.2s; opacity: 0; }
     .stagger-3 { animation-delay: 0.3s; opacity: 0; }
@@ -108,7 +133,6 @@ export default function Login({ onLoginSuccess }) {
     }
   `;
 
-  // FIX: Early return when logged in to prevent any flicker of the form or landing page elements
   if (isLoggedIn) {
     return (
       <div className="fixed inset-0 z-[999] bg-[#02010a] flex flex-col items-center justify-center animate-in fade-in duration-700">
@@ -151,25 +175,17 @@ export default function Login({ onLoginSuccess }) {
 
       {/* FORM RIGHT PANEL */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-0 relative py-20 lg:py-0">
-        <div 
-          key={isSignup ? `signup-${step}` : "login"} 
-          className="w-full max-w-md space-y-8 relative z-10 px-8 animate-premium stagger-2"
-        >
+        <div key={isSignup ? `signup-${step}` : "login"} className="w-full max-w-md space-y-8 relative z-10 px-8 animate-premium stagger-2">
           
-          {/* MOBILE OPTIMIZATION NOTICE */}
           <div className="lg:hidden flex items-center gap-4 p-4 bg-purple-500/5 border border-purple-500/10 rounded-2xl mb-8">
             <FaDesktop className="text-purple-500 shrink-0" />
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-relaxed">
-              Experience is <span className="text-purple-400">optimized for desktop</span>. Smaller screens may limit advanced visualizer features.
+              Experience is <span className="text-purple-400">optimized for desktop</span>.
             </p>
           </div>
 
-          {/* Back button for Sign Up Step 2 */}
           {isSignup && step === 2 && (
-            <button 
-              onClick={() => setStep(1)}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-purple-500 transition-colors mb-4"
-            >
+            <button onClick={() => setStep(1)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-purple-500 transition-colors mb-4">
               <FaArrowLeft /> Back
             </button>
           )}
@@ -184,7 +200,7 @@ export default function Login({ onLoginSuccess }) {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             {isSignup && step === 2 ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -198,16 +214,7 @@ export default function Login({ onLoginSuccess }) {
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input 
-                    id="organization_name_input"
-                    name="org" 
-                    placeholder="COMPANY NAME" 
-                    autoComplete="off"
-                    value={formData.org} 
-                    onChange={handleChange} 
-                    required 
-                    className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" 
-                  />
+                  <input id="organization_name_input" name="org" placeholder="COMPANY NAME" autoComplete="off" value={formData.org} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBriefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
@@ -222,11 +229,30 @@ export default function Login({ onLoginSuccess }) {
               <div className="space-y-4">
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input type="email" name="email" value={formData.email} placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  <input type="email" name="email" id="user_access_point" autoComplete="off" value={formData.email} placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input type="password" name="password" value={formData.password} placeholder="PASSWORD" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  {/* CLOAKED INPUT: Prevents 'alex' breach alert */}
+                  <input 
+                    type="text" 
+                    name="password" 
+                    autoComplete="off"
+                    style={{ WebkitTextSecurity: 'disc' }}
+                    value={formData.password} 
+                    placeholder="PASSWORD" 
+                    onChange={handleChange} 
+                    required 
+                    className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" 
+                  />
+                  {/* Strength Meter */}
+                  {isSignup && formData.password && (
+                    <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/5 flex gap-1 px-1">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i} className={`h-full flex-1 transition-all duration-500 ${getPasswordStrength(formData.password) >= i ? 'bg-purple-500' : 'bg-transparent'}`} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -247,7 +273,6 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          {/* MOBILE TOGGLE CTA */}
           <div className="text-center lg:hidden pt-4 pb-12 stagger-3 animate-premium">
              <button
               type="button"

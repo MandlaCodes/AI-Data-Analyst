@@ -1,33 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, Briefcase, Mail, ShieldCheck, LogOut, Target, Cpu, CreditCard, Zap, XCircle, Loader2, PlayCircle, CheckCircle } from 'lucide-react';
+import { User, Building2, Briefcase, Mail, ShieldCheck, LogOut, Target, Cpu, CreditCard, Zap, XCircle, Loader2, PlayCircle, CheckCircle, Edit3, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-// Import the context hook
 import { useData } from '../contexts/DataContext'; 
 
 const API_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 const Profile = () => {
-  // Pull profile and refresh function from global context
   const { profile, refreshAll } = useData(); 
   
-  // Local UI states for buttons
   const [isCancelling, setIsCancelling] = useState(false);
   const [isStartingTrial, setIsStartingTrial] = useState(false);
   const [isLandingAfterPayment, setIsLandingAfterPayment] = useState(false);
 
-  // --- SMOOTH LANDING LOGIC ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true' || params.get('session_id')) {
       setIsLandingAfterPayment(true);
-      
-      // Clean URL immediately
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      // Refresh global state to pick up new subscription status
       const sync = async () => {
         await refreshAll();
-        // Hold the success overlay briefly for visual confirmation
         setTimeout(() => {
           setIsLandingAfterPayment(false);
         }, 3000);
@@ -40,6 +31,35 @@ const Profile = () => {
     localStorage.removeItem('adt_token');
     localStorage.removeItem('adt_profile');
     window.location.href = '/login'; 
+  };
+
+  const handleUpdateProfile = async (field, value) => {
+    try {
+      const token = localStorage.getItem('adt_token');
+      // Create update payload based on existing profile + the new change
+      const payload = {
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        organization: profile.organization,
+        industry: profile.industry,
+        [field]: value
+      };
+
+      const response = await fetch(`${API_URL}/auth/profile/update`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        await refreshAll();
+      }
+    } catch (err) {
+      console.error("Update failed:", err);
+    }
   };
 
   const handleStartTrial = async () => {
@@ -66,7 +86,6 @@ const Profile = () => {
     if (!window.confirm("Are you sure? You will lose access to premium features immediately.")) {
       return;
     }
-
     setIsCancelling(true);
     try {
       const token = localStorage.getItem('adt_token');
@@ -77,10 +96,8 @@ const Profile = () => {
           'Content-Type': 'application/json'
         }
       });
-      
       if (response.ok) {
         alert("Subscription cancelled successfully.");
-        // Use the context refresh instead of local fetch
         await refreshAll(); 
       } else {
         const errorData = await response.json();
@@ -94,7 +111,6 @@ const Profile = () => {
     }
   };
 
-  // We check if profile exists from context instead of a local loading state
   if (!profile) return (
     <div className="h-screen w-full flex items-center justify-center bg-black">
       <div className="relative">
@@ -106,7 +122,6 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen w-full bg-black text-white overflow-x-hidden flex flex-col font-sans">
-      {/* --- SUCCESS OVERLAY FOR SMOOTH LANDING --- */}
       <AnimatePresence>
         {isLandingAfterPayment && (
           <motion.div 
@@ -163,12 +178,26 @@ const Profile = () => {
 
         <main className="py-12 space-y-12">
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ProfileItem icon={<Mail size={24} className="text-purple-500" />} label="Email Address" value={profile?.email} />
-            <ProfileItem icon={<Building2 size={24} className="text-blue-500" />} label="Organization" value={profile?.organization || "N/A"} />
-            <ProfileItem icon={<Briefcase size={24} className="text-emerald-500" />} label="Industry" value={profile?.industry || "N/A"} />
+            <ProfileItem 
+              icon={<Mail size={24} className="text-purple-500" />} 
+              label="Email Address" 
+              value={profile?.email} 
+              readonly
+            />
+            <ProfileItem 
+              icon={<Building2 size={24} className="text-blue-500" />} 
+              label="Organization" 
+              value={profile?.organization} 
+              onSave={(val) => handleUpdateProfile('organization', val)}
+            />
+            <ProfileItem 
+              icon={<Briefcase size={24} className="text-emerald-500" />} 
+              label="Industry" 
+              value={profile?.industry} 
+              onSave={(val) => handleUpdateProfile('industry', val)}
+            />
           </section>
 
-          {/* --- DYNAMIC BILLING SECTION --- */}
           <section className="relative overflow-hidden bg-gradient-to-r from-zinc-900 to-black border border-white/10 rounded-[3.5rem] p-10 md:p-14 shadow-2xl">
             <div className="absolute top-0 right-0 p-8 opacity-10">
               <Zap size={120} className="text-purple-500" />
@@ -221,8 +250,8 @@ const Profile = () => {
           </section>
 
           <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ProfileItem icon={<Target size={24} className="text-amber-500" />} label="Node Type" value="Remote Operational Node" />
-            <ProfileItem icon={<Cpu size={24} className="text-zinc-400" />} label="System Architecture" value="Metria Universal 2026" />
+            <ProfileItem icon={<Target size={24} className="text-amber-500" />} label="Node Type" value="Remote Operational Node" readonly />
+            <ProfileItem icon={<Cpu size={24} className="text-zinc-400" />} label="System Architecture" value="Metria Universal 2026" readonly />
           </section>
 
           <div className="pt-12 flex flex-col sm:flex-row items-center justify-center gap-6 border-t border-white/5">
@@ -240,16 +269,59 @@ const Profile = () => {
   );
 };
 
-const ProfileItem = ({ icon, label, value }) => (
-  <div className="bg-white/[0.02] border border-white/5 p-10 rounded-[3.5rem] hover:bg-white/[0.04] hover:border-white/10 transition-all group min-w-0">
-    <div className="mb-10 p-4 w-fit rounded-2xl bg-white/5 border border-white/5 group-hover:scale-110 transition-transform">
-      {icon}
+const ProfileItem = ({ icon, label, value, onSave, readonly = false }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentValue, setCurrentValue] = useState(value || "");
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (currentValue !== value && onSave) {
+      onSave(currentValue);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleBlur();
+  };
+
+  return (
+    <div className="bg-white/[0.02] border border-white/5 p-10 rounded-[3.5rem] hover:bg-white/[0.04] hover:border-white/10 transition-all group min-w-0 flex flex-col relative">
+      <div className="mb-10 p-4 w-fit rounded-2xl bg-white/5 border border-white/5 group-hover:scale-110 transition-transform">
+        {icon}
+      </div>
+      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-3">{label}</p>
+      
+      {!readonly && !isEditing && (
+        <button 
+          onClick={() => setIsEditing(true)}
+          className="absolute top-10 right-10 p-2 opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-purple-500"
+        >
+          <Edit3 size={16} />
+        </button>
+      )}
+
+      {isEditing && !readonly ? (
+        <div className="flex items-center gap-2">
+          <input 
+            autoFocus
+            className="bg-purple-500/10 border-b-2 border-purple-500 text-2xl font-bold tracking-tight text-white w-full outline-none py-1"
+            value={currentValue}
+            onChange={(e) => setCurrentValue(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+          />
+          <Check size={20} className="text-emerald-500" />
+        </div>
+      ) : (
+        <p 
+          className={`text-2xl font-bold tracking-tight text-white truncate group-hover:whitespace-normal break-all ${!readonly ? 'cursor-pointer hover:text-purple-400' : ''}`}
+          onClick={() => !readonly && setIsEditing(true)}
+        >
+          {value || "---"}
+        </p>
+      )}
     </div>
-    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-3">{label}</p>
-    <p className="text-2xl font-bold tracking-tight text-white truncate group-hover:whitespace-normal break-all">
-        {value || "---"}
-    </p>
-  </div>
-);
+  );
+};
 
 export default Profile;
