@@ -1,12 +1,12 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-10 - Production Grade British Female Voice Sync
+ * Updated: 2026-01-10 - Connection Optimized
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaStop
+    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp
 } from 'react-icons/fa';
 import { 
     FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText
@@ -14,6 +14,7 @@ import {
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
+// Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
     <div className="flex items-center gap-1 h-4">
         {[...Array(4)].map((_, i) => (
@@ -28,6 +29,7 @@ const AudioWaveform = ({ color = "#bc13fe" }) => (
     </div>
 );
 
+// Sub-component: Insight Card
 const InsightCard = ({ title, content, icon: Icon, isPurple, onClick }) => (
     <div 
         onClick={onClick}
@@ -61,6 +63,7 @@ const InsightCard = ({ title, content, icon: Icon, isPurple, onClick }) => (
     </div>
 );
 
+// Sub-component: Typewriter
 const TypewriterText = ({ text, delay = 5 }) => {
     const [displayedText, setDisplayedText] = useState("");
     useEffect(() => {
@@ -86,24 +89,26 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const panelRef = useRef(null);
     
+    // Cleaned up Profile & Token retrieval
     const userToken = localStorage.getItem("adt_token");
     const userProfile = useMemo(() => {
-        const stored = localStorage.getItem("adt_profile");
-        return stored ? JSON.parse(stored) : null;
+        try {
+            const stored = localStorage.getItem("adt_profile");
+            return stored ? JSON.parse(stored) : {};
+        } catch (e) { return {}; }
     }, []);
 
     const aiInsights = datasets[0]?.aiStorage;
 
     const phases = useMemo(() => [
         "Initializing AI Analyst...",
-        `Aligning with ${userProfile?.organization || 'Corporate'} standards...`,
+        `Aligning with ${userProfile?.organization || 'Strategic'} standards...`,
         "Syncing Neural models...",
         "Identifying correlations...",
         "Simulating ROI...",
         "Finalizing report..."
     ], [userProfile]);
 
-    // PRE-FETCH VOICES (Critical for Chrome/Production)
     useEffect(() => {
         window.speechSynthesis.getVoices();
     }, []);
@@ -126,27 +131,17 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         }
 
         let contentToRead = textOverride;
-        if (isFullReportOpen) {
-            // Expression-rich text with punctuation for natural pausing
-            contentToRead = `Right... Let's take a look at the strategic briefing. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
+        if (isFullReportOpen && aiInsights) {
+            contentToRead = `Strategic briefing for ${userProfile?.organization || 'the board'}. Summary: ${aiInsights.summary}. Primary discovery: ${aiInsights.root_cause}. Risks involve: ${aiInsights.risk}. Opportunity: ${aiInsights.opportunity}. Action: ${aiInsights.action}.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
         const voices = window.speechSynthesis.getVoices();
+        const britishVoice = voices.find(v => (v.lang.includes('en-GB')) && (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Google')));
         
-        // STRICT BRITISH FEMALE FILTERING
-        const britishVoice = voices.find(v => 
-            (v.lang === 'en-GB' || v.lang.startsWith('en-GB')) && 
-            (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Hazel') || v.name.includes('Serena') || v.name.includes('Google'))
-        );
-
-        // Fallback to any British voice if female is not explicit, otherwise any voice
         utterance.voice = britishVoice || voices.find(v => v.lang.includes('en-GB')) || voices[0];
-        
-        // Humanizing parameters
-        utterance.rate = 0.85; // Slightly slower for that professional, deliberate British cadence
-        utterance.pitch = 1.1; // Slightly higher to remove the 'drone' effect
-        utterance.volume = 1.0;
+        utterance.rate = 0.85; 
+        utterance.pitch = 1.1;
         
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
@@ -155,15 +150,39 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
+    // OPTIMIZED CONNECTION LOGIC
     const runAnalysis = async () => {
-        if (datasets.length === 0 || !userToken) return;
+        if (datasets.length === 0 || !userToken) {
+            console.warn("Analysis aborted: No datasets or missing token.");
+            return;
+        }
         setLoading(true);
         try {
-            const contextBundle = datasets.map(ds => ({ id: ds.id, name: ds.name, metrics: ds.metrics }));
-            const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { context: contextBundle }, { headers: { Authorization: `Bearer ${userToken}` } });
-            onUpdateAI(datasets[0].id, response.data);
-        } catch (error) { console.error("AI Analysis failed:", error); } 
-        finally { setLoading(false); }
+            const contextBundle = datasets.map(ds => ({ 
+                id: ds.id, 
+                name: ds.name, 
+                metrics: ds.metrics || {} 
+            }));
+
+            const response = await axios.post(
+                `${API_BASE_URL}/ai/analyze`, 
+                { context: contextBundle }, 
+                { 
+                    headers: { 
+                        'Authorization': `Bearer ${userToken}`,
+                        'Content-Type': 'application/json'
+                    } 
+                }
+            );
+
+            if (response.data) {
+                onUpdateAI(datasets[0].id, response.data);
+            }
+        } catch (error) { 
+            console.error("AI Analysis failed:", error.response?.data || error.message); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     return (
@@ -244,6 +263,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
+            {/* Modal for Details */}
             <AnimatePresence>
                 {(expandedCard || isFullReportOpen) && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
@@ -274,24 +294,24 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                     <div className="space-y-16 max-w-4xl mx-auto">
                                         <div className="space-y-4">
                                             <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">01 Executive Summary</span>
-                                            <p className="text-white text-3xl font-light leading-relaxed">{aiInsights.summary}</p>
+                                            <p className="text-white text-3xl font-light leading-relaxed">{aiInsights?.summary}</p>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                             <div className="space-y-4">
                                                 <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Primary Discovery</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.root_cause}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.root_cause}</p>
                                             </div>
                                             <div className="space-y-4">
                                                 <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Risk Matrix</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.risk}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.risk}</p>
                                             </div>
                                             <div className="space-y-4">
                                                 <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Growth Opportunity</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.opportunity}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.opportunity}</p>
                                             </div>
                                             <div className="space-y-4">
                                                 <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Tactical Priority</span>
-                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.action}</p>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.action}</p>
                                             </div>
                                         </div>
                                     </div>
