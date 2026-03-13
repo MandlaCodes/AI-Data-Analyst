@@ -1,7 +1,6 @@
 /**
- * components/Visualizer.js - UNIVERSAL PROTOCOL VERSION
- * Optimized: 2026-01-25 - Aggressive Numeric Detection & Zero-Value Retention
- * Constraint: Charts only render after AI response completion.
+ * components/Visualizer.js - PRODUCTION EXECUTIVE VERSION
+ * Flow: AI Insights -> Dataset Identity -> Live Table -> Analytics
  */
 import React, { useMemo, useState, useEffect } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
@@ -17,7 +16,11 @@ import {
   Legend,
   Filler
 } from "chart.js";
-import { FiDownload, FiArrowUp, FiDatabase, FiPieChart, FiBarChart2, FiTrendingUp, FiMaximize2, FiX } from "react-icons/fi";
+import { 
+  FiDownload, FiArrowUp, FiDatabase, FiPieChart, 
+  FiBarChart2, FiTrendingUp, FiTrendingDown, 
+  FiMaximize2, FiX, FiRefreshCw, FiTable, FiCpu
+} from "react-icons/fi";
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import AIAnalysisPanel from "./AIAnalysisPanel";
@@ -26,21 +29,14 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 
 const COLORS = ["#00F2FF", "#7000FF", "#FF007A", "#ADFF2F", "#FF8A00", "#00FF94"];
 
-/**
- * IMPROVED UNIVERSAL PARSER
- * Strips commas, currency, and special trailing chars like '#' to find the number.
- */
 const toNumber = (v) => {
+  if (v === null || v === undefined || v === "") return null;
   if (typeof v === "number") return v;
-  if (v === null || v === undefined) return null;
   const s = String(v).trim();
-  if (!s) return null;
-  
-  // Strip everything except numbers and decimals
-  const cleaned = s.replace(/[^0-9.-]/g, "");
-  if (cleaned === "" || cleaned === "-") return null;
-  
-  const n = parseFloat(cleaned);
+  if (s.includes('/') || (s.includes('-') && s.split('-').length > 2)) return null;
+  const cleaned = s.replace(/[^\d.-]/g, "");
+  if (cleaned === "" || cleaned === ".") return null;
+  const n = Number(cleaned);
   return isNaN(n) ? null : n;
 };
 
@@ -50,35 +46,26 @@ const chartOptions = {
     plugins: { 
         legend: { display: false }, 
         tooltip: { 
-            backgroundColor: '#000', 
-            padding: 12, 
-            cornerRadius: 12,
-            borderColor: '#333',
-            borderWidth: 1,
+            backgroundColor: '#000', padding: 12, cornerRadius: 12,
+            borderColor: '#333', borderWidth: 1,
             titleFont: { size: 10, weight: 'bold' },
             bodyFont: { size: 9, family: 'monospace' },
-            displayColors: true,
-            boxPadding: 6
+            displayColors: true, boxPadding: 6
         } 
     },
     scales: {
-      y: { 
-        grid: { color: 'rgba(255,255,255,0.02)', drawBorder: false }, 
-        ticks: { color: '#444', font: { size: 8, weight: 'bold', family: 'monospace' }, padding: 8 } 
-      },
-      x: { 
-        grid: { display: false }, 
-        ticks: { color: '#444', font: { size: 8, weight: 'bold', family: 'monospace' }, autoSkip: true, maxTicksLimit: 12, padding: 10 } 
-      }
+      y: { grid: { color: 'rgba(255,255,255,0.02)', drawBorder: false }, ticks: { color: '#444', font: { size: 8, weight: 'bold', family: 'monospace' }, padding: 8 } },
+      x: { grid: { display: false }, ticks: { color: '#444', font: { size: 8, weight: 'bold', family: 'monospace' }, autoSkip: true, maxTicksLimit: 6, padding: 10 } }
     }
 };
 
 export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken, onAIUpdate }) => {
   const [readyStates, setReadyStates] = useState({});
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [isExporting, setIsExporting] = useState(false); 
+  const [flash, setFlash] = useState(false);
   const [localChartTypes, setLocalChartTypes] = useState({});
   const [expandedChart, setExpandedChart] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0); 
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 800);
@@ -87,10 +74,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
   }, []);
 
   useEffect(() => {
-    const updatedReady = { ...readyStates };
-    activeDatasets.forEach(ds => {
-      if (ds.aiStorage) updatedReady[ds.id] = true;
-    });
+    const updatedReady = {};
+    activeDatasets.forEach(ds => { if (ds.aiStorage) updatedReady[ds.id] = true; });
     setReadyStates(updatedReady);
   }, [activeDatasets]);
 
@@ -99,224 +84,215 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
     if (onAIUpdate) onAIUpdate(id, aiData);
   };
 
+  const handleRefresh = () => setRefreshKey(prev => prev + 1);
+
   const toggleLocalChartType = (datasetId, colName) => {
     const key = `${datasetId}-${colName}`;
-    setLocalChartTypes(prev => ({
-      ...prev,
-      [key]: prev[key] === "bar" ? "line" : "bar"
-    }));
+    setLocalChartTypes(prev => ({ ...prev, [key]: prev[key] === "bar" ? "line" : "bar" }));
   };
 
   const handleExport = async (id, name) => {
+    setFlash(true); 
+    setTimeout(() => setFlash(false), 150);
     const element = document.getElementById(`report-${id}`);
-    if (!element || isExporting) return;
-    setIsExporting(true);
-    try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#000000",
-        logging: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
-      const imgWidth = 210;
-      const pageHeight = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-      pdf.save(`METRIA_PROTOCOL_${name.toUpperCase()}.pdf`);
-    } catch (err) {
-      console.error("Export failed:", err);
-    } finally {
-      setIsExporting(false);
-    }
+    if (!element) return;
+    const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#000000', logging: false, useCORS: true });
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgWidth = 210;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
+    pdf.save(`Strategic_Report_${name}.pdf`);
   };
 
   const parsed = useMemo(() => {
     return activeDatasets.map(ds => {
-      const rawData = ds.data || [];
-      const columns = Array.isArray(rawData[0]) ? rawData[0] : Object.keys(rawData[0] || {});
-      const rows = Array.isArray(rawData[0]) 
-        ? rawData.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
-        : rawData;
+      const columns = Array.isArray(ds.data?.[0]) ? ds.data[0] : Object.keys(ds.data?.[0] || {});
+      const rows = Array.isArray(ds.data?.[0]) 
+        ? ds.data.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
+        : ds.data || [];
         
-      // SMART LABEL SELECTION: Priority given to "Area Name" or "State"
-      const labelCol = columns.find(c => /area|name|state|label/i.test(c)) || 
-                       columns.find(col => rows.slice(0, 5).every(r => toNumber(r[col]) === null)) || 
-                       columns[0];
+      const labelCol = columns.find(col => {
+          const cLower = col.toLowerCase();
+          if (cLower.includes('date') || cLower.includes('time') || cLower.includes('name') || cLower.includes('label')) return true;
+          const sample = rows.slice(0, 10).map(r => toNumber(r[col]));
+          return sample.filter(v => v !== null).length < sample.length / 2;
+      }) || columns[0];
 
       const analysis = columns.map(col => {
-        const numeric = rows.map(r => toNumber(r[col]));
-        const validNumeric = numeric.filter(v => v !== null);
-        
-        // If 50% or more of the column is numeric, treat as chartable data
-        const isNumeric = validNumeric.length > rows.length * 0.5;
-
-        const stats = isNumeric ? {
-            avg: validNumeric.reduce((a,b)=>a+b,0) / validNumeric.length,
-            min: Math.min(...validNumeric),
-            max: Math.max(...validNumeric),
-            sum: validNumeric.reduce((a,b)=>a+b,0)
-        } : null;
-
+        const numeric = rows.map(r => toNumber(r[col])).filter(v => v !== null);
+        const isDateCol = col.toLowerCase().includes('date') || col.toLowerCase().includes('time');
+        const isNumeric = numeric.length > 0 && col !== labelCol && !isDateCol;
+        let stats = null;
+        if (isNumeric) {
+            const mid = Math.floor(numeric.length / 2);
+            const firstHalf = numeric.slice(0, mid);
+            const secondHalf = numeric.slice(mid);
+            const avg1 = firstHalf.reduce((a,b)=>a+b,0) / (firstHalf.length || 1);
+            const avg2 = secondHalf.reduce((a,b)=>a+b,0) / (secondHalf.length || 1);
+            const trendVal = avg1 === 0 ? 0 : ((avg2 - avg1) / avg1) * 100;
+            stats = {
+                avg: numeric.reduce((a,b)=>a+b,0) / numeric.length,
+                min: Math.min(...numeric), max: Math.max(...numeric), sum: numeric.reduce((a,b)=>a+b,0),
+                trend: Math.abs(trendVal).toFixed(1), trendDir: trendVal >= 0 ? 'up' : 'down'
+            };
+        }
         const freq = {};
         if (!isNumeric) {
-            rows.forEach(r => {
-                const val = r[col] || "N/A";
-                freq[val] = (freq[val] || 0) + 1;
-            });
+            rows.forEach(r => { const val = r[col] || "N/A"; freq[val] = (freq[val] || 0) + 1; });
         }
-        return { col, isNumeric, numeric: numeric.map(v => v === null ? 0 : v), stats, freq };
+        return { col, isNumeric, numeric, stats, freq };
       });
-      return { ...ds, rows, columns, analysis, labels: rows.map(r => r[labelCol] || "Unknown") };
+      return { ...ds, rows, columns, analysis, labels: rows.map(r => r[labelCol]) };
     });
-  }, [activeDatasets]);
+  }, [activeDatasets, refreshKey]);
 
   if (activeDatasets.length === 0) return null;
 
   return (
-    <div className="mt-6 md:mt-10 space-y-8 md:space-y-12 pb-32 max-w-[1500px] mx-auto px-4 md:px-6" style={{ overflowAnchor: 'none' }}>
+    <div key={refreshKey} className="mt-10 md:mt-16 space-y-16 pb-32 max-w-[1600px] mx-auto px-4 md:px-10">
+      {flash && <div className="fixed inset-0 z-[9999] bg-white pointer-events-none" />}
       
-      {expandedChart && (
-        <div className="fixed inset-0 z-[300] flex flex-col lg:flex-row">
-          <div className="hidden lg:block w-64 flex-shrink-0" /> 
-          <div className="flex-1 bg-black/95 md:bg-black/90 backdrop-blur-2xl p-4 md:p-8 flex flex-col shadow-[0_0_100px_rgba(112,0,255,0.2)]">
-            <div className="flex justify-between items-center mb-6 md:mb-8">
-              <h2 className="text-white text-2xl md:text-4xl font-[1000] uppercase tracking-tighter italic truncate pr-4">{expandedChart.title}</h2>
-              <button onClick={() => setExpandedChart(null)} className="p-3 md:p-4 bg-white/5 border border-white/10 text-white rounded-full hover:bg-white hover:text-black transition-all shrink-0">
-                <FiX className="w-6 h-6 md:w-7 md:h-7" />
-              </button>
-            </div>
-            <div className="flex-1 w-full relative bg-[#111] border border-zinc-700 rounded-[2rem] md:rounded-[3rem] p-4 md:p-10 shadow-inner overflow-hidden">
-              {expandedChart.type === "bar" ? 
-                <Bar data={expandedChart.data} options={{...chartOptions, maintainAspectRatio: false}} /> : 
-                <Line data={expandedChart.data} options={{...chartOptions, maintainAspectRatio: false}} />
-              }
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showScrollTop && (
-        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="fixed bottom-6 right-6 md:bottom-10 md:right-10 z-[100] w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:bg-[#7000FF] hover:text-white transition-all shadow-2xl border-4 border-black">
-          <FiArrowUp className="w-5 h-5" />
-        </button>
-      )}
-
+      {/* 1. TOP AI ANALYSIS RUN */}
       <section className="scroll-mt-28">
+          <div className="mb-6 flex items-center gap-4">
+             <div className="h-[1px] flex-1 bg-white/10" />
+             <div className="flex items-center gap-2">
+                <FiCpu className="text-[#a5b4fc] animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40">
+                    Live Analysis: {parsed[0]?.name || "Active Session"}
+                </span>
+             </div>
+             <div className="h-[1px] flex-1 bg-white/10" />
+          </div>
           <AIAnalysisPanel datasets={parsed} onUpdateAI={handleAIComplete} />
       </section>
 
       {parsed.map(ds => {
-        const isReady = !!readyStates[ds.id];
-        if (!isReady) return null;
-
         const numericCols = ds.analysis.filter(c => c.isNumeric);
-        const categoricalCols = ds.analysis.filter(c => !c.isNumeric && Object.keys(c.freq).length > 1 && Object.keys(c.freq).length < 20);
+        const categoricalCols = ds.analysis.filter(c => !c.isNumeric && Object.keys(c.freq).length > 1 && Object.keys(c.freq).length < 15);
+        if (!readyStates[ds.id]) return null;
 
         return (
-          <div key={ds.id} className="space-y-10 md:space-y-16 scroll-mt-20 p-4 rounded-[3rem] animate-in fade-in slide-in-from-bottom-5 duration-700" id={`report-${ds.id}`}>
+          <div key={ds.id} className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000" id={`report-${ds.id}`}>
             
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-800 pb-8 md:pb-12 gap-6 md:gap-8">
-                <div className="max-w-full lg:max-w-2xl overflow-hidden">
-                  <div className="flex items-center gap-3 mb-3 md:mb-4">
-                    <div className="p-2 bg-[#7000FF]/20 rounded-lg border border-[#7000FF]/30">
-                      <FiDatabase className="text-[#7000FF] w-4 h-4 md:w-[18px] md:h-[18px]" />
+            {/* 2. DATASET IDENTITY HEADER (BELOW AI) */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
+                <div className="max-w-full">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2.5 bg-[#7000FF]/10 rounded-xl border border-[#7000FF]/20">
+                      <FiDatabase className="text-[#7000FF] w-5 h-5" />
                     </div>
-                    <h3 className="text-zinc-500 font-black text-[8px] md:text-[10px] uppercase tracking-[0.3em] md:tracking-[0.5em]">Network_Data_Matrix</h3>
+                    <h3 className="text-zinc-500 font-black text-[9px] uppercase tracking-[0.6em]">System_Source_Verified</h3>
                   </div>
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-[1000] text-white uppercase tracking-tighter leading-none italic line-clamp-2">{ds.name}</h2>
+                  <h2 className="text-5xl sm:text-6xl md:text-8xl font-[1000] text-white uppercase tracking-tighter italic leading-none break-words">
+                    {ds.name}
+                  </h2>
                 </div>
-                <button 
-                  onClick={() => handleExport(ds.id, ds.name)} 
-                  disabled={isExporting}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-10 py-4 md:py-5 bg-zinc-100 text-black rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] hover:bg-[#7000FF] hover:text-white transition-all active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.5)] disabled:opacity-50 shrink-0"
-                >
-                    <FiDownload className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isExporting ? 'animate-bounce' : ''}`} /> 
-                    {isExporting ? "Compiling Report..." : "Download Protocol"}
-                </button>
+                
+                <div className="flex w-full md:w-auto gap-4">
+                  <button onClick={handleRefresh} className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all">
+                    <FiRefreshCw className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => handleExport(ds.id, ds.name)} className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl">
+                    <FiDownload className="w-5 h-5" /> Download Report
+                  </button>
+                </div>
+            </div>
+
+            {/* 3. LIVE TABLE PREVIEW (IMMEDIATELY BELOW HEADER) */}
+            <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
+                <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                    <div className="flex items-center gap-3">
+                        <FiTable className="text-zinc-500 w-4 h-4" />
+                        <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">Database_Raw_Preview</span>
+                    </div>
+                    <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{ds.rows.length} Total Records Found</span>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr className="bg-black/40">
+                                {ds.columns.map(col => (
+                                    <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.03]">
+                            {ds.rows.slice(0, 5).map((row, i) => (
+                                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                                    {ds.columns.map(col => (
+                                        <td key={col} className="px-8 py-4 text-[11px] font-medium text-zinc-400 font-mono truncate max-w-[200px] group-hover:text-white transition-colors">
+                                            {row[col]}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="px-8 py-4 bg-black/40 border-t border-white/5">
+                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center italic">End of Preview Tier</p>
+                </div>
             </div>
             
-            <div className="opacity-100 translate-y-0 transition-all duration-1000">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+            {/* 4. REST OF CONTENT: ANALYTICS CARDS & GRAPHS */}
+            <div className="space-y-16">
+              {/* STAT CARDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {numericCols.slice(0, 4).map((col, idx) => (
-                  <div key={col.col} className="relative overflow-hidden bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border border-zinc-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white shadow-[0_20px_40px_rgba(0,0,0,0.6)] flex flex-col h-full">
-                    <p className="text-zinc-500 text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] mb-4 md:mb-6 truncate">{col.col}</p>
-                    <div className="flex flex-wrap items-baseline gap-2 mb-6 md:mb-8 overflow-hidden">
-                      <span className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white break-all">
-                        {col.stats?.avg.toLocaleString(undefined, {maximumFractionDigits: 1}) || 0}
-                      </span>
-                      <span className="text-zinc-600 text-[9px] md:text-[11px] font-black uppercase tracking-widest">avg</span>
+                  <div key={col.col} className="relative overflow-hidden bg-[#0d0d12] border border-white/10 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl group hover:border-[#7000FF]/30 transition-all">
+                    <div className={`absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r ${idx % 2 === 0 ? 'from-[#7000FF]' : 'from-zinc-600'} to-transparent`} />
+                    <div className="flex justify-between items-start mb-6">
+                        <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] truncate max-w-[70%]">{col.col}</p>
+                        {col.stats?.trend && (
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[8px] font-black ${col.stats.trendDir === 'up' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                {col.stats.trendDir === 'up' ? <FiTrendingUp className="w-3 h-3" /> : <FiTrendingDown className="w-3 h-3" />}
+                                {col.stats.trend}%
+                            </div>
+                        )}
                     </div>
-                    <div className="grid grid-cols-3 gap-1 md:gap-2 border-t border-zinc-800/50 pt-6 mt-auto">
-                        <div className="min-w-0">
-                          <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Min</p>
-                          <p className="text-[10px] md:text-xs font-bold text-zinc-300 truncate">{col.stats?.min.toLocaleString() || 0}</p>
-                        </div>
-                        <div className="border-x border-zinc-800/50 px-1 md:px-2 text-center min-w-0">
-                            <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Max</p>
-                            <p className="text-[10px] md:text-xs font-bold text-zinc-300 truncate">{col.stats?.max.toLocaleString() || 0}</p>
-                        </div>
-                        <div className="text-right min-w-0">
-                            <p className="text-[7px] md:text-[8px] text-zinc-600 uppercase font-black tracking-widest mb-1">Sum</p>
-                            <p className="text-[10px] md:text-xs font-bold text-[#7000FF] truncate">
-                              {col.stats?.sum > 1000000 ? (col.stats.sum/1000000).toFixed(1)+'M' : col.stats?.sum.toLocaleString() || 0}
-                            </p>
-                        </div>
+                    <div className="flex items-baseline gap-3 mb-8">
+                      <span className="text-5xl md:text-6xl font-black tracking-tighter group-hover:text-[#a5b4fc] transition-colors">{col.stats?.avg.toLocaleString(undefined, {maximumFractionDigits: 1})}</span>
+                      <span className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em]">avg_val</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 border-t border-white/5 pt-8">
+                        <div><p className="text-[8px] text-zinc-600 uppercase font-black mb-2">Min_Range</p><p className="text-[12px] font-bold text-zinc-300">{col.stats?.min.toLocaleString()}</p></div>
+                        <div className="border-x border-white/5 px-3 text-center"><p className="text-[8px] text-zinc-600 uppercase font-black mb-2">Peak_Cap</p><p className="text-[12px] font-bold text-zinc-300">{col.stats?.max.toLocaleString()}</p></div>
+                        <div className="text-right"><p className="text-[8px] text-zinc-600 uppercase font-black mb-2">Net_Agg</p><p className="text-[12px] font-bold text-[#7000FF] truncate">{col.stats?.sum > 1e6 ? (col.stats.sum/1e6).toFixed(1)+'M' : col.stats?.sum.toLocaleString()}</p></div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-10 md:mt-16">
+              {/* GRAPHS */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
                 {numericCols.map((col, idx) => {
                   const currentChartType = localChartTypes[`${ds.id}-${col.col}`] || chartType;
                   const activeColor = COLORS[idx % COLORS.length];
                   const chartData = {
                     labels: ds.labels, 
                     datasets: [{
-                      label: col.col, 
-                      data: col.numeric, 
-                      borderColor: activeColor, 
-                      backgroundColor: currentChartType === 'bar' ? activeColor : `${activeColor}10`,
-                      borderWidth: 2,
-                      tension: 0.4,
-                      fill: true,
-                      pointRadius: 4,
-                      pointBackgroundColor: activeColor
+                      label: col.col, data: col.numeric, 
+                      borderColor: activeColor, backgroundColor: currentChartType === 'bar' ? activeColor : `${activeColor}10`,
+                      borderWidth: 3, tension: 0.4, fill: true, pointRadius: 0
                     }]
                   };
-
                   return (
-                    <div key={col.col} className="group relative border border-zinc-800 rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 bg-[#0d0d0d] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] flex flex-col min-h-[450px]">
-                      <div className="flex justify-between items-start mb-6 md:mb-10">
+                    <div key={`${col.col}-${refreshKey}`} className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20">
+                      <div className="flex justify-between items-start mb-10">
                         <div className="min-w-0 pr-4">
-                          <div className="flex items-center gap-2 mb-2">
-                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: activeColor }} />
-                             <h4 className="text-zinc-200 text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.4em] truncate">{col.col}</h4>
+                          <div className="flex items-center gap-3 mb-3">
+                             <div className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]" style={{ backgroundColor: activeColor }} />
+                             <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">{col.col}</h4>
                           </div>
+                          <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">Node_Stream_{idx}</p>
                         </div>
-                        <div className="flex gap-1 md:gap-2 bg-black/60 p-1 md:p-2 rounded-xl border border-zinc-800 shrink-0">
-                          <button onClick={() => setExpandedChart({ title: col.col, data: chartData, type: currentChartType })} className="p-1.5 md:p-2 text-zinc-500 hover:text-white transition-colors">
-                            <FiMaximize2 className="w-3.5 h-3.5 md:w-[14px] md:h-[14px]" />
-                          </button>
-                          <button onClick={() => toggleLocalChartType(ds.id, col.col)} className="p-1.5 md:p-2 text-zinc-500 hover:text-white transition-colors">
-                            {currentChartType === 'line' ? <FiBarChart2 className="w-3.5 h-3.5 md:w-[14px] md:h-[14px]" /> : <FiTrendingUp className="w-3.5 h-3.5 md:w-[14px] md:h-[14px]" />}
-                          </button>
+                        <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
+                          <button onClick={() => setExpandedChart({ title: col.col, data: chartData, type: currentChartType })} className="p-2 text-zinc-500 hover:text-white transition-colors"><FiMaximize2 className="w-5 h-5" /></button>
+                          <button onClick={() => toggleLocalChartType(ds.id, col.col)} className="p-2 text-zinc-500 hover:text-white transition-colors">{currentChartType === 'line' ? <FiBarChart2 className="w-5 h-5" /> : <FiTrendingUp className="w-5 h-5" />}</button>
                         </div>
                       </div>
-                      <div className="flex-1 w-full relative">
+                      <div className="w-full aspect-[4/3] sm:aspect-[16/9] relative">
                          {currentChartType === "bar" ? <Bar data={chartData} options={chartOptions} /> : <Line data={chartData} options={chartOptions} />}
                       </div>
                     </div>
@@ -324,26 +300,25 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
                 })}
               </div>
 
+              {/* PIE CHARTS (CATEGORICAL) */}
               {categoricalCols.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10 mt-10 md:mt-16">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 mt-16">
                    {categoricalCols.slice(0, 3).map((col) => (
-                       <div key={col.col} className="p-8 md:p-12 border border-zinc-800 rounded-[2.5rem] bg-gradient-to-tr from-[#0a0a0a] to-[#141414] shadow-2xl relative overflow-hidden">
-                            <div className="flex items-center gap-3 mb-8 md:mb-10">
-                                <div className="p-2 bg-zinc-800/50 rounded-lg border border-zinc-700"><FiPieChart className="text-white w-4 h-4" /></div>
-                                <h4 className="text-zinc-400 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] truncate pr-8">{col.col}</h4>
+                       <div key={`${col.col}-${refreshKey}`} className="p-10 md:p-14 border border-white/10 rounded-[3rem] bg-[#0d0d12] shadow-2xl relative overflow-hidden group hover:border-[#7000FF]/30 transition-all">
+                            <div className="absolute top-6 right-8 px-4 py-1.5 bg-[#7000FF]/10 border border-[#7000FF]/20 rounded-full">
+                                <span className="text-[8px] font-black text-[#7000FF] uppercase tracking-widest italic">Categorical_Split</span>
+                            </div>
+                            <div className="flex items-center gap-4 mb-10">
+                                <div className="p-3 bg-white/5 rounded-xl border border-white/10"><FiPieChart className="text-[#a5b4fc] w-5 h-5" /></div>
+                                <h4 className="text-white/50 text-[11px] font-black uppercase tracking-[0.4em] truncate pr-16">{col.col}</h4>
                             </div>
                             <div className="aspect-square relative w-full">
                                 <Pie 
                                     data={{
                                         labels: Object.keys(col.freq),
-                                        datasets: [{
-                                            data: Object.values(col.freq),
-                                            backgroundColor: COLORS,
-                                            borderWidth: 2,
-                                            borderColor: '#0d0d0d'
-                                        }]
+                                        datasets: [{ data: Object.values(col.freq), backgroundColor: COLORS, borderWidth: 4, borderColor: '#0d0d12', hoverOffset: 20 }]
                                     }}
-                                    options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+                                    options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#666', font: { size: 9, weight: 'bold' }, padding: 20, usePointStyle: true } } } }}
                                 />
                             </div>
                        </div>
@@ -354,6 +329,26 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
           </div>
         );
       })}
+
+      {expandedChart && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 backdrop-blur-3xl p-6 md:p-12">
+            <button onClick={() => setExpandedChart(null)} className="absolute top-10 right-10 p-4 bg-white/5 border border-white/10 text-white rounded-full hover:bg-white/10">
+                <FiX className="w-8 h-8" />
+            </button>
+            <div className="w-full h-full max-w-7xl flex flex-col">
+                <h2 className="text-white text-4xl md:text-6xl font-[1000] uppercase italic tracking-tighter mb-10">{expandedChart.title}</h2>
+                <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-[4rem] p-10">
+                    {expandedChart.type === "bar" ? <Bar data={expandedChart.data} options={chartOptions} /> : <Line data={expandedChart.data} options={chartOptions} />}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {showScrollTop && (
+        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="fixed bottom-10 right-10 z-[100] w-16 h-16 bg-white text-black rounded-full flex items-center justify-center border-8 border-black shadow-[0_20px_50px_rgba(0,0,0,0.5)] active:scale-90 transition-all">
+          <FiArrowUp className="w-6 h-6" />
+        </button>
+      )}
     </div>
   );
 };

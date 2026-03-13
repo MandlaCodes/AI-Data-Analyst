@@ -1,20 +1,19 @@
 /**
  * components/AIAnalysisPanel.js - EXECUTIVE INTELLIGENCE ENGINE
- * Updated: 2026-01-28 - INTEGRATION: Persistent Strategy Chat & Session Tracking
+ * Updated: 2026-01-10 - Production Grade British Female Voice Sync
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaRedo, FaSearch, FaRobot, FaVolumeUp, FaLayerGroup, FaDownload, FaPaperPlane
+    FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaStop
 } from 'react-icons/fa';
 import { 
-    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiTrendingUp, FiActivity, FiLock, FiArrowRight, FiDownload, FiMessageSquare, FiCornerDownRight
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-// --- SUB-COMPONENTS ---
 const AudioWaveform = ({ color = "#bc13fe" }) => (
     <div className="flex items-center gap-1 h-4">
         {[...Array(4)].map((_, i) => (
@@ -79,94 +78,32 @@ const TypewriterText = ({ text, delay = 5 }) => {
     return <span>{displayedText}</span>;
 };
 
-// --- MAIN COMPONENT ---
 const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [loading, setLoading] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
     const [expandedCard, setExpandedCard] = useState(null); 
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [intelligenceMode, setIntelligenceMode] = useState(null);
-    const [showModeSelector, setShowModeSelector] = useState(false);
-    const [showPaywall, setShowPaywall] = useState(false);
-    const [isRedirecting, setIsRedirecting] = useState(false);
-    
-    // CHAT STATES
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [chatMessages, setChatMessages] = useState([]);
-    const [userQuery, setUserQuery] = useState("");
-    const [isChatLoading, setIsChatLoading] = useState(false);
-    const [activeSessionId, setActiveSessionId] = useState(null);
-    const chatEndRef = useRef(null);
-
-    // SMOOTH LANDING STATES
-    const [isLandingAfterPayment, setIsLandingAfterPayment] = useState(false);
-    const [profile, setProfile] = useState(null);
-    const userToken = localStorage.getItem("adt_token");
     const panelRef = useRef(null);
-    const initializeButtonRef = useRef(null);
-    const aiInsights = datasets[0]?.aiStorage;
-
-    // 1. DETECTION: Catch the redirect immediately
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('session') === 'success' || params.get('success') === 'true' || params.get('session_id')) {
-            setIsLandingAfterPayment(true);
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
+    
+    const userToken = localStorage.getItem("adt_token");
+    const userProfile = useMemo(() => {
+        const stored = localStorage.getItem("adt_profile");
+        return stored ? JSON.parse(stored) : null;
     }, []);
 
-    // 2. FRESH PROFILE LOGIC + AUTO-RUN
-    useEffect(() => {
-        const syncProfileAndAutoRun = async () => {
-            if (!userToken) return;
-            try {
-                const res = await axios.get(`${API_BASE_URL}/auth/me`, {
-                    headers: { Authorization: `Bearer ${userToken}` }
-                });
-                const freshProfile = res.data;
-                setProfile(freshProfile);
-                localStorage.setItem("adt_profile", JSON.stringify(freshProfile));
-
-                if (isLandingAfterPayment) {
-                    setTimeout(() => {
-                        setIsLandingAfterPayment(false);
-                        setShowPaywall(false);
-
-                        setTimeout(() => {
-                            if (datasets.length > 0) {
-                                const autoMode = datasets.length > 1 ? 'correlation' : 'standalone';
-                                handleSelectMode(autoMode);
-                                panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                        }, 600);
-                    }, 2500);
-                }
-            } catch (err) {
-                console.error("Profile sync failed:", err);
-                setIsLandingAfterPayment(false);
-                const stored = localStorage.getItem("adt_profile");
-                if (stored) setProfile(JSON.parse(stored));
-            }
-        };
-        syncProfileAndAutoRun();
-    }, [userToken, isLandingAfterPayment]);
+    const aiInsights = datasets[0]?.aiStorage;
 
     const phases = useMemo(() => [
         "Initializing AI Analyst...",
-        `Aligning with ${profile?.organization || 'Corporate'} standards...`,
+        `Aligning with ${userProfile?.organization || 'Corporate'} standards...`,
         "Syncing Neural models...",
-        intelligenceMode === 'correlation' ? "Mapping cross-dataset dependencies..." : 
-        intelligenceMode === 'compare' ? "Calculating performance variance..." : "Auditing standalone silos...",
-        "Simulating ROI Impact...",
-        "Finalizing Strategic Report..."
-    ], [profile, intelligenceMode]);
+        "Identifying correlations...",
+        "Simulating ROI...",
+        "Finalizing report..."
+    ], [userProfile]);
 
-    useEffect(() => {
-        if (!showPaywall) setIsRedirecting(false);
-    }, [showPaywall]);
-
+    // PRE-FETCH VOICES (Critical for Chrome/Production)
     useEffect(() => {
         window.speechSynthesis.getVoices();
     }, []);
@@ -181,26 +118,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         return () => clearInterval(interval);
     }, [loading, phases.length]);
 
-    // CHAT AUTO-SCROLL
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [chatMessages]);
-
-    const handleStartTrial = async () => {
-        setIsRedirecting(true);
-        try {
-            const res = await axios.post(`${API_BASE_URL}/billing/start-trial`, {}, {
-                headers: { Authorization: `Bearer ${userToken}` }
-            });
-            if (res.data.checkout_url) {
-                window.location.href = res.data.checkout_url;
-            }
-        } catch (err) {
-            console.error("Billing redirect failed", err);
-            setIsRedirecting(false);
-        }
-    };
-
     const toggleSpeech = (textOverride) => {
         if (isSpeaking) {
             window.speechSynthesis.cancel();
@@ -210,250 +127,76 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
         let contentToRead = textOverride;
         if (isFullReportOpen) {
-            contentToRead = `Executive Summary: ${aiInsights.summary}. Discovery: ${aiInsights.root_cause}. Risks: ${aiInsights.risk}. Opportunity: ${aiInsights.opportunity}. Priority: ${aiInsights.action}.`;
+            // Expression-rich text with punctuation for natural pausing
+            contentToRead = `Right... Let's take a look at the strategic briefing. First, the Executive Summary: ${aiInsights.summary}. Moving on... our primary discovery found that ${aiInsights.root_cause}. Regarding the potential risks, we've identified the following: ${aiInsights.risk}. On a more positive note; the growth opportunity is significant: ${aiInsights.opportunity}. Finally, our tactical priority will be: ${aiInsights.action}. That concludes the board briefing.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
         const voices = window.speechSynthesis.getVoices();
-        const britishVoice = voices.find(v => v.lang.startsWith('en-GB'));
+        
+        // STRICT BRITISH FEMALE FILTERING
+        const britishVoice = voices.find(v => 
+            (v.lang === 'en-GB' || v.lang.startsWith('en-GB')) && 
+            (v.name.includes('Female') || v.name.includes('UK') || v.name.includes('Hazel') || v.name.includes('Serena') || v.name.includes('Google'))
+        );
 
-        utterance.voice = britishVoice || voices[0];
-        utterance.rate = 0.9; 
+        // Fallback to any British voice if female is not explicit, otherwise any voice
+        utterance.voice = britishVoice || voices.find(v => v.lang.includes('en-GB')) || voices[0];
+        
+        // Humanizing parameters
+        utterance.rate = 0.85; // Slightly slower for that professional, deliberate British cadence
+        utterance.pitch = 1.1; // Slightly higher to remove the 'drone' effect
+        utterance.volume = 1.0;
         
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+
         window.speechSynthesis.speak(utterance);
     };
 
-    const handleDownloadPDF = async () => {
-        if (!aiInsights || isDownloading) return;
-        setIsDownloading(true);
-        try {
-            const response = await axios.post(`${API_BASE_URL}/ai/generate-report`, {
-                insights: aiInsights,
-                organization: profile?.organization || "Strategic Intelligence"
-            }, {
-                headers: { Authorization: `Bearer ${userToken}` },
-                responseType: 'blob'
-            });
-
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Intelligence_Briefing_${new Date().toISOString().split('T')[0]}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (error) {
-            console.error("PDF Download failed:", error);
-            alert("Failed to generate PDF report. Please try again.");
-        } finally {
-            setIsDownloading(false);
-        }
-    };
-
-    const runAnalysis = async (selectedMode) => {
+    const runAnalysis = async () => {
         if (datasets.length === 0 || !userToken) return;
         setLoading(true);
         try {
-            const contextBundle = datasets.map(ds => ({ 
-                id: ds.id, 
-                name: ds.name, 
-                metrics: ds.metrics 
-            }));
-
-            const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { 
-                context: contextBundle,
-                strategy: selectedMode || 'standalone' 
-            }, { 
-                headers: { Authorization: `Bearer ${userToken}` } 
-            });
-
+            const contextBundle = datasets.map(ds => ({ id: ds.id, name: ds.name, metrics: ds.metrics }));
+            const response = await axios.post(`${API_BASE_URL}/ai/analyze`, { context: contextBundle }, { headers: { Authorization: `Bearer ${userToken}` } });
             onUpdateAI(datasets[0].id, response.data);
-        } catch (error) { 
-            console.error("AI Analysis failed:", error); 
-        } finally { 
-            setLoading(false); 
-        }
-    };
-
-    const handleSelectMode = (mode) => {
-        setIntelligenceMode(mode);
-        setShowModeSelector(false);
-        runAnalysis(mode);
-    };
-
-    const handleInitialClick = () => {
-        if (!profile?.is_trial_active) {
-            setShowPaywall(true);
-            return;
-        }
-        if (datasets.length > 1) {
-            setShowModeSelector(true);
-        } else {
-            handleSelectMode('standalone');
-        }
-    };
-
-    // --- CHAT LOGIC ---
-    const handleSendChatMessage = async () => {
-        if (!userQuery.trim() || isChatLoading) return;
-        
-        const newMessage = { role: 'user', content: userQuery };
-        const updatedHistory = [...chatMessages, newMessage];
-        
-        setChatMessages(updatedHistory);
-        setUserQuery("");
-        setIsChatLoading(true);
-
-        try {
-            const res = await axios.post(`${API_BASE_URL}/ai/chat`, {
-                messages: updatedHistory,
-                context: aiInsights,
-                dashboard_id: datasets[0]?.id,
-                session_id: activeSessionId
-            }, {
-                headers: { Authorization: `Bearer ${userToken}` }
-            });
-
-            setChatMessages(prev => [...prev, { role: 'assistant', content: res.data.message }]);
-            if (res.data.session_id) setActiveSessionId(res.data.session_id);
-        } catch (err) {
-            console.error("Chat failed:", err);
-            setChatMessages(prev => [...prev, { role: 'assistant', content: "Neural link disrupted. Re-attempting synchronization..." }]);
-        } finally {
-            setIsChatLoading(false);
-        }
+        } catch (error) { console.error("AI Analysis failed:", error); } 
+        finally { setLoading(false); }
     };
 
     return (
-        <div ref={panelRef} className="relative overflow-hidden px-0 py-8 md:py-16 transition-all duration-700 min-h-[600px]">
+        <div ref={panelRef} className="relative overflow-hidden p-8 md:p-16 transition-all duration-700 min-h-[600px]">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
-            {/* --- SMOOTH LANDING OVERLAY --- */}
-            <AnimatePresence>
-                {isLandingAfterPayment && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[20000] bg-[#0a0a0f] flex flex-col items-center justify-center text-center px-6"
-                    >
-                        <motion.div 
-                            initial={{ scale: 0.8, opacity: 0 }} 
-                            animate={{ scale: 1, opacity: 1 }} 
-                            transition={{ type: "spring", damping: 20 }}
-                            className="relative p-12 max-w-lg"
-                        >
-                            <div className="absolute inset-0 bg-indigo-500/10 blur-[120px] rounded-full animate-pulse" />
-                            <div className="relative mb-8">
-                                <motion.div 
-                                    animate={{ rotate: 360 }} 
-                                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                                    className="absolute -inset-4 border border-dashed border-emerald-500/30 rounded-full"
-                                />
-                                <FiCheckCircle className="text-emerald-400 text-7xl mx-auto relative z-10" />
-                            </div>
-                            <h2 className="text-white text-3xl md:text-4xl font-black uppercase tracking-[0.3em] mb-4">Neural Link Established</h2>
-                            <p className="text-indigo-400 text-sm font-bold uppercase tracking-[0.4em] animate-pulse">AI Data Analyst Activated</p>
-                            
-                            <div className="mt-12 flex items-center justify-center gap-2">
-                                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce" />
-                                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-                                <span className="text-[10px] text-white/40 uppercase tracking-widest ml-2">Initiating Auto-Run</span>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* PAYWALL MODAL */}
-            <AnimatePresence>
-                {showPaywall && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[10005] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-4"
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-                            className="w-full max-w-lg bg-[#0f0f13] border border-white/10 rounded-[3rem] p-10 text-center shadow-3xl overflow-hidden relative"
-                        >
-                            <button onClick={() => setShowPaywall(false)} className="absolute top-8 right-8 text-white/40 hover:text-white p-2 rounded-full hover:bg-white/5"><FiX size={24} /></button>
-                            <div className="mb-8 flex justify-center">
-                                <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center border border-indigo-500/20">
-                                    <FiLock className="text-indigo-400 text-3xl" />
-                                </div>
-                            </div>
-                            <h2 className="text-white text-3xl font-black mb-4 tracking-tight uppercase">Neural Core Locked</h2>
-                            <p className="text-white/60 mb-10 leading-relaxed">Advanced synergy audits and correlation mapping require an active Pro license.</p>
-                            <div className="space-y-4">
-                                <button onClick={handleStartTrial} className="w-full py-6 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 group shadow-xl shadow-indigo-500/20">
-                                    {isRedirecting ? "Connecting..." : <>Start 7 Days Free <FiArrowRight className="group-hover:translate-x-1 transition-transform" /></>}
-                                </button>
-                                <button onClick={() => setShowPaywall(false)} className="w-full py-4 text-white/30 hover:text-white/60 text-[11px] font-bold uppercase tracking-[0.2em]">Review data first</button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* MODE SELECTOR */}
-            <AnimatePresence>
-                {showModeSelector && datasets.length > 1 && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4"
-                    >
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-xl bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-10 shadow-2xl">
-                            <div className="flex justify-between items-center mb-8">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10"><FaLayerGroup className="text-indigo-400" size={26} /></div>
-                                    <h2 className="text-white font-black text-lg md:text-2xl tracking-tight">Intelligence Strategy</h2>
-                                </div>
-                                <button onClick={() => setShowModeSelector(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white"><FiX size={18} /></button>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4">
-                                <button onClick={() => handleSelectMode('correlation')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-400 hover:bg-indigo-500/5 transition-all text-left group">
-                                    <FiZap className="text-indigo-400 mb-3" size={22} /><h4 className="text-white font-bold mb-1">Cross-Correlation</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Map cross-stream dependencies</p>
-                                </button>
-                                <button onClick={() => handleSelectMode('compare')} className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-400 hover:bg-emerald-500/5 transition-all text-left group">
-                                    <FiTarget className="text-emerald-400 mb-3" size={22} /><h4 className="text-white font-bold mb-1">Comparative Benchmark</h4><p className="text-white/40 text-[10px] uppercase tracking-[0.2em]">Analyze performance deltas</p>
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* HEADER AREA */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16 relative z-10">
                 <div className="flex items-center gap-6">
-                    <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
+                    <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
                         <FiCpu className="text-indigo-400 w-8 h-8" />
                     </div>
                     <div>
                         <h2 className="text-[13px] font-black uppercase tracking-[0.6em] text-white">
-                            {profile?.organization || "STRATEGIC"} <span className="text-indigo-400">INTELLIGENCE</span>
+                            {userProfile?.organization || "STRATEGIC"} <span className="text-indigo-400">INTELLIGENCE</span>
                         </h2>
+                        <div className="flex items-center gap-3 mt-2">
+                            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
+                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">{loading ? "Computing Logic" : "Decision Support Active"}</span>
+                        </div>
                     </div>
                 </div>
                 {aiInsights && !loading && (
                     <div className="flex items-center gap-4">
-                        <button 
-                            onClick={() => setIsChatOpen(true)}
-                            className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[14px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all"
-                        >
-                            <FiMessageSquare /> Ask Metria
-                        </button>
-                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[15px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                        <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-8 py-4 bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
                            <FiFileText /> View full report
+                        </button>
+                        <button onClick={runAnalysis} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                            <FaRedo className="text-[9px]" /> Refresh
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* MAIN CONTENT SWITCHER */}
             <AnimatePresence mode="wait">
                 {loading ? (
                     <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-48 flex flex-col items-center justify-center relative z-10"> 
@@ -462,164 +205,106 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         </motion.div>
                         <h3 className="text-white/80 text-[12px] font-bold uppercase tracking-[0.8em] text-center">{phases[analysisPhase]}</h3>
                     </motion.div>
-                ) : aiInsights && (intelligenceMode || datasets.length === 1) ? (
+                ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-3 mb-10">
-                                    <div className="h-1 w-12 bg-indigo-400 rounded-full" />
-                                    <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
-                                </div>
-                                <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl mb-12">
-                                    <TypewriterText text={aiInsights.summary} />
-                                </div>
-                                <div className="flex flex-wrap gap-4 pt-8 border-t border-white/5">
-                                    <div className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/10">
-                                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><FiTrendingUp size={18} /></div>
-                                        <div>
-                                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Projected ROI Impact</p>
-                                            <p className="text-white font-bold text-sm uppercase">{aiInsights.roi_impact || "N/A"}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="flex items-center gap-3 mb-10">
+                                <div className="h-1 w-12 bg-indigo-400 rounded-full" />
+                                <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY</span>
+                            </div>
+                            <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl">
+                                <TypewriterText text={aiInsights.summary} />
                             </div>
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <InsightCard title="Primary Root Cause" content={aiInsights.root_cause} icon={FaSearch} isPurple={false} onClick={() => setExpandedCard("root")} />
-                            <InsightCard title="Risk Exposure" content={aiInsights.risk} icon={FiShield} isPurple={true} onClick={() => setExpandedCard("risk")} />
-                            <InsightCard title="Growth Opportunity" content={aiInsights.opportunity} icon={FaRobot} isPurple={false} onClick={() => setExpandedCard("opp")} />
-                            <InsightCard title="Recommended Action" content={aiInsights.action} icon={FiTarget} isPurple={true} onClick={() => setExpandedCard("action")} />
+                            <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
+                                <div className="p-4 w-fit bg-indigo-500/10 rounded-2xl text-indigo-400 mb-8 border border-indigo-500/20"><FaSearch size={20} /></div>
+                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">PRIMARY DISCOVERY</h4>
+                                <div className="text-white text-2xl leading-[1.6] font-semibold">{aiInsights.root_cause}</div>
+                            </div>
+                            <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
+                                <div className="p-4 w-fit bg-emerald-500/10 rounded-2xl text-emerald-400 mb-8 border border-emerald-500/20"><FaCreditCard size={20} /></div>
+                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">ESTIMATED IMPACT</h4>
+                                <div className="text-white text-2xl leading-[1.6] font-semibold">Valuation: <span className="text-emerald-400">{aiInsights.roi_impact || "Calculating..."}</span></div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <InsightCard title="Risk Matrix" content={aiInsights?.risk} icon={FiShield} isPurple onClick={() => setExpandedCard({ title: "Risk Matrix", content: aiInsights?.risk, icon: FiShield, color: "text-[#bc13fe]" })} />
+                            <InsightCard title="Growth Vectors" content={aiInsights?.opportunity} icon={FiZap} onClick={() => setExpandedCard({ title: "Growth Vectors", content: aiInsights?.opportunity, icon: FiZap, color: "text-indigo-400" })} />
+                            <InsightCard title="Tactical Priority" content={aiInsights?.action} icon={FiTarget} isPurple onClick={() => setExpandedCard({ title: "Tactical Priority", content: aiInsights?.action, icon: FiTarget, color: "text-[#bc13fe]" })} />
                         </div>
                     </motion.div>
                 ) : (
-                    <div className="py-48 flex flex-col items-center justify-center relative z-10">
-                        <button 
-                            ref={initializeButtonRef}
-                            onClick={handleInitialClick}
-                            className="px-12 py-6 bg-indigo-500 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl"
-                        >
-                            {datasets.length > 1 ? "Initialize Multi-Dataset Analysis" : "Initialize Analysis"}
-                        </button>
+                    <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
+                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
+                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Intelligence Report</button>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* --- STRATEGY CHAT TERMINAL --- */}
             <AnimatePresence>
-                {isChatOpen && (
-                    <motion.div 
-                        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed top-0 right-0 w-full md:w-[500px] h-full bg-[#0d0d12] z-[20000] border-l border-white/10 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col"
-                    >
-                        <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#111116]">
-                            <div>
-                                <h3 className="text-white font-black uppercase tracking-widest text-sm">Strategy Terminal</h3>
-                                <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest">Active Intelligence Session</p>
-                            </div>
-                            <button onClick={() => setIsChatOpen(false)} className="p-3 bg-white/5 rounded-xl text-white/40 hover:text-white"><FiX size={20}/></button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-8 space-y-6 scrollbar-hide">
-                            {chatMessages.length === 0 && (
-                                <div className="text-center py-20">
-                                    <FiCpu className="text-white/5 text-6xl mx-auto mb-6" />
-                                    <p className="text-white/30 text-xs font-bold uppercase tracking-[0.3em]">Neural Link Open.<br/>Awaiting Tactical Inquiry.</p>
-                                </div>
-                            )}
-                            {chatMessages.map((msg, idx) => (
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                                    key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                >
-                                    <div className={`max-w-[85%] p-5 rounded-2xl text-sm leading-relaxed ${
-                                        msg.role === 'user' 
-                                        ? 'bg-indigo-600 text-white font-bold rounded-tr-none shadow-lg' 
-                                        : 'bg-white/5 text-white/80 border border-white/10 rounded-tl-none'
-                                    }`}>
-                                        {msg.content}
+                {(expandedCard || isFullReportOpen) && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                            className="relative w-full max-w-6xl max-h-[85vh] bg-[#0a0a0f] border border-white/10 rounded-[3.5rem] flex flex-col overflow-hidden shadow-[0_0_100px_rgba(188,19,254,0.1)]"
+                        >
+                            <div className="p-8 md:p-12 flex justify-between items-center border-b border-white/5 bg-[#111116]">
+                                <div className="flex items-center gap-6">
+                                    <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-indigo-400' : (expandedCard ? expandedCard.color : '')}`}>
+                                        {isFullReportOpen ? <FiFileText size={30} /> : (expandedCard && <expandedCard.icon size={30} />)}
                                     </div>
-                                </motion.div>
-                            ))}
-                            {isChatLoading && (
-                                <div className="flex justify-start">
-                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/10 flex gap-2">
-                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
-                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-                                    </div>
+                                    <h3 className="text-white text-3xl font-bold uppercase tracking-tight">{isFullReportOpen ? "Full Strategic Report" : (expandedCard && expandedCard.title)}</h3>
                                 </div>
-                            )}
-                            <div ref={chatEndRef} />
-                        </div>
-
-                        <div className="p-8 bg-[#111116] border-t border-white/10">
-                            <div className="relative">
-                                <textarea 
-                                    value={userQuery}
-                                    onChange={(e) => setUserQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendChatMessage())}
-                                    placeholder="Inquire on tactical pivots..."
-                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 pr-16 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all resize-none h-24"
-                                />
-                                <button 
-                                    onClick={handleSendChatMessage}
-                                    disabled={!userQuery.trim() || isChatLoading}
-                                    className="absolute bottom-4 right-4 p-4 bg-indigo-500 text-white rounded-xl hover:bg-indigo-400 transition-all disabled:opacity-30 disabled:grayscale"
-                                >
-                                    <FaPaperPlane size={14} />
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={() => toggleSpeech(isFullReportOpen ? "" : (expandedCard ? expandedCard.content : ""))}
+                                        className={`flex items-center gap-4 px-8 py-4 rounded-2xl text-[12px] font-black uppercase tracking-widest border transition-all ${isSpeaking ? 'bg-[#bc13fe]/20 text-[#bc13fe] border-[#bc13fe]/30' : 'bg-white/5 text-white border-white/10 hover:bg-white hover:text-black'}`}
+                                    >
+                                        {isSpeaking ? <><AudioWaveform /> Stop Analysis</> : <><FaVolumeUp /> Voice Briefing</>}
+                                    </button>
+                                    <button onClick={() => { setExpandedCard(null); setIsFullReportOpen(false); window.speechSynthesis.cancel(); setIsSpeaking(false); }} className="p-5 bg-white/5 rounded-full text-white border border-white/10 hover:bg-red-500/20 transition-all"><FiX size={26} /></button>
+                                </div>
                             </div>
-                            <p className="text-[9px] text-white/20 uppercase tracking-widest mt-4 font-bold text-center">Encrypted Neural Uplink Active</p>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* FULL REPORT MODAL */}
-            <AnimatePresence>
-                {isFullReportOpen && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[10001] bg-[#0b0b11]/95 backdrop-blur-2xl p-6 md:p-10 md:pl-[320px] flex flex-col overflow-y-auto">
-                        <div className="max-w-6xl mx-auto w-full">
-                            <div className="flex justify-between items-center mb-12">
-                                <h2 className="text-white text-2xl md:text-4xl font-black uppercase tracking-tight">Full Intelligence Briefing</h2>
-                                <button onClick={() => setIsFullReportOpen(false)} className="text-white/60 hover:text-white"><FiX size={34} /></button>
+                            <div className="flex-1 overflow-y-auto p-10 md:p-20 bg-[#050505]/80">
+                                {isFullReportOpen ? (
+                                    <div className="space-y-16 max-w-4xl mx-auto">
+                                        <div className="space-y-4">
+                                            <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">01 Executive Summary</span>
+                                            <p className="text-white text-3xl font-light leading-relaxed">{aiInsights.summary}</p>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                            <div className="space-y-4">
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Primary Discovery</span>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.root_cause}</p>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Risk Matrix</span>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.risk}</p>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Growth Opportunity</span>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.opportunity}</p>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Tactical Priority</span>
+                                                <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights.action}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    expandedCard && <p className="text-white/95 text-3xl md:text-5xl leading-[1.45] font-light tracking-tight">{expandedCard.content}</p>
+                                )}
                             </div>
-                            <div className="space-y-12">
-                                <Section label="Executive Summary" text={aiInsights.summary} />
-                                <Section label="Primary Root Cause" text={aiInsights.root_cause} />
-                                <Section label="Risk Exposure" text={aiInsights.risk} />
-                                <Section label="Opportunity" text={aiInsights.opportunity} />
-                                <Section label="Recommended Action" text={aiInsights.action} />
-                            </div>
-                            
-                            {/* ACTION FOOTER */}
-                            <div className="flex flex-wrap justify-end mt-12 gap-4 pb-20">
-                                <button 
-                                    onClick={handleDownloadPDF} 
-                                    disabled={isDownloading}
-                                    className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[13px] font-black uppercase tracking-widest transition-all hover:bg-white/10 disabled:opacity-50"
-                                >
-                                    <FiDownload className={isDownloading ? "animate-bounce" : ""} /> 
-                                    {isDownloading ? "Generating PDF..." : "Download Full Report (PDF)"}
-                                </button>
-                                <button onClick={() => toggleSpeech()} className="flex items-center gap-3 px-10 py-4 bg-indigo-500 text-white rounded-xl text-[13px] font-black uppercase tracking-widest transition-all hover:bg-indigo-400">
-                                    <FaVolumeUp /> {isSpeaking ? "Stop" : "Read Briefing"}
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>
     );
 };
-
-const Section = ({ label, text }) => (
-    <div className="border-l-2 border-indigo-500/20 pl-8">
-        <h3 className="text-indigo-400 text-[12px] uppercase tracking-[0.5em] font-black mb-3">{label}</h3>
-        <p className="text-white text-xl leading-relaxed font-light">{text}</p>
-    </div>
-);
 
 export default AIAnalysisPanel;
