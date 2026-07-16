@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../ai-data-analyst-backend"
+		},
+		{
+			"name": "AI-Data-Analyst",
+			"path": "../.."
+		}
+	],
+	"settings": {}
+}
