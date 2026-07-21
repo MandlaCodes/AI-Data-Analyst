@@ -1,6 +1,5 @@
 /**
- * components/AIAnalysisPanel.js - AGENCY INTELLIGENCE ENGINE
- * Updated: 2026 - Marketing & Sales Consultant Edition
+ * components/AIAnalysisPanel.js - NEURAL INTELLIGENCE ENGINE
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
@@ -43,17 +42,17 @@ const InsightCard = ({ title, content, icon: Icon, isPurple, onClick }) => (
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
                     <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isPurple ? 'bg-[#bc13fe]' : 'bg-indigo-400'}`} />
-                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Live Campaign Stream</span>
+                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Live Stream</span>
                 </div>
             </div>
             <h4 className="text-white font-bold text-lg mb-3 tracking-tight group-hover:text-indigo-300 transition-colors">{title}</h4>
-            <p className="text-white text-sm leading-relaxed mb-8 line-clamp-4 font-medium">{content || "Analyzing campaign metrics..."}</p>
+            <p className="text-white text-sm leading-relaxed mb-8 line-clamp-4 font-medium">{content || "Analyzing dataset metrics..."}</p>
             <div className="space-y-3 mb-8 flex-1">
                 <div className="flex items-center gap-3 text-[10px] text-white uppercase tracking-[0.2em] font-bold">
-                    <FiCheckCircle className={isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'} /> Client-Ready Data
+                    <FiCheckCircle className={isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'} /> Verified Metrics
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-white uppercase tracking-[0.2em] font-bold">
-                    <FiCheckCircle className={isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'} /> ROAS Maximized
+                    <FiCheckCircle className={isPurple ? 'text-[#bc13fe]' : 'text-indigo-400'} /> High Confidence
                 </div>
             </div>
             <button className={`w-full py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all ${isPurple ? 'bg-[#bc13fe]/10 text-[#bc13fe] border border-[#bc13fe]/20' : 'bg-white/5 text-white/40 border border-white/10'}`}>
@@ -100,14 +99,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     const aiInsights = datasets[0]?.aiStorage;
 
-    // Marketing/Sales Agency specific loading phases
+    // Domain-agnostic dataset analysis loading phases
     const phases = useMemo(() => [
-        "Initializing Funnel Intelligence...",
-        "Evaluating customer acquisition parameters (CPA & CPL)...",
-        "Analyzing ad network spend efficiency...",
-        "Identifying conversion rate bottlenecks...",
-        "Simulating budget re-allocations and ROI impact...",
-        "Assembling client-ready executive brief..."
+        "Initializing Data Engine...",
+        "Evaluating core dataset metrics and parameters...",
+        "Analyzing statistical variance and performance...",
+        "Identifying primary bottlenecks and anomalies...",
+        "Simulating strategic scenarios and financial impact...",
+        "Assembling executive synthesis report..."
     ], []);
 
     useEffect(() => {
@@ -143,7 +142,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
         let contentToRead = textOverride;
         if (isFullReportOpen && aiInsights) {
-            contentToRead = `Campaign strategy update. Summary: ${aiInsights.summary}. Primary funnel bottleneck: ${aiInsights.root_cause}. Identified risks: ${aiInsights.risk}. Opportunity: ${aiInsights.opportunity}. Action items: ${aiInsights.action}.`;
+            contentToRead = `Executive strategy update. Summary: ${aiInsights.summary}. Primary bottleneck: ${aiInsights.root_cause}. Identified risks: ${aiInsights.risk}. Opportunity: ${aiInsights.opportunity}. Action items: ${aiInsights.action}.`;
         }
 
         const utterance = new SpeechSynthesisUtterance(contentToRead);
@@ -207,18 +206,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </div>
                     <div>
                         <h2 className="text-[13px] font-black uppercase tracking-[0.6em] text-white">
-                            {userProfile?.organization || "AGENCY"} <span className="text-indigo-400">INTELLIGENCE</span>
+                            {userProfile?.organization || "ORGANIZATION"} <span className="text-indigo-400">INTELLIGENCE</span>
                         </h2>
                         <div className="flex items-center gap-3 mt-2">
                             <div className={`w-2 h-2 rounded-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'}`} />
-                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">{loading ? "Diagnosing Pipeline" : "Marketing Decision Engine Active"}</span>
+                            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest">{loading ? "Synthesizing Data" : "Neural Decision Engine Active"}</span>
                         </div>
                     </div>
                 </div>
                 {aiInsights && !loading && (
                     <div className="flex items-center gap-4">
                         <button onClick={() => setIsFullReportOpen(true)} className="flex items-center gap-3 px-8 py-4 bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-lg shadow-indigo-500/20">
-                           <FiFileText /> View Client Brief
+                           <FiFileText /> View Full Brief
                         </button>
                         <button onClick={runAnalysis} className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
                             <FaRedo className="text-[9px]" /> Sync Live Feed
@@ -238,19 +237,19 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
                         
-                        {/* Executive Summary Card with Client Copy-Paste Feature */}
+                        {/* Executive Summary Card with Copy-Paste Feature */}
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
                             <div className="flex justify-between items-start mb-10">
                                 <div className="flex items-center gap-3">
                                     <div className="h-1 w-12 bg-indigo-400 rounded-full" />
-                                    <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">CLIENT PERFORMANCE BRIEF</span>
+                                    <span className="text-indigo-400 text-[12px] font-black uppercase tracking-[0.6em]">EXECUTIVE SUMMARY BRIEF</span>
                                 </div>
                                 <button 
                                     onClick={() => handleCopy(aiInsights.summary)}
                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:bg-white/10 transition-all font-bold uppercase tracking-wider"
-                                    title="Copy client message"
+                                    title="Copy executive message"
                                 >
-                                    <FaCopy size={12} /> {copied ? "Copied!" : "Copy for Email/Slack"}
+                                    <FaCopy size={12} /> {copied ? "Copied!" : "Copy Brief"}
                                 </button>
                             </div>
                             <div className="text-2xl md:text-3xl text-white font-medium leading-[1.5] tracking-tight max-w-5xl">
@@ -258,36 +257,36 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                             </div>
                         </div>
 
-                        {/* Middle Stat Panels (Funnel Specific) */}
+                        {/* Middle Stat Panels */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
                                 <div className="p-4 w-fit bg-indigo-500/10 rounded-2xl text-indigo-400 mb-8 border border-indigo-500/20"><FaSearch size={20} /></div>
-                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">FUNNEL BOTTLENECK & DISCOVERY</h4>
+                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">PRIMARY BOTTLENECK & DISCOVERY</h4>
                                 <div className="text-white text-2xl leading-[1.6] font-semibold">{aiInsights.root_cause}</div>
                             </div>
                             <div className="p-10 md:p-12 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-xl relative overflow-hidden">
                                 <div className="p-4 w-fit bg-emerald-500/10 rounded-2xl text-emerald-400 mb-8 border border-emerald-500/20"><FaCreditCard size={20} /></div>
-                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">PROJECTED ROAS & IMPACT</h4>
-                                <div className="text-white text-2xl leading-[1.6] font-semibold">Value Delta: <span className="text-emerald-400">{aiInsights.roi_impact || "Recalculating conversion yield..."}</span></div>
+                                <h4 className="text-[13px] font-black text-white uppercase tracking-[0.4em] mb-4">PROJECTED FINANCIAL & ROI IMPACT</h4>
+                                <div className="text-white text-2xl leading-[1.6] font-semibold">Value Delta: <span className="text-emerald-400">{aiInsights.roi_impact || "Recalculating yield..."}</span></div>
                             </div>
                         </div>
 
-                        {/* Bottom Action / Risk Matrix (Niche Aligned) */}
+                        {/* Bottom Action / Risk Matrix */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <InsightCard title="CPA & Spend Risks" content={aiInsights?.risk} icon={FiShield} isPurple onClick={() => setExpandedCard({ title: "CPA & Spend Risks", content: aiInsights?.risk, icon: FiShield, color: "text-[#bc13fe]" })} />
-                            <InsightCard title="Pipeline Opportunities" content={aiInsights?.opportunity} icon={FiZap} onClick={() => setExpandedCard({ title: "Pipeline Opportunities", content: aiInsights?.opportunity, icon: FiZap, color: "text-indigo-400" })} />
-                            <InsightCard title="Immediate Campaign Priority" content={aiInsights?.action} icon={FiTarget} isPurple onClick={() => setExpandedCard({ title: "Immediate Campaign Priority", content: aiInsights?.action, icon: FiTarget, color: "text-[#bc13fe]" })} />
+                            <InsightCard title="Identified Risks" content={aiInsights?.risk} icon={FiShield} isPurple onClick={() => setExpandedCard({ title: "Identified Risks", content: aiInsights?.risk, icon: FiShield, color: "text-[#bc13fe]" })} />
+                            <InsightCard title="Strategic Opportunities" content={aiInsights?.opportunity} icon={FiZap} onClick={() => setExpandedCard({ title: "Strategic Opportunities", content: aiInsights?.opportunity, icon: FiZap, color: "text-indigo-400" })} />
+                            <InsightCard title="Immediate Priority Action" content={aiInsights?.action} icon={FiTarget} isPurple onClick={() => setExpandedCard({ title: "Immediate Priority Action", content: aiInsights?.action, icon: FiTarget, color: "text-[#bc13fe]" })} />
                         </div>
                     </motion.div>
                 ) : (
                     <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
                         <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
-                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Campaign Strategic Brief</button>
+                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Strategic Brief</button>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* Client Presentation Modal */}
+            {/* Presentation Modal */}
             <AnimatePresence>
                 {(expandedCard || isFullReportOpen) && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
@@ -301,7 +300,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                     <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-indigo-400' : (expandedCard ? expandedCard.color : '')}`}>
                                         {isFullReportOpen ? <FiFileText size={30} /> : (expandedCard && <expandedCard.icon size={30} />)}
                                     </div>
-                                    <h3 className="text-white text-3xl font-bold uppercase tracking-tight">{isFullReportOpen ? "Full Client Strategic Brief" : (expandedCard && expandedCard.title)}</h3>
+                                    <h3 className="text-white text-3xl font-bold uppercase tracking-tight">{isFullReportOpen ? "Full Strategic Brief" : (expandedCard && expandedCard.title)}</h3>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <button 
@@ -318,7 +317,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                     <div className="space-y-16 max-w-4xl mx-auto font-sans">
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">01 Campaign Executive Summary</span>
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">01 Executive Summary</span>
                                                 <button 
                                                     onClick={() => handleCopy(aiInsights?.summary)}
                                                     className="flex items-center gap-2 text-xs text-purple-400 hover:text-purple-300"
@@ -330,19 +329,19 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                             <div className="space-y-4">
-                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Marketing Bottlenecks</span>
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">02 Primary Bottlenecks</span>
                                                 <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.root_cause}</p>
                                             </div>
                                             <div className="space-y-4">
-                                                <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Funnel Risks</span>
+                                                <span className="text-purple-400 text-[10px] font-black uppercase tracking-[0.4em]">03 Operational & Data Risks</span>
                                                 <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.risk}</p>
                                             </div>
                                             <div className="space-y-4">
-                                                <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Scale Opportunities</span>
+                                                <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em]">04 Growth Opportunities</span>
                                                 <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.opportunity}</p>
                                             </div>
                                             <div className="space-y-4">
-                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Strategy Action Items</span>
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">05 Strategic Action Items</span>
                                                 <p className="text-white/80 text-xl leading-relaxed font-medium">{aiInsights?.action}</p>
                                             </div>
                                         </div>
