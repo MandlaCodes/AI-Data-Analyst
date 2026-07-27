@@ -167,15 +167,16 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         }
         setLoading(true);
         try {
-            const contextBundle = datasets.map(ds => ({ 
-                id: ds.id, 
-                name: ds.name, 
-                metrics: ds.metrics || {} 
-            }));
+            // ✅ FIX: Extract raw dataset rows array so GPT-4o sees individual reps & deal names
+            const activeDataset = datasets[0];
+            const rawRows = activeDataset.rows || activeDataset.data || activeDataset.raw || activeDataset.records || [];
+
+            // If raw rows exist, send them directly. Otherwise fallback to the dataset object.
+            const payloadContext = rawRows.length > 0 ? rawRows : activeDataset;
 
             const response = await axios.post(
                 `${API_BASE_URL}/ai/analyze`, 
-                { context: contextBundle }, 
+                { context: payloadContext }, 
                 { 
                     headers: { 
                         'Authorization': `Bearer ${userToken}`,
@@ -185,7 +186,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             );
 
             if (response.data) {
-                onUpdateAI(datasets[0].id, response.data);
+                onUpdateAI(activeDataset.id, response.data);
             }
         } catch (error) { 
             console.error("AI Analysis failed:", error.response?.data || error.message); 
