@@ -128,10 +128,11 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
         ? ds.data.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
         : ds.data || [];
         
-      // Smart Label Selection: Prefer specific item names/products/IDs over repeating dates
+      // Smart Label Selection: Exclude numeric monetary columns from being chosen as labels
       const labelCol = columns.find(col => {
           const cLower = col.toLowerCase();
-          return cLower.includes('product') || cLower.includes('item') || cLower.includes('name') || cLower.includes('id') || cLower.includes('title') || cLower.includes('deal');
+          if (cLower.includes('value') || cLower.includes('amount') || cLower.includes('price') || cLower.includes('cost') || cLower.includes('total') || cLower.includes('revenue')) return false;
+          return cLower.includes('name') || cLower.includes('product') || cLower.includes('item') || cLower.includes('deal') || cLower.includes('client') || cLower.includes('company') || cLower.includes('rep') || cLower.includes('title') || cLower.includes('id');
       }) || columns.find(col => {
           const cLower = col.toLowerCase();
           return cLower.includes('date') || cLower.includes('time');
@@ -229,26 +230,26 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
                 </div>
             </div>
 
-            {/* 3. LIVE TABLE PREVIEW (IMMEDIATELY BELOW HEADER) */}
+            {/* 3. LIVE TABLE (FULL VIEW - SCROLLABLE) */}
             <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
                 <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                     <div className="flex items-center gap-3">
                         <FiTable className="text-zinc-500 w-4 h-4" />
-                        <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">Database_Raw_Preview</span>
+                        <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">Full_Dataset_Records</span>
                     </div>
                     <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{ds.rows.length} Total Records Found</span>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                     <table className="w-full text-left border-collapse min-w-[800px]">
-                        <thead>
-                            <tr className="bg-black/40">
+                        <thead className="sticky top-0 bg-[#0a0a0f] z-10">
+                            <tr className="bg-black/60 backdrop-blur-md">
                                 {ds.columns.map(col => (
                                     <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.03]">
-                            {ds.rows.slice(0, 5).map((row, i) => (
+                            {ds.rows.map((row, i) => (
                                 <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
                                     {ds.columns.map(col => (
                                         <td key={col} className="px-8 py-4 text-[11px] font-medium text-zinc-400 font-mono truncate max-w-[200px] group-hover:text-white transition-colors">
@@ -261,7 +262,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
                     </table>
                 </div>
                 <div className="px-8 py-4 bg-black/40 border-t border-white/5">
-                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center italic">End of Preview Tier</p>
+                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center italic">End of Dataset Records</p>
                 </div>
             </div>
             
@@ -297,7 +298,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
               {/* GRAPHS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
                 {numericCols.map((col, idx) => {
-                  // Default discrete categories to 'bar' and temporal dates to 'line'
                   const defaultChartType = ds.isDateLabel ? "line" : "bar";
                   const currentChartType = localChartTypes[`${ds.id}-${col.col}`] || defaultChartType;
                   const activeColor = COLORS[idx % COLORS.length];
@@ -309,7 +309,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
                       borderColor: activeColor, 
                       backgroundColor: currentChartType === 'bar' ? `${activeColor}CC` : `${activeColor}15`,
                       borderWidth: currentChartType === 'bar' ? 1 : 3, 
-                      borderRadius: currentChartType === 'bar' ? 8 : 0,
+                      borderRadius: currentChartType === 'bar' ? 6 : 0,
+                      minBarLength: 4, // Renders 0 values cleanly without empty gaps
                       tension: 0.3, 
                       fill: currentChartType === 'line', 
                       pointRadius: ds.isDateLabel ? 3 : 0
