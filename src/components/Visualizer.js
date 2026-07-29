@@ -46,20 +46,37 @@ const chartOptions = {
     plugins: { 
         legend: { display: false }, 
         tooltip: { 
-            backgroundColor: '#000', padding: 12, cornerRadius: 12,
-            borderColor: '#333', borderWidth: 1,
-            titleFont: { size: 10, weight: 'bold' },
-            bodyFont: { size: 9, family: 'monospace' },
-            displayColors: true, boxPadding: 6
+            backgroundColor: '#09090b', 
+            padding: 12, 
+            cornerRadius: 12,
+            borderColor: '#27272a', 
+            borderWidth: 1,
+            titleFont: { size: 11, weight: 'bold' },
+            bodyFont: { size: 10, family: 'monospace' },
+            displayColors: true, 
+            boxPadding: 6
         } 
     },
     scales: {
-      y: { grid: { color: 'rgba(255,255,255,0.02)', drawBorder: false }, ticks: { color: '#444', font: { size: 8, weight: 'bold', family: 'monospace' }, padding: 8 } },
-      x: { grid: { display: false }, ticks: { color: '#444', font: { size: 8, weight: 'bold', family: 'monospace' }, autoSkip: true, maxTicksLimit: 6, padding: 10 } }
+      y: { 
+        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, 
+        ticks: { color: '#71717a', font: { size: 9, weight: 'bold', family: 'monospace' }, padding: 8 } 
+      },
+      x: { 
+        grid: { display: false }, 
+        ticks: { 
+          color: '#a1a1aa', 
+          font: { size: 9, weight: '600', family: 'sans-serif' }, 
+          autoSkip: false,       // Ensures discrete items like products or deal names aren't dropped
+          maxRotation: 45,       // Angled labels for crisp legibility
+          minRotation: 25,
+          padding: 8
+        } 
+      }
     }
 };
 
-export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken, onAIUpdate }) => {
+export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, onAIUpdate }) => {
   const [readyStates, setReadyStates] = useState({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -111,12 +128,16 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
         ? ds.data.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
         : ds.data || [];
         
+      // Smart Label Selection: Prefer specific item names/products/IDs over repeating dates
       const labelCol = columns.find(col => {
           const cLower = col.toLowerCase();
-          if (cLower.includes('date') || cLower.includes('time') || cLower.includes('name') || cLower.includes('label')) return true;
-          const sample = rows.slice(0, 10).map(r => toNumber(r[col]));
-          return sample.filter(v => v !== null).length < sample.length / 2;
+          return cLower.includes('product') || cLower.includes('item') || cLower.includes('name') || cLower.includes('id') || cLower.includes('title') || cLower.includes('deal');
+      }) || columns.find(col => {
+          const cLower = col.toLowerCase();
+          return cLower.includes('date') || cLower.includes('time');
       }) || columns[0];
+
+      const isDateLabel = labelCol.toLowerCase().includes('date') || labelCol.toLowerCase().includes('time');
 
       const analysis = columns.map(col => {
         const numeric = rows.map(r => toNumber(r[col])).filter(v => v !== null);
@@ -142,7 +163,16 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
         }
         return { col, isNumeric, numeric, stats, freq };
       });
-      return { ...ds, rows, columns, analysis, labels: rows.map(r => r[labelCol]) };
+
+      return { 
+        ...ds, 
+        rows, 
+        columns, 
+        analysis, 
+        labelCol,
+        isDateLabel,
+        labels: rows.map(r => r[labelCol] || "N/A") 
+      };
     });
   }, [activeDatasets, refreshKey]);
 
@@ -267,16 +297,25 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
               {/* GRAPHS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
                 {numericCols.map((col, idx) => {
-                  const currentChartType = localChartTypes[`${ds.id}-${col.col}`] || chartType;
+                  // Default discrete categories to 'bar' and temporal dates to 'line'
+                  const defaultChartType = ds.isDateLabel ? "line" : "bar";
+                  const currentChartType = localChartTypes[`${ds.id}-${col.col}`] || defaultChartType;
                   const activeColor = COLORS[idx % COLORS.length];
+
                   const chartData = {
                     labels: ds.labels, 
                     datasets: [{
                       label: col.col, data: col.numeric, 
-                      borderColor: activeColor, backgroundColor: currentChartType === 'bar' ? activeColor : `${activeColor}10`,
-                      borderWidth: 3, tension: 0.4, fill: true, pointRadius: 0
+                      borderColor: activeColor, 
+                      backgroundColor: currentChartType === 'bar' ? `${activeColor}CC` : `${activeColor}15`,
+                      borderWidth: currentChartType === 'bar' ? 1 : 3, 
+                      borderRadius: currentChartType === 'bar' ? 8 : 0,
+                      tension: 0.3, 
+                      fill: currentChartType === 'line', 
+                      pointRadius: ds.isDateLabel ? 3 : 0
                     }]
                   };
+
                   return (
                     <div key={`${col.col}-${refreshKey}`} className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20">
                       <div className="flex justify-between items-start mb-10">
@@ -285,7 +324,9 @@ export const Visualizer = ({ activeDatasets = [], chartType = "line", authToken,
                              <div className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]" style={{ backgroundColor: activeColor }} />
                              <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">{col.col}</h4>
                           </div>
-                          <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">Node_Stream_{idx}</p>
+                          <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
+                            Mapped_By_{ds.labelCol}
+                          </p>
                         </div>
                         <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
                           <button onClick={() => setExpandedChart({ title: col.col, data: chartData, type: currentChartType })} className="p-2 text-zinc-500 hover:text-white transition-colors"><FiMaximize2 className="w-5 h-5" /></button>
