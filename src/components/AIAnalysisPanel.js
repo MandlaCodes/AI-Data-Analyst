@@ -12,6 +12,8 @@ import {
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+// Replace with your actual Paddle Price ID from your Paddle Dashboard (e.g. "pri_01h...")
+const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y"; 
 
 // Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
@@ -160,18 +162,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    const runAnalysis = async () => {
-        if (datasets.length === 0 || !userToken) {
-            console.warn("Analysis aborted: No datasets or missing token.");
-            return;
-        }
+    // Core execution function
+    const executeAnalysisCall = async () => {
         setLoading(true);
         try {
-            // ✅ FIX: Extract raw dataset rows array so GPT-4o sees individual reps & deal names
             const activeDataset = datasets[0];
             const rawRows = activeDataset.rows || activeDataset.data || activeDataset.raw || activeDataset.records || [];
-
-            // If raw rows exist, send them directly. Otherwise fallback to the dataset object.
             const payloadContext = rawRows.length > 0 ? rawRows : activeDataset;
 
             const response = await axios.post(
@@ -194,6 +190,51 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             setLoading(false); 
         }
     };
+
+    // Main entry point for the button click
+    const runAnalysis = async () => {
+        if (datasets.length === 0 || !userToken) {
+            console.warn("Analysis aborted: No datasets or missing token.");
+            return;
+        }
+
+        // Check if user is subscribed in local profile
+        const isSubscribed = userProfile?.isPro || userProfile?.isSubscribed;
+
+        if (!isSubscribed) {
+            // User is NOT subscribed -> Launch Paddle Overlay
+            if (window.Paddle) {
+                window.Paddle.Checkout.open({
+                    items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+                    customData: {
+                        user_id: userProfile?.id || userProfile?.userId
+                    }
+                });
+            } else {
+                alert("Payment gateway is initializing, please try again in a moment.");
+            }
+            return; // Stop execution until payment is complete
+        }
+
+        // IF SUBSCRIBED -> Run analysis immediately
+        await executeAnalysisCall();
+    };
+
+    // Auto-resume analysis when Paddle payment succeeds
+    useEffect(() => {
+        const handlePaymentSuccess = () => {
+            // Update local storage representation
+            const currentProfile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
+            currentProfile.isPro = true;
+            localStorage.setItem("adt_profile", JSON.stringify(currentProfile));
+
+            // Trigger the analysis execution automatically
+            executeAnalysisCall();
+        };
+
+        window.addEventListener("paddle_payment_success", handlePaymentSuccess);
+        return () => window.removeEventListener("paddle_payment_success", handlePaymentSuccess);
+    }, [datasets, userToken]);
 
     return (
         <div ref={panelRef} className="relative overflow-hidden p-8 md:p-16 transition-all duration-700 min-h-[600px]">

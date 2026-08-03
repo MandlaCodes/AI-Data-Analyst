@@ -1,17 +1,16 @@
 /**
  * App.js - Metria Neural Engine Core Routing
  */
-import React, { useEffect, useState } from "react"; // Added useState
+import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { FiCheckCircle } from "react-icons/fi"; // Added for the shield icon
-// 1. Import your new Context providers
+import { FiCheckCircle } from "react-icons/fi";
+// 1. Import your Context providers
 import { DataProvider, useData } from "./contexts/DataContext";
 
 // Page Components
 import Landing from "./pages/Landing";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard"; 
-import GoogleSheetsAnalysis from "./pages/GoogleSheetsAnalysis";
 import Blog from "./components/Blog"; 
 
 /**
@@ -24,9 +23,7 @@ const useScrollToTop = () => {
   }, [pathname]);
 };
 
-/**
- * Legal & Support Layout Wrapper
- */
+/* --- Legal & Support Layout Wrappers (Privacy, Terms, Contact unchanged) --- */
 const LegalLayout = ({ title, children }) => (
   <div className="flex-1 flex flex-col items-center py-20 px-6 text-white bg-[#02010a] min-h-screen">
     <div className="max-w-3xl w-full">
@@ -82,27 +79,47 @@ const Contact = () => (
 );
 
 /**
- * AppWrapper - Handles authenticated routing using DataContext
+ * AppWrapper - Handles authenticated routing and Paddle SDK initialization
  */
 function AppWrapper() {
   const navigate = useNavigate();
   const { profile, refreshAll, setProfile } = useData();
   
-  // FIX: Transition state to block the flicker
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Initialize scroll reset
   useScrollToTop();
 
+  // Initialize Paddle.js Globally
+  useEffect(() => {
+    if (window.Paddle) {
+      window.Paddle.Initialize({
+        token: "live_YOUR_PADDLE_CLIENT_TOKEN", // Replace with your token from Paddle Dev Tools
+        checkout: {
+          settings: {
+            theme: "dark", // Keeps Paddle aligned with your dark UI
+            displayMode: "overlay"
+          }
+        },
+        eventCallback: function(data) {
+          // Detect when checkout completes
+          if (data.name === "checkout.completed") {
+            // Dispatch a global event so the Analytics component knows to trigger analysis!
+            window.dispatchEvent(new CustomEvent("paddle_payment_success", { detail: data }));
+          }
+        }
+      });
+    }
+  }, []);
+
   const handleLoginSuccess = (userId, token) => { 
     localStorage.setItem("adt_token", token);
-    setIsTransitioning(true); // Start the shield
+    setIsTransitioning(true);
     refreshAll(); 
     
-    // Hold the shield until the animation in Login.jsx is done
     setTimeout(() => {
       navigate(`/dashboard/overview`);
-      setIsTransitioning(false); // Drop the shield
+      setIsTransitioning(false);
     }, 1500);
   };
 
@@ -115,7 +132,6 @@ function AppWrapper() {
 
   return (
     <>
-      {/* THE FIX: Transition Shield Overlay */}
       {isTransitioning && (
         <div className="fixed inset-0 z-[9999] bg-[#02010a] flex flex-col items-center justify-center">
           <div className="relative">
@@ -128,7 +144,6 @@ function AppWrapper() {
       )}
 
       <Routes>
-        {/* Landing Page */}
         <Route
           path="/"
           element={profile && !isTransitioning ? (
@@ -138,7 +153,6 @@ function AppWrapper() {
           )}
         />
 
-        {/* Auth */}
         <Route
           path="/login"
           element={profile && !isTransitioning ? (
@@ -148,7 +162,6 @@ function AppWrapper() {
           )}
         />
 
-        {/* Dashboard Sub-Routes */}
         <Route
           path="/dashboard/*"
           element={profile ? (
@@ -168,28 +181,17 @@ function AppWrapper() {
           <Route index element={<Navigate replace to="overview" />} />
         </Route>
 
-        {/* Specialized Tools */}
-        <Route
-          path="/google-sheets-analysis"
-          element={profile ? <GoogleSheetsAnalysis /> : <Navigate to="/" replace />}
-        />
-
-        {/* Static / Information Pages */}
         <Route path="/blog" element={<Blog />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/contact" element={<Contact />} />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 }
 
-/**
- * Main Entry Point - Wrapped in DataProvider
- */
 export default function App() {
   return (
     <div className="min-h-screen w-full bg-[#02010a] m-0 p-0 flex flex-col relative"> 

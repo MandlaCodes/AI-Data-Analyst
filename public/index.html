@@ -10,9 +10,7 @@
     <meta name="description" content="The autonomous AI data analyst." />
 
     <link rel="icon" href="https://metria.dev/metriafavi.png" sizes="any" />
-    
     <link rel="apple-touch-icon" href="https://metria.dev/updated-metria-logo.png" />
-    
     <link rel="manifest" href="/manifest.json" />
 
     <meta property="og:site_name" content="MetriaAI" />
@@ -28,6 +26,18 @@
     
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:image" content="https://metria.dev/updated-metria-logo.png" />
+
+    <!-- Paddle v2 JS SDK -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <script type="text/javascript">
+      // Set environment to sandbox for local development
+      Paddle.Environment.set('sandbox');
+
+      // Initialize with your client-side token
+      Paddle.Initialize({ 
+        token: 'test_1ce033ce8b1282e7bfa7bb3c37c'
+      });
+    </script>
 
     <script type="application/ld+json">
       {
@@ -55,7 +65,6 @@
             callback: () => console.log('Google Picker API: Ready'),
             onerror: (err) => console.error('Picker Load Failed:', err),
             timeout: 5000,
-            // FIX: Added required ontimeout to prevent "Script Error" crash
             ontimeout: () => console.error('Google Picker API: Load Timed Out')
           });
         }
