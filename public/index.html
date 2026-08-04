@@ -30,15 +30,21 @@
     <!-- Paddle v2 JS SDK -->
     <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
     <script type="text/javascript">
-      // Set environment to sandbox for local development
+      // Set environment to sandbox for development
       Paddle.Environment.set('sandbox');
 
-      // Initialize with your client-side token and explicit allowed origins
+      // Initialize Paddle SDK with explicit settings
       Paddle.Initialize({ 
         token: 'test_1ce033ce8b1282e7bfa7bb3c37c',
         checkout: {
           settings: {
-            allowedOrigins: ['https://metria.dev', 'http://localhost:5173', 'http://localhost:3000']
+            theme: 'dark',
+            displayMode: 'overlay',
+            allowedOrigins: [
+              'https://metria.dev',
+              'http://localhost:5173',
+              'http://localhost:3000'
+            ]
           }
         }
       });
