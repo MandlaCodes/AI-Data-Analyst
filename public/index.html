@@ -33,9 +33,14 @@
       // Set environment to sandbox for local development
       Paddle.Environment.set('sandbox');
 
-      // Initialize with your client-side token
+      // Initialize with your client-side token and explicit allowed origins
       Paddle.Initialize({ 
-        token: 'ttest_1ce033ce8b1282e7bfa7bb3c37c'
+        token: 'test_1ce033ce8b1282e7bfa7bb3c37c',
+        checkout: {
+          settings: {
+            allowedOrigins: ['https://metria.dev', 'http://localhost:5173', 'http://localhost:3000']
+          }
+        }
       });
     </script>
 
