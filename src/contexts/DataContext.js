@@ -27,8 +27,8 @@ export const DataProvider = ({ children }) => {
             setProfile(profileRes.data);
             localStorage.setItem("adt_profile", JSON.stringify(profileRes.data));
 
-            // 2. Sync Sessions (Example endpoint - adjust to your actual sessions route)
-            const sessionsRes = await axios.get(`${API_BASE_URL}/analysis/sessions`, {
+            // 2. Sync Sessions using the correct /analysis/trends endpoint
+            const sessionsRes = await axios.get(`${API_BASE_URL}/analysis/trends`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSavedSessions(sessionsRes.data);
@@ -36,7 +36,7 @@ export const DataProvider = ({ children }) => {
             console.log("Global Intel Sync Complete.");
         } catch (err) {
             console.error("Global sync failed:", err);
-            // If 401 Unauthorized, maybe trigger logout here
+            // If 401 Unauthorized, handle session cleanup if needed
         }
     }, []);
 
