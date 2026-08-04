@@ -383,7 +383,7 @@ export default function Landing({ onGetStarted }) {
                 </div>
               </div>
               <div className="space-y-4 md:space-y-5 mb-10 md:mb-12 text-left">
-                {["AI data analyst assistant","Multi Data Source ingestion", "Autonomous analysis", "Comparison Mode", "Executive Briefings", "Priority Neural Core"].map((f, j) => (
+                {["AI data analyst assistant","Multi Data Source ingestion", "Autonomous analysis", "Executive Briefings in seconds"].map((f, j) => (
                   <div key={j} className="flex items-center gap-4 text-gray-300">
                     <FaCheckCircle className="text-purple-500 shrink-0" /> 
                     <span className="text-sm font-medium">{f}</span>
@@ -391,7 +391,7 @@ export default function Landing({ onGetStarted }) {
                 ))}
               </div>
               <button onClick={onGetStarted} className="w-full py-5 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest hover:invert transition-all">
-                Start 7 day free trial
+               Get Metria today
               </button>
             </div>
           </div>
