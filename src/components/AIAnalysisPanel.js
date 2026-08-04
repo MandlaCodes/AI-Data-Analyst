@@ -13,7 +13,7 @@ import {
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 // Replace with your actual Paddle Price ID from your Paddle Dashboard
-const PADDLE_PRICE_ID = "pro_01kz4e8s8qg9kpjd0e01r347x3"; 
+const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y"; 
 
 // Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
@@ -192,44 +192,49 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     // Main entry point for the button click
-    const runAnalysis = async () => {
-        if (datasets.length === 0 || !userToken) {
-            console.warn("Analysis aborted: No datasets or missing token.");
+const runAnalysis = async () => {
+    if (datasets.length === 0 || !userToken) {
+        console.warn("Analysis aborted: No datasets or missing token.");
+        return;
+    }
+
+    // Check subscription status from user profile
+    const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
+
+    if (!isSubscribed) {
+        // Retrieve User ID cleanly
+        const userId = userProfile?.user_id || userProfile?.id || userProfile?.userId;
+
+        if (!userId) {
+            alert("User session missing ID. Please log in again.");
             return;
         }
 
-        // Check subscription status from user profile
-        const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
-
-        if (!isSubscribed) {
-            // Retrieve User ID cleanly
-            const userId = userProfile?.user_id || userProfile?.id || userProfile?.userId;
-
-            if (!userId) {
-                alert("User session missing ID. Please log in again.");
-                return;
+        // Launch Paddle Overlay with correct parameters
+        if (window.Paddle) {
+            // Force Sandbox environment mode
+            if (window.Paddle.Environment) {
+                window.Paddle.Environment.set("sandbox");
             }
 
-            // Launch Paddle Overlay with correct user_id in customData
-            if (window.Paddle) {
-                window.Paddle.Checkout.open({
-                    items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-                    customer: {
-                        email: userProfile?.email
-                    },
-                    customData: {
-                        user_id: String(userId)
-                    }
-                });
-            } else {
-                alert("Payment gateway is initializing, please try again in a moment.");
-            }
-            return; // Pause until payment succeeds
+            window.Paddle.Checkout.open({
+                items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+                customer: {
+                    email: userProfile?.email
+                },
+                customData: {
+                    user_id: String(userId)
+                }
+            });
+        } else {
+            alert("Payment gateway is initializing, please try again in a moment.");
         }
+        return; // Pause until payment succeeds
+    }
 
-        // IF SUBSCRIBED -> Execute analysis directly
-        await executeAnalysisCall();
-    };
+    // IF SUBSCRIBED -> Execute analysis directly
+    await executeAnalysisCall();
+};
 
     // Auto-resume analysis when Paddle payment succeeds
     useEffect(() => {
