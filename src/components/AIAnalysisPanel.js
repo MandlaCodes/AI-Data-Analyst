@@ -12,8 +12,8 @@ import {
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
-// Replace with your actual Paddle Price ID from your Paddle Dashboard (e.g. "pri_01h...")
-const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y"; 
+// Replace with your actual Paddle Price ID from your Paddle Dashboard
+const PADDLE_PRICE_ID = "pro_01kz4e8s8qg9kpjd0e01r347x3"; 
 
 // Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
@@ -101,7 +101,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     const aiInsights = datasets[0]?.aiStorage;
 
-    // Domain-agnostic dataset analysis loading phases
+    // Loading phase step descriptions
     const phases = useMemo(() => [
         "Initializing Data Engine...",
         "Evaluating core dataset metrics and parameters...",
@@ -198,42 +198,59 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             return;
         }
 
-        // Check if user is subscribed in local profile
-        const isSubscribed = userProfile?.isPro || userProfile?.isSubscribed;
+        // Check subscription status from user profile
+        const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
 
         if (!isSubscribed) {
-            // User is NOT subscribed -> Launch Paddle Overlay
+            // Retrieve User ID cleanly
+            const userId = userProfile?.user_id || userProfile?.id || userProfile?.userId;
+
+            if (!userId) {
+                alert("User session missing ID. Please log in again.");
+                return;
+            }
+
+            // Launch Paddle Overlay with correct user_id in customData
             if (window.Paddle) {
                 window.Paddle.Checkout.open({
                     items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+                    customer: {
+                        email: userProfile?.email
+                    },
                     customData: {
-                        user_id: userProfile?.id || userProfile?.userId
+                        user_id: String(userId)
                     }
                 });
             } else {
                 alert("Payment gateway is initializing, please try again in a moment.");
             }
-            return; // Stop execution until payment is complete
+            return; // Pause until payment succeeds
         }
 
-        // IF SUBSCRIBED -> Run analysis immediately
+        // IF SUBSCRIBED -> Execute analysis directly
         await executeAnalysisCall();
     };
 
     // Auto-resume analysis when Paddle payment succeeds
     useEffect(() => {
-        const handlePaymentSuccess = () => {
-            // Update local storage representation
-            const currentProfile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
-            currentProfile.isPro = true;
-            localStorage.setItem("adt_profile", JSON.stringify(currentProfile));
+        if (window.Paddle) {
+            window.Paddle.Update({
+                eventCallback: (event) => {
+                    if (event.name === "checkout.completed") {
+                        console.log("[Paddle] Payment completed successfully!");
 
-            // Trigger the analysis execution automatically
-            executeAnalysisCall();
-        };
+                        // Update local storage profile representation
+                        const currentProfile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
+                        currentProfile.isPro = true;
+                        currentProfile.is_pro = true;
+                        localStorage.setItem("adt_profile", JSON.stringify(currentProfile));
 
-        window.addEventListener("paddle_payment_success", handlePaymentSuccess);
-        return () => window.removeEventListener("paddle_payment_success", handlePaymentSuccess);
+                        // Trigger analysis automatically
+                        executeAnalysisCall();
+                    }
+                }
+            });
+        }
     }, [datasets, userToken]);
 
     return (
@@ -279,7 +296,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 ) : aiInsights ? (
                     <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 relative z-10">
                         
-                        {/* Executive Summary Card with Copy-Paste Feature */}
+                        {/* Executive Summary Card */}
                         <div className="p-12 md:p-16 rounded-[3rem] bg-[#111116] border border-white/5 shadow-2xl relative overflow-hidden">
                             <div className="flex justify-between items-start mb-10">
                                 <div className="flex items-center gap-3">
@@ -328,7 +345,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 )}
             </AnimatePresence>
 
-            {/* Presentation Modal */}
+            {/* Modal */}
             <AnimatePresence>
                 {(expandedCard || isFullReportOpen) && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
