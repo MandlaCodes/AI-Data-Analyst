@@ -90,21 +90,12 @@ function AppWrapper() {
   // Initialize scroll reset
   useScrollToTop();
 
-  // Initialize Paddle.js Globally
+  // Handle Paddle events globally without re-initializing Paddle with a live token
   useEffect(() => {
     if (window.Paddle) {
-      window.Paddle.Initialize({
-        token: "live_YOUR_PADDLE_CLIENT_TOKEN", // Replace with your token from Paddle Dev Tools
-        checkout: {
-          settings: {
-            theme: "dark", // Keeps Paddle aligned with your dark UI
-            displayMode: "overlay"
-          }
-        },
+      window.Paddle.Update({
         eventCallback: function(data) {
-          // Detect when checkout completes
           if (data.name === "checkout.completed") {
-            // Dispatch a global event so the Analytics component knows to trigger analysis!
             window.dispatchEvent(new CustomEvent("paddle_payment_success", { detail: data }));
           }
         }

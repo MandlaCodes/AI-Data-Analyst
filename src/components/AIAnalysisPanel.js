@@ -191,8 +191,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         }
     };
 
-    // Main entry point for the button click
-const runAnalysis = async () => {
+   const runAnalysis = async () => {
     if (datasets.length === 0 || !userToken) {
         console.warn("Analysis aborted: No datasets or missing token.");
         return;
@@ -202,7 +201,6 @@ const runAnalysis = async () => {
     const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
 
     if (!isSubscribed) {
-        // Retrieve User ID cleanly
         const userId = userProfile?.user_id || userProfile?.id || userProfile?.userId;
 
         if (!userId) {
@@ -210,22 +208,20 @@ const runAnalysis = async () => {
             return;
         }
 
-        // Launch Paddle Overlay with correct parameters
         if (window.Paddle) {
-            // Force Sandbox environment mode
-            if (window.Paddle.Environment) {
-                window.Paddle.Environment.set("sandbox");
-            }
-
-            window.Paddle.Checkout.open({
+            const checkoutOptions = {
                 items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-                customer: {
-                    email: userProfile?.email
-                },
                 customData: {
                     user_id: String(userId)
                 }
-            });
+            };
+
+            // Only attach customer object if email exists
+            if (userProfile?.email) {
+                checkoutOptions.customer = { email: userProfile.email };
+            }
+
+            window.Paddle.Checkout.open(checkoutOptions);
         } else {
             alert("Payment gateway is initializing, please try again in a moment.");
         }
