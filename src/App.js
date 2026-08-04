@@ -90,13 +90,21 @@ function AppWrapper() {
   // Initialize scroll reset
   useScrollToTop();
 
-  // Handle Paddle events globally without re-initializing Paddle with a live token
+  // Handle Paddle events globally and ensure modal closes smoothly
   useEffect(() => {
     if (window.Paddle) {
       window.Paddle.Update({
         eventCallback: function(data) {
           if (data.name === "checkout.completed") {
-            window.dispatchEvent(new CustomEvent("paddle_payment_success", { detail: data }));
+            // Close the checkout modal automatically upon completion
+            if (window.Paddle.Checkout) {
+              window.Paddle.Checkout.close();
+            }
+
+            // Dispatch global event after modal dismissal
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent("paddle_payment_success", { detail: data }));
+            }, 300);
           }
         }
       });

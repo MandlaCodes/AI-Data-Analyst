@@ -191,48 +191,48 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         }
     };
 
-   const runAnalysis = async () => {
-    if (datasets.length === 0 || !userToken) {
-        console.warn("Analysis aborted: No datasets or missing token.");
-        return;
-    }
-
-    // Check subscription status from user profile
-    const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
-
-    if (!isSubscribed) {
-        const userId = userProfile?.user_id || userProfile?.id || userProfile?.userId;
-
-        if (!userId) {
-            alert("User session missing ID. Please log in again.");
+    const runAnalysis = async () => {
+        if (datasets.length === 0 || !userToken) {
+            console.warn("Analysis aborted: No datasets or missing token.");
             return;
         }
 
-        if (window.Paddle) {
-            const checkoutOptions = {
-                items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-                customData: {
-                    user_id: String(userId)
-                }
-            };
+        // Check subscription status from user profile
+        const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
 
-            // Only attach customer object if email exists
-            if (userProfile?.email) {
-                checkoutOptions.customer = { email: userProfile.email };
+        if (!isSubscribed) {
+            const userId = userProfile?.user_id || userProfile?.id || userProfile?.userId;
+
+            if (!userId) {
+                alert("User session missing ID. Please log in again.");
+                return;
             }
 
-            window.Paddle.Checkout.open(checkoutOptions);
-        } else {
-            alert("Payment gateway is initializing, please try again in a moment.");
+            if (window.Paddle) {
+                const checkoutOptions = {
+                    items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+                    customData: {
+                        user_id: String(userId)
+                    }
+                };
+
+                // Only attach customer object if email exists
+                if (userProfile?.email) {
+                    checkoutOptions.customer = { email: userProfile.email };
+                }
+
+                window.Paddle.Checkout.open(checkoutOptions);
+            } else {
+                alert("Payment gateway is initializing, please try again in a moment.");
+            }
+            return; // Pause until payment succeeds
         }
-        return; // Pause until payment succeeds
-    }
 
-    // IF SUBSCRIBED -> Execute analysis directly
-    await executeAnalysisCall();
-};
+        // IF SUBSCRIBED -> Execute analysis directly
+        await executeAnalysisCall();
+    };
 
-    // Auto-resume analysis when Paddle payment succeeds
+    // Auto-close checkout overlay and resume analysis when Paddle payment succeeds
     useEffect(() => {
         if (window.Paddle) {
             window.Paddle.Update({
@@ -240,14 +240,21 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     if (event.name === "checkout.completed") {
                         console.log("[Paddle] Payment completed successfully!");
 
-                        // Update local storage profile representation
+                        // 1. Explicitly close the Paddle modal overlay
+                        if (window.Paddle.Checkout) {
+                            window.Paddle.Checkout.close();
+                        }
+
+                        // 2. Update local storage profile representation
                         const currentProfile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
                         currentProfile.isPro = true;
                         currentProfile.is_pro = true;
                         localStorage.setItem("adt_profile", JSON.stringify(currentProfile));
 
-                        // Trigger analysis automatically
-                        executeAnalysisCall();
+                        // 3. Wait 500ms for overlay closing animation before starting analysis
+                        setTimeout(() => {
+                            executeAnalysisCall();
+                        }, 500);
                     }
                 }
             });
@@ -357,7 +364,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         >
                             <div className="p-8 md:p-12 flex justify-between items-center border-b border-white/5 bg-[#111116]">
                                 <div className="flex items-center gap-6">
-                                    <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-indigo-400' : (expandedCard ? expandedCard.color : '')}`}>
+                                    <div className={`p-5 bg-white/5 rounded-2xl ${isFullReportOpen ? 'text-[#a5b4fc]' : (expandedCard ? expandedCard.color : '')}`}>
                                         {isFullReportOpen ? <FiFileText size={30} /> : (expandedCard && <expandedCard.icon size={30} />)}
                                     </div>
                                     <h3 className="text-white text-3xl font-bold uppercase tracking-tight">{isFullReportOpen ? "Full Strategic Brief" : (expandedCard && expandedCard.title)}</h3>
