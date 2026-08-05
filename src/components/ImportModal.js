@@ -129,6 +129,7 @@ export const ImportModal = ({
             setIsPickerLoading(false);
         }
     };
+
     const removeSheet = (index) => {
         const updatedNames = sheetNames.filter((_, i) => i !== index);
         const updatedIds = sheetIds.filter((_, i) => i !== index);
@@ -235,7 +236,7 @@ export const ImportModal = ({
                         </button>
                         
                         <button onClick={() => handleAppToggle("excel")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("excel") ? 'bg-blue-500/10 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
-                            {isPickerLoading ? <FiLoader className="animate-spin" size={32} /> : <SiMicrosoftexcel size={32} />}
+                            {isPickerLoading ? <FiLoader className="animate-spin" size={32} /> : <SiMicrosoftExcel size={32} />}
                             <span className="text-[9px] font-black uppercase tracking-wider">Microsoft Excel</span>
                         </button>
 
