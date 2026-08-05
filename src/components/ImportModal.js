@@ -4,7 +4,7 @@
  */
 import React, { useState, useRef } from "react";
 import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiPlus, FiTrash2, FiExternalLink } from "react-icons/fi";
-import { SiGooglesheets, SiMicrosoftExcel } from "react-icons/si";
+import { SiGooglesheets, SiMicrosoftexcel } from "react-icons/si";
 
 const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
 
@@ -112,8 +112,6 @@ export const ImportModal = ({
                 return;
             }
 
-            // For a seamless flow, you can map these or open a selection list. 
-            // Setting the first found or building a selector state:
             setSheetIds([files[0].id]);
             setSheetNames([files[0].name]);
             setSelectedSheet(files[0].name);
@@ -236,7 +234,7 @@ export const ImportModal = ({
                         </button>
                         
                         <button onClick={() => handleAppToggle("excel")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("excel") ? 'bg-blue-500/10 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
-                            {isPickerLoading ? <FiLoader className="animate-spin" size={32} /> : <SiMicrosoftExcel size={32} />}
+                            {isPickerLoading ? <FiLoader className="animate-spin" size={32} /> : <SiMicrosoftexcel size={32} />}
                             <span className="text-[9px] font-black uppercase tracking-wider">Microsoft Excel</span>
                         </button>
 
