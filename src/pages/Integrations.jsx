@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Database, CheckCircle, Plus, ArrowRight, Zap, RefreshCw, ExternalLink, XCircle, Shield, Layers, LayoutGrid } from 'lucide-react';
+import { Database, CheckCircle, Plus, ArrowRight, Zap, RefreshCw, ExternalLink, XCircle, Shield, Layers, LayoutGrid, FileSpreadsheet } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
 const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
@@ -26,6 +26,9 @@ const IntegrationsPage = () => {
                 if (data.google_sheets) {
                     connected.push({ id: 'google_sheets', lastSync: data.google_sheets_last_sync });
                 }
+                if (data.excel) {
+                    connected.push({ id: 'excel', lastSync: data.excel_last_sync });
+                }
                 setConnectedApps(connected);
             }
         } catch (e) { 
@@ -40,9 +43,11 @@ const IntegrationsPage = () => {
         
         const connected = searchParams.get('connected');
         const error = searchParams.get('error');
+        const app = searchParams.get('app'); // to differentiate between sheets or excel callbacks if needed
 
         if (connected === 'true') {
-            setStatusMessage({ text: 'Google Sheets connected successfully!', type: 'success' });
+            const appName = app === 'excel' ? 'Microsoft Excel' : 'Google Sheets';
+            setStatusMessage({ text: `${appName} connected successfully!`, type: 'success' });
             window.history.replaceState(null, '', window.location.pathname);
         } else if (connected === 'false' || error) {
             const msg = error === 'session_expired' ? 'Session expired. Please try again.' : 'Connection failed.';
@@ -58,7 +63,7 @@ const IntegrationsPage = () => {
             return;
         }
         setActionId(id);
-        const authUrl = `${API_BASE_URL}/auth/google_sheets?token=${token}&return_path=${encodeURIComponent(window.location.pathname)}`;
+        const authUrl = `${API_BASE_URL}/auth/${id}?token=${token}&return_path=${encodeURIComponent(window.location.pathname)}`;
         window.location.href = authUrl;
     };
 
@@ -66,7 +71,7 @@ const IntegrationsPage = () => {
         const token = localStorage.getItem(AUTH_TOKEN_KEY);
         setActionId(id);
         try {
-            const res = await fetch(`${API_BASE_URL}/disconnect/google_sheets`, {
+            const res = await fetch(`${API_BASE_URL}/disconnect/${id}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -128,7 +133,6 @@ const IntegrationsPage = () => {
                     
                     <div className="flex justify-between items-start mb-8">
                         <div className="p-4 md:p-5 bg-slate-900 border border-white/5 rounded-2xl md:rounded-3xl group-hover:scale-110 transition-transform">
-                            {/* FIXED SIZE HERE */}
                             <Database className="text-indigo-400" size={26} />
                         </div>
                         {connectedApps.some(a => a.id === 'google_sheets') && (
@@ -176,10 +180,62 @@ const IntegrationsPage = () => {
                     </div>
                 </div>
 
+                {/* Microsoft Excel Card */}
+                <div className="group relative overflow-hidden bg-[#0F172A] border border-white/10 rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 shadow-2xl transition-all hover:border-blue-500/30">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+                    
+                    <div className="flex justify-between items-start mb-8">
+                        <div className="p-4 md:p-5 bg-slate-900 border border-white/5 rounded-2xl md:rounded-3xl group-hover:scale-110 transition-transform">
+                            <FileSpreadsheet className="text-blue-400" size={26} />
+                        </div>
+                        {connectedApps.some(a => a.id === 'excel') && (
+                            <div className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-500/20 flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> Connected
+                            </div>
+                        )}
+                    </div>
+                    
+                    <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight mb-2">Microsoft Excel</h3>
+                    <p className="text-slate-500 text-xs md:text-sm font-medium leading-relaxed mb-8 md:mb-10">
+                        Import and query spreadsheets via Microsoft Graph API straight into your analysis pipeline.
+                    </p>
+                    
+                    <div className="mt-auto">
+                        {connectedApps.some(a => a.id === 'excel') ? (
+                            <button 
+                                onClick={() => handleDisconnect('excel')} 
+                                className="w-full flex items-center justify-center gap-2 py-4 bg-white/5 border border-white/10 text-white rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] hover:bg-red-500 hover:text-white hover:border-red-500 transition-all group/btn"
+                            >
+                                {actionId === 'excel' ? (
+                                    <RefreshCw className="animate-spin" size={14} />
+                                ) : (
+                                    <XCircle size={14} className="group-hover/btn:rotate-90 transition-transform" />
+                                )}
+                                {actionId === 'excel' ? 'Processing' : 'Terminate Stream'}
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => handleConnect('excel')} 
+                                className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all active:scale-95"
+                            >
+                                {actionId === 'excel' ? (
+                                    <RefreshCw className="animate-spin" size={14} />
+                                ) : (
+                                    <Zap size={14} />
+                                )}
+                                {actionId === 'excel' ? 'Authorizing' : 'Establish Connection'}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="absolute -bottom-12 -right-12 opacity-[0.02] text-white rotate-12 group-hover:rotate-0 transition-transform hidden sm:block">
+                        <FileSpreadsheet size={160} />
+                    </div>
+                </div>
+
                 {/* Placeholder Card */}
                 <div className="border border-white/5 border-dashed rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 flex flex-col items-center justify-center text-center opacity-40 hover:opacity-60 transition-opacity group min-h-[250px]">
                     <div className="p-5 bg-slate-900/50 rounded-2xl mb-4 grayscale group-hover:grayscale-0 transition-all">
-                        {/* FIXED SIZE HERE */}
                         <Shield className="text-slate-600 group-hover:text-purple-500" size={26} />
                     </div>
                     <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">More streams coming soon</p>
