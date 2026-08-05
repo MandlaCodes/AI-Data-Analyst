@@ -4,7 +4,7 @@
  */
 import React, { useState, useRef } from "react";
 import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiPlus, FiTrash2, FiExternalLink } from "react-icons/fi";
-import { SiGooglesheets, SiMicrosoftexcel } from "react-icons/si";
+import { SiGooglesheets, SiMicrosoftExcel } from "react-icons/si";
 
 const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
 
