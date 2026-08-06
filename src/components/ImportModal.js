@@ -1,7 +1,4 @@
-/**
- * components/ImportModal.js - VERSION: METRIA AI NEURAL SYNC (PRODUCTION)
- * UPDATED: Added Microsoft Excel Integration Option
- */
+
 import React, { useState, useRef } from "react";
 import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiPlus, FiTrash2, FiExternalLink } from "react-icons/fi";
 import { SiGooglesheets } from "react-icons/si";
@@ -81,31 +78,25 @@ export const ImportModal = ({
         }
     };
 
-    const handleExcelSelect = async () => {
+   const handleExcelSelect = async () => {
         setIsPickerLoading(true);
         setErrorMessage(null);
         const internalToken = localStorage.getItem("adt_token");
 
         try {
-            const tokenRes = await fetch(`${API_BASE_URL}/excel-token`, {
+            // Fetch files from your backend /excel/sheets endpoint
+            const filesRes = await fetch(`${API_BASE_URL}/excel/sheets`, {
                 headers: { 'Authorization': `Bearer ${internalToken}` }
             });
 
-            if (!tokenRes.ok) {
+            if (filesRes.status === 401) {
                 throw new Error("EXCEL_ACCESS_REQUIRED");
             }
-            
-            const { access_token } = await tokenRes.json();
-
-            // Fetch user's Excel files from OneDrive using Microsoft Graph
-            const filesRes = await fetch("https://graph.microsoft.com/v1.0/me/drive/root/search(q='.xlsx')?select=id,name", {
-                headers: { 'Authorization': `Bearer ${access_token}` }
-            });
 
             if (!filesRes.ok) throw new Error("Failed to fetch files from OneDrive.");
 
             const data = await filesRes.json();
-            const files = data.value || [];
+            const files = data.files || [];
 
             if (files.length === 0) {
                 setErrorMessage("No Excel files found in your OneDrive.");
@@ -113,6 +104,7 @@ export const ImportModal = ({
                 return;
             }
 
+            // Automatically select the first file or map them for selection
             setSheetIds([files[0].id]);
             setSheetNames([files[0].name]);
             setSelectedSheet(files[0].name);
@@ -128,7 +120,7 @@ export const ImportModal = ({
             setIsPickerLoading(false);
         }
     };
-
+    
     const removeSheet = (index) => {
         const updatedNames = sheetNames.filter((_, i) => i !== index);
         const updatedIds = sheetIds.filter((_, i) => i !== index);
