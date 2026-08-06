@@ -235,12 +235,11 @@ export default function Analytics() {
         }
     };
 
-    const importSelected = async (manualIds = [], manualNames = []) => {
+   const importSelected = async (manualIds = [], manualNames = []) => {
         setIsImporting(true);
         try {
             if (selectedApps.includes("google_sheets") && Array.isArray(manualIds)) {
                 const importPromises = manualIds.map(async (id, index) => {
-                    // Using direct axios call as SDK is removed
                     const res = await axios.get(`${API_BASE_URL}/google/sheets/${id}`, { 
                         headers: { Authorization: `Bearer ${userToken}` } 
                     });
@@ -272,6 +271,39 @@ export default function Analytics() {
                 setAllDatasets(prev => [...prev, ...newDatasets]);
                 setActiveDatasets(prev => [...prev, ...newDatasets]);
             } 
+            else if (selectedApps.includes("excel") && Array.isArray(manualIds)) {
+                const importPromises = manualIds.map(async (id, index) => {
+                    const res = await axios.get(`${API_BASE_URL}/excel/sheets/${id}`, { 
+                        headers: { Authorization: `Bearer ${userToken}` } 
+                    });
+                    
+                    if (res.data?.values) {
+                        const importedRows = res.data.values;
+                        const sourceName = manualNames[index] || "Excel Stream";
+                        const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
+                        const numeric = detectNumericColumns(cleaned);
+                        const category = detectCategoryColumn(cleaned, numeric);
+                        
+                        return {
+                            id: Date.now() + index,
+                            name: sourceName,
+                            color: datasetColors[(allDatasets.length + index) % datasetColors.length],
+                            rows: cleaned.length - 1,
+                            cols: cleaned[0]?.length || 0,
+                            data: cleaned,
+                            numericCols: numeric,
+                            metrics: computeMetrics(cleaned, numeric),
+                            categoryCol: category,
+                            aiStorage: null
+                        };
+                    }
+                    return null;
+                });
+    
+                const newDatasets = (await Promise.all(importPromises)).filter(ds => ds !== null);
+                setAllDatasets(prev => [...prev, ...newDatasets]);
+                setActiveDatasets(prev => [...prev, ...newDatasets]);
+            }
             else if (selectedApps.includes("other") && csvToImport) {
                 const sourceName = csvToImport.name.replace(/\.csv$/i,"");
                 const importedRows = await parseCSVFile(csvToImport);
@@ -308,27 +340,6 @@ export default function Analytics() {
             setSelectedSheet("");
         }
     };
-
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('session') === 'success') {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            
-            const refreshProfile = async () => {
-                try {
-                    const token = localStorage.getItem("adt_token");
-                    const res = await axios.get(`${API_BASE_URL}/auth/me`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    localStorage.setItem("adt_profile", JSON.stringify(res.data));
-                    window.location.reload(); 
-                } catch (err) {
-                    console.error("Failed to sync Polar status", err);
-                }
-            };
-            refreshProfile();
-        }
-    }, []);
 
     const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
     

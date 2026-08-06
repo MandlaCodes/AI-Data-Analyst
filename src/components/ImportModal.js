@@ -78,49 +78,48 @@ export const ImportModal = ({
         }
     };
 
-   const handleExcelSelect = async () => {
-        setIsPickerLoading(true);
-        setErrorMessage(null);
-        const internalToken = localStorage.getItem("adt_token");
+    const handleExcelSelect = async () => {
+            setIsPickerLoading(true);
+            setErrorMessage(null);
+            const internalToken = localStorage.getItem("adt_token");
 
-        try {
-            // Fetch files from your backend /excel/sheets endpoint
-            const filesRes = await fetch(`${API_BASE_URL}/excel/sheets`, {
-                headers: { 'Authorization': `Bearer ${internalToken}` }
-            });
+            try {
+                const filesRes = await fetch(`${API_BASE_URL}/excel/sheets`, {
+                    headers: { 'Authorization': `Bearer ${internalToken}` }
+                });
 
-            if (filesRes.status === 401) {
-                throw new Error("EXCEL_ACCESS_REQUIRED");
-            }
+                if (filesRes.status === 401) {
+                    throw new Error("EXCEL_ACCESS_REQUIRED");
+                }
 
-            if (!filesRes.ok) throw new Error("Failed to fetch files from OneDrive.");
+                if (!filesRes.ok) throw new Error("Failed to fetch files from OneDrive.");
 
-            const data = await filesRes.json();
-            const files = data.files || [];
+                const data = await filesRes.json();
+                const files = data.files || [];
 
-            if (files.length === 0) {
-                setErrorMessage("No Excel files found in your OneDrive.");
+                if (files.length === 0) {
+                    setErrorMessage("No Excel files found in your OneDrive.");
+                    setIsPickerLoading(false);
+                    return;
+                }
+
+                // Populate sheet selection state so you can see them or pick them
+                setSheetIds(files.map(f => f.id));
+                setSheetNames(files.map(f => f.name));
+                setSelectedSheet(files.map(f => f.name).join(", "));
+                setSelectedApps(["excel"]);
                 setIsPickerLoading(false);
-                return;
-            }
 
-            // Automatically select the first file or map them for selection
-            setSheetIds([files[0].id]);
-            setSheetNames([files[0].name]);
-            setSelectedSheet(files[0].name);
-            setSelectedApps(["excel"]);
-            setIsPickerLoading(false);
-
-        } catch (err) {
-            if (err.message === "EXCEL_ACCESS_REQUIRED") {
-                setErrorMessage("Microsoft Account Not Linked");
-            } else {
-                setErrorMessage(err.message || "Failed to sync with Microsoft OneDrive.");
+            } catch (err) {
+                if (err.message === "EXCEL_ACCESS_REQUIRED") {
+                    setErrorMessage("Microsoft Account Not Linked");
+                } else {
+                    setErrorMessage(err.message || "Failed to sync with Microsoft OneDrive.");
+                }
+                setIsPickerLoading(false);
             }
-            setIsPickerLoading(false);
-        }
-    };
-    
+        };
+
     const removeSheet = (index) => {
         const updatedNames = sheetNames.filter((_, i) => i !== index);
         const updatedIds = sheetIds.filter((_, i) => i !== index);
