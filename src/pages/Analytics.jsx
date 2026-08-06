@@ -64,6 +64,63 @@ export default function Analytics() {
 
     const datasetColors = ["#bc13fe", "#22C55E", "#F97316", "#EAB308"];
     const isFirstMount = useRef(true);
+    const handleLiveSync = async () => {
+        if (!userToken || activeDatasets.length === 0) return;
+        
+        try {
+            const updatedDatasets = await Promise.all(
+                activeDatasets.map(async (ds) => {
+                    // Only poll/refresh connected cloud streams (Excel or Google Sheets)
+                    if (ds.id && typeof ds.id === 'string' || ds.id > 1000) { 
+                        const endpoint = ds.name.includes("Excel") || ds.id.toString().length > 10
+                            ? `${API_BASE_URL}/excel/sheets/${ds.id}`
+                            : `${API_BASE_URL}/google/sheets/${ds.id}`;
+                            
+                        const res = await axios.get(endpoint, { 
+                            headers: { Authorization: `Bearer ${userToken}` } 
+                        });
+                        
+                        if (res.data?.values) {
+                            const importedRows = res.data.values;
+                            const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
+                            const numeric = detectNumericColumns(cleaned);
+                            const category = detectCategoryColumn(cleaned, numeric);
+                            
+                            return {
+                                ...ds,
+                                rows: cleaned.length - 1,
+                                cols: cleaned[0]?.length || 0,
+                                data: cleaned,
+                                numericCols: numeric,
+                                metrics: computeMetrics(cleaned, numeric),
+                                categoryCol: category,
+                            };
+                        }
+                    }
+                    return ds;
+                })
+            );
+
+            // Update datasets and trigger AI analysis recalibration if needed
+            setActiveDatasets(updatedDatasets);
+            setAllDatasets(prev => prev.map(d => {
+                const match = updatedDatasets.find(u => u.id === d.id);
+                return match ? match : d;
+            }));
+            
+        } catch (e) {
+            console.error("Live sync failed:", e);
+        }
+    };
+
+    useEffect(() => {
+        // Automatically check for live updates from Google Sheets or Excel every 60 seconds
+        const pollInterval = setInterval(() => {
+            handleLiveSync();
+        }, 60000);
+
+        return () => clearInterval(pollInterval);
+    }, [activeDatasets, userToken]);
 
     // --- DATA UTILITIES ---
 
