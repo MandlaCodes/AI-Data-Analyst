@@ -4,7 +4,8 @@
  */
 import React, { useState, useRef } from "react";
 import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiPlus, FiTrash2, FiExternalLink } from "react-icons/fi";
-import { SiGooglesheets, SiMicrosoftexcel } from "react-icons/si";
+import { SiGooglesheets } from "react-icons/si";
+import { FaFileExcel } from "react-icons/fa";
 
 const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
 
@@ -233,10 +234,23 @@ export const ImportModal = ({
                             <span className="text-[9px] font-black uppercase tracking-wider">Google Sheets</span>
                         </button>
                         
-                        <button onClick={() => handleAppToggle("excel")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("excel") ? 'bg-blue-500/10 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
-                            {isPickerLoading ? <FiLoader className="animate-spin" size={32} /> : <SiMicrosoftexcel size={32} />}
-                            <span className="text-[9px] font-black uppercase tracking-wider">Microsoft Excel</span>
-                        </button>
+                       <button
+                                onClick={() => handleAppToggle("excel")}
+                                className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${
+                                    selectedApps.includes("excel")
+                                    ? "bg-blue-500/10 border-blue-500 text-blue-400"
+                                    : "bg-white/5 border-transparent text-slate-600"
+                                }`}
+                                >
+                                {isPickerLoading ? (
+                                    <FiLoader className="animate-spin" size={32} />
+                                ) : (
+                                    <FaFileExcel size={32} />
+                                )}
+                                <span className="text-[9px] font-black uppercase tracking-wider">
+                                    Microsoft Excel
+                                </span>
+                                </button>
 
                         <button onClick={() => handleAppToggle("other")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("other") ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
                             <FiFileText size={32} />
