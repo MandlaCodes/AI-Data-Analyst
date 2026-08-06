@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiPlus, FiTrash2, FiExternalLink } from "react-icons/fi";
 import { SiGooglesheets } from "react-icons/si";
@@ -10,6 +9,8 @@ export const ImportModal = ({
     onClose, 
     selectedApps, 
     setSelectedApps, 
+    sheetsList = [],
+    setSheetsList = () => {},
     selectedSheet, 
     setSelectedSheet, 
     setCsvToImport, 
@@ -79,46 +80,43 @@ export const ImportModal = ({
     };
 
     const handleExcelSelect = async () => {
-            setIsPickerLoading(true);
-            setErrorMessage(null);
-            const internalToken = localStorage.getItem("adt_token");
+        setIsPickerLoading(true);
+        setErrorMessage(null);
+        const internalToken = localStorage.getItem("adt_token");
 
-            try {
-                const filesRes = await fetch(`${API_BASE_URL}/excel/sheets`, {
-                    headers: { 'Authorization': `Bearer ${internalToken}` }
-                });
+        try {
+            const filesRes = await fetch(`${API_BASE_URL}/excel/sheets`, {
+                headers: { 'Authorization': `Bearer ${internalToken}` }
+            });
 
-                if (filesRes.status === 401) {
-                    throw new Error("EXCEL_ACCESS_REQUIRED");
-                }
-
-                if (!filesRes.ok) throw new Error("Failed to fetch files from OneDrive.");
-
-                const data = await filesRes.json();
-                const files = data.files || [];
-
-                if (files.length === 0) {
-                    setErrorMessage("No Excel files found in your OneDrive.");
-                    setIsPickerLoading(false);
-                    return;
-                }
-
-                // Populate sheet selection state so you can see them or pick them
-                setSheetIds(files.map(f => f.id));
-                setSheetNames(files.map(f => f.name));
-                setSelectedSheet(files.map(f => f.name).join(", "));
-                setSelectedApps(["excel"]);
-                setIsPickerLoading(false);
-
-            } catch (err) {
-                if (err.message === "EXCEL_ACCESS_REQUIRED") {
-                    setErrorMessage("Microsoft Account Not Linked");
-                } else {
-                    setErrorMessage(err.message || "Failed to sync with Microsoft OneDrive.");
-                }
-                setIsPickerLoading(false);
+            if (filesRes.status === 401) {
+                throw new Error("EXCEL_ACCESS_REQUIRED");
             }
-        };
+
+            if (!filesRes.ok) throw new Error("Failed to fetch files from OneDrive.");
+
+            const data = await filesRes.json();
+            const files = data.files || [];
+
+            if (files.length === 0) {
+                setErrorMessage("No Excel files found in your OneDrive.");
+                setIsPickerLoading(false);
+                return;
+            }
+
+            setSheetsList(files); 
+            setSelectedApps(["excel"]);
+            setIsPickerLoading(false);
+
+        } catch (err) {
+            if (err.message === "EXCEL_ACCESS_REQUIRED") {
+                setErrorMessage("Microsoft Account Not Linked");
+            } else {
+                setErrorMessage(err.message || "Failed to sync with Microsoft OneDrive.");
+            }
+            setIsPickerLoading(false);
+        }
+    };
 
     const removeSheet = (index) => {
         const updatedNames = sheetNames.filter((_, i) => i !== index);
@@ -225,29 +223,62 @@ export const ImportModal = ({
                             <span className="text-[9px] font-black uppercase tracking-wider">Google Sheets</span>
                         </button>
                         
-                       <button
-                                onClick={() => handleAppToggle("excel")}
-                                className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${
-                                    selectedApps.includes("excel")
-                                    ? "bg-blue-500/10 border-blue-500 text-blue-400"
-                                    : "bg-white/5 border-transparent text-slate-600"
-                                }`}
-                                >
-                                {isPickerLoading ? (
-                                    <FiLoader className="animate-spin" size={32} />
-                                ) : (
-                                    <FaFileExcel size={32} />
-                                )}
-                                <span className="text-[9px] font-black uppercase tracking-wider">
-                                    Microsoft Excel
-                                </span>
-                                </button>
+                        <button
+                            onClick={() => handleAppToggle("excel")}
+                            className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${
+                                selectedApps.includes("excel")
+                                ? "bg-blue-500/10 border-blue-500 text-blue-400"
+                                : "bg-white/5 border-transparent text-slate-600"
+                            }`}
+                        >
+                            {isPickerLoading ? (
+                                <FiLoader className="animate-spin" size={32} />
+                            ) : (
+                                <FaFileExcel size={32} />
+                            )}
+                            <span className="text-[9px] font-black uppercase tracking-wider">
+                                Microsoft Excel
+                            </span>
+                        </button>
 
                         <button onClick={() => handleAppToggle("other")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("other") ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
                             <FiFileText size={32} />
                             <span className="text-[9px] font-black uppercase tracking-wider">{csvToImport ? csvToImport.name : "Local CSV"}</span>
                         </button>
                     </div>
+
+                    {/* Excel File Picker View */}
+                    {selectedApps.includes("excel") && sheetsList.length > 0 && (
+                        <div className="p-6 bg-blue-500/5 border border-blue-500/20 rounded-[2rem] space-y-4">
+                            <h4 className="text-white font-black text-[11px] uppercase tracking-widest">Select Excel Workbook</h4>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {sheetsList.map((file) => {
+                                    const isSelected = sheetIds.includes(file.id);
+                                    return (
+                                        <div 
+                                            key={file.id}
+                                            onClick={() => {
+                                                setSheetIds([file.id]);
+                                                setSheetNames([file.name]);
+                                                setSelectedSheet(file.name);
+                                            }}
+                                            className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
+                                                isSelected 
+                                                    ? 'bg-blue-600/20 border-blue-500 text-white' 
+                                                    : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20 hover:text-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <FaFileExcel className="text-blue-400" size={18} />
+                                                <span className="text-xs font-bold">{file.name}</span>
+                                            </div>
+                                            {isSelected && <FiCheck className="text-blue-400" size={16} />}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-10 bg-white/[0.01] border-t border-white/5 mt-auto">
