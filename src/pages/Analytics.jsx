@@ -25,6 +25,7 @@ import { FiTrash2, FiPlus } from "react-icons/fi";
 import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
+import { MetriaFollowUp } from '../components/MetriaFollowUp';
 
 ChartJS.register(
     CategoryScale, 
@@ -507,6 +508,11 @@ export default function Analytics() {
                                 onAIUpdate={handleAIUpdate} 
                             />
                         </div>
+                        {/* Drop the follow-up analyst right here at the bottom */}
+                        <MetriaFollowUp 
+                            activeDataset={activeDatasets[activeDatasets.length - 1]} 
+                            authToken={userToken} 
+                        />
                     </div>
                 ) : (
                     <div className="px-6 lg:px-10 pb-12 mt-12">
