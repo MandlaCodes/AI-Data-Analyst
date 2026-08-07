@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { FiSend, FiCpu, FiHelpCircle } from "react-icons/fi";
+import { FiSend, FiCpu, FiSparkles } from "react-icons/fi";
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
@@ -10,7 +10,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [inputQuery, setInputQuery] = useState("");
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-    // Trigger the "teacher follow-up" animation a moment after the dataset loads
     useEffect(() => {
         if (!activeDataset) {
             setIsVisible(false);
@@ -23,26 +22,25 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             setMessages([
                 { 
                     sender: "metria", 
-                    text: `I've finished synthesizing "${activeDataset.name}". Do you have any questions about these metrics or want to dive deeper into specific trends?` 
+                    text: `I've finished synthesizing "${activeDataset.name}". What insights or anomalies would you like to unpack together?` 
                 }
             ]);
-        }, 1200); // 1.2s delay so it feels like a natural follow-up prompt after reading the brief
+        }, 1200);
 
         return () => clearTimeout(timer);
     }, [activeDataset]);
 
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (!inputQuery.trim() || !activeDataset) return;
+    const handleSend = async (queryText) => {
+        const textToSend = queryText || inputQuery;
+        if (!textToSend.trim() || !activeDataset) return;
 
-        const userMsg = inputQuery;
-        setMessages(prev => [...prev, { sender: "user", text: userMsg }]);
+        setMessages(prev => [...prev, { sender: "user", text: textToSend }]);
         setInputQuery("");
         setIsAnalyzing(true);
 
         try {
             const res = await axios.post(`${API_BASE_URL}/ai/query`, {
-                query: userMsg,
+                query: textToSend,
                 dataset_name: activeDataset.name,
                 metrics: activeDataset.metrics,
                 data_sample: activeDataset.data
@@ -60,62 +58,104 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
     if (!activeDataset) return null;
 
+    const suggestedPrompts = [
+        "What are the primary bottlenecks?",
+        "Summarize top revenue drivers",
+        "Identify high-risk deals"
+    ];
+
     return (
         <div className={`transition-all duration-1000 transform ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
-        } mt-16 mb-20 px-6 lg:px-10`}>
-            <div className="max-w-4xl mx-auto bg-[#0F172A] border border-purple-500/30 rounded-[3rem] p-8 md:p-10 shadow-[0_0_50px_rgba(188,19,254,0.08)] relative overflow-hidden">
-                
-                {/* Decorative background glow */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12 pointer-events-none'
+        } mt-20 mb-24 px-6 lg:px-10`}>
+            
+            {/* Outer container with striking neon purple gradient glow */}
+            <div className="max-w-5xl mx-auto relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3.5rem] blur-xl opacity-40 group-hover:opacity-75 transition duration-1000 pointer-events-none" />
 
-                {/* Header */}
-                <div className="flex items-center gap-3 pb-6 border-b border-white/5 mb-6">
-                    <div className="p-3 bg-purple-600/20 border border-purple-500/30 rounded-2xl text-purple-400">
-                        <FiHelpCircle size={20} className="animate-pulse" />
-                    </div>
-                    <div>
-                        <h3 className="text-white font-black uppercase tracking-wider text-xs">Metria Neural Follow-Up</h3>
-                        <p className="text-slate-400 text-[10px] uppercase tracking-widest mt-0.5">Interactive Analyst Session</p>
-                    </div>
-                </div>
+                <div className="relative bg-[#080B14] border border-purple-500/40 rounded-[3.5rem] p-8 md:p-12 shadow-2xl overflow-hidden">
+                    
+                    {/* Background tech grid overlay */}
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.15),rgba(255,255,255,0))] pointer-events-none" />
 
-                {/* Conversation Feed */}
-                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 mb-6">
-                    {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] p-5 rounded-2xl text-xs md:text-sm leading-relaxed ${
-                                msg.sender === 'user' 
-                                    ? 'bg-purple-600 text-white rounded-br-none font-medium' 
-                                    : 'bg-black/40 border border-white/10 text-slate-300 rounded-bl-none font-light'
-                            }`}>
-                                {msg.text}
+                    {/* Header Banner */}
+                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-white/10 mb-8">
+                        <div className="flex items-center gap-4">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-purple-500 rounded-2xl blur-md animate-pulse" />
+                                <div className="relative p-4 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl text-white shadow-lg">
+                                    <FiCpu size={26} className="animate-pulse" />
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-white font-black uppercase tracking-wider text-sm">Metria Neural Analyst</h3>
+                                    <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">Active Core</span>
+                                </div>
+                                <p className="text-slate-400 text-[11px] font-medium tracking-wide mt-0.5">Ask questions, request deep-dives, or query variables in real-time</p>
                             </div>
                         </div>
-                    ))}
-                    {isAnalyzing && (
-                        <div className="flex justify-start">
-                            <div className="bg-black/40 border border-white/10 text-slate-400 p-4 rounded-2xl text-xs animate-pulse flex items-center gap-2">
-                                <FiCpu className="animate-spin text-purple-400" size={14} /> Metria is querying dataset parameters...
-                            </div>
+                        <div className="flex items-center gap-2 text-purple-400 text-[10px] font-bold uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-2xl w-fit">
+                            <FiSparkles size={14} /> Ready for query
                         </div>
-                    )}
+                    </div>
+
+                    {/* Conversation Window */}
+                    <div className="relative z-10 space-y-6 max-h-[420px] overflow-y-auto pr-2 mb-8">
+                        {messages.map((msg, idx) => (
+                            <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[85%] p-6 rounded-3xl text-xs md:text-sm leading-relaxed shadow-lg ${
+                                    msg.sender === 'user' 
+                                        ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-br-sm font-semibold' 
+                                        : 'bg-white/[0.04] border border-white/10 text-slate-200 rounded-bl-sm font-normal backdrop-blur-md'
+                                }`}>
+                                    {msg.text}
+                                </div>
+                            </div>
+                        ))}
+                        {isAnalyzing && (
+                            <div className="flex justify-start">
+                                <div className="bg-white/[0.04] border border-white/10 text-purple-300 p-5 rounded-3xl text-xs backdrop-blur-md animate-pulse flex items-center gap-3">
+                                    <FiCpu className="animate-spin text-purple-400" size={16} /> Metria is scanning parameters & computing data vectors...
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quick Suggestion Pills */}
+                    <div className="relative z-10 flex flex-wrap gap-2 mb-6">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest self-center mr-2">Suggested:</span>
+                        {suggestedPrompts.map((promptText, pIdx) => (
+                            <button
+                                key={pIdx}
+                                onClick={() => handleSend(promptText)}
+                                className="bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                            >
+                                {promptText}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Input Form Bar */}
+                    <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative z-10 flex gap-3">
+                        <div className="relative flex-1">
+                            <input 
+                                type="text"
+                                value={inputQuery}
+                                onChange={(e) => setInputQuery(e.target.value)}
+                                placeholder={`Ask Metria anything about ${activeDataset.name}...`}
+                                className="w-full bg-black/60 border border-white/15 focus:border-purple-500 rounded-3xl px-7 py-5 text-xs md:text-sm text-white focus:outline-none shadow-inner transition-all placeholder:text-slate-500"
+                            />
+                        </div>
+                        <button 
+                            type="submit" 
+                            className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white px-8 rounded-3xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-600/30 flex items-center justify-center shrink-0 hover:scale-[1.02] active:scale-95"
+                        >
+                            <FiSend size={18} />
+                        </button>
+                    </form>
+
                 </div>
-
-                {/* Input Form */}
-                <form onSubmit={handleSend} className="flex gap-3 pt-2">
-                    <input 
-                        type="text"
-                        value={inputQuery}
-                        onChange={(e) => setInputQuery(e.target.value)}
-                        placeholder="Ask a follow-up question (e.g., 'Why did sales drop in July?')..."
-                        className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-xs md:text-sm text-white focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-600"
-                    />
-                    <button type="submit" className="bg-white text-black hover:bg-purple-600 hover:text-white px-7 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center shadow-lg">
-                        <FiSend size={16} />
-                    </button>
-                </form>
-
             </div>
         </div>
     );
