@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { FiSend, FiCpu, FiSparkles } from "react-icons/fi";
+import { FiSend, FiCpu, FiStar } from "react-icons/fi"; // Switched FiSparkles to FiStar
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
@@ -69,16 +69,13 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12 pointer-events-none'
         } mt-20 mb-24 px-6 lg:px-10`}>
             
-            {/* Outer container with striking neon purple gradient glow */}
             <div className="max-w-5xl mx-auto relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3.5rem] blur-xl opacity-40 group-hover:opacity-75 transition duration-1000 pointer-events-none" />
 
                 <div className="relative bg-[#080B14] border border-purple-500/40 rounded-[3.5rem] p-8 md:p-12 shadow-2xl overflow-hidden">
                     
-                    {/* Background tech grid overlay */}
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.15),rgba(255,255,255,0))] pointer-events-none" />
 
-                    {/* Header Banner */}
                     <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-white/10 mb-8">
                         <div className="flex items-center gap-4">
                             <div className="relative">
@@ -96,11 +93,10 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 text-purple-400 text-[10px] font-bold uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-2xl w-fit">
-                            <FiSparkles size={14} /> Ready for query
+                            <FiStar size={14} /> Ready for query
                         </div>
                     </div>
 
-                    {/* Conversation Window */}
                     <div className="relative z-10 space-y-6 max-h-[420px] overflow-y-auto pr-2 mb-8">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -122,7 +118,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                         )}
                     </div>
 
-                    {/* Quick Suggestion Pills */}
                     <div className="relative z-10 flex flex-wrap gap-2 mb-6">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest self-center mr-2">Suggested:</span>
                         {suggestedPrompts.map((promptText, pIdx) => (
@@ -136,7 +131,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                         ))}
                     </div>
 
-                    {/* Input Form Bar */}
                     <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative z-10 flex gap-3">
                         <div className="relative flex-1">
                             <input 
