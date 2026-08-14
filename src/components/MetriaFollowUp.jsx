@@ -10,14 +10,11 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [inputQuery, setInputQuery] = useState("");
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     
-    // New Feature States
+    // Feature States
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(true);
-    const [pastSessions, setPastSessions] = useState([
-        { id: 1, title: "Sales Excel Analysis", date: "Today" },
-        { id: 2, title: "Q3 Revenue Metrics", date: "Yesterday" }
-    ]);
+    const [pastSessions, setPastSessions] = useState([]);
 
     const speechSynthRef = useRef(window.speechSynthesis);
 
@@ -40,10 +37,26 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         return () => clearTimeout(timer);
     }, [activeDataset]);
 
+    // Fetch past sessions dynamically from main.py and db.py
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/ai/sessions`, {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                });
+                setPastSessions(res.data.sessions || []);
+            } catch (err) {
+                console.error("Failed to load past chat sessions", err);
+                setPastSessions([]);
+            }
+        };
+        if (authToken) fetchHistory();
+    }, [authToken]);
+
     // Siri-Style Voice Synthesizer Reader
     const speakResponse = (text) => {
         if (!speechSynthRef.current) return;
-        speechSynthRef.current.cancel(); // Stop any ongoing speech
+        speechSynthRef.current.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.05;
@@ -135,7 +148,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         } mt-20 mb-24 px-6 lg:px-10 w-full flex gap-6`}>
             
             {/* Past History Sidebar */}
-            <div className={`transition-all duration-300 bg-[#0A0E1A] border border-purple-500/30 rounded-[2.5p] rounded-[2.5rem] flex flex-col overflow-hidden ${
+            <div className={`transition-all duration-300 bg-[#0A0E1A] border border-purple-500/30 rounded-[2.5rem] flex flex-col overflow-hidden ${
                 historyOpen ? 'w-80 p-6' : 'w-20 p-4 items-center'
             }`}>
                 <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
@@ -152,23 +165,31 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                     </button>
                 </div>
 
-                <div className="space-y-2 overflow-y-auto flex-1">
-                    {pastSessions.map(session => (
-                        <div 
-                            key={session.id}
-                            className={`p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
-                                historyOpen ? 'hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30' : 'justify-center'
-                            }`}
-                        >
-                            <FiMessageSquare className="text-purple-400 shrink-0" size={16} />
-                            {historyOpen && (
-                                <div className="truncate">
-                                    <p className="text-white text-xs font-bold truncate">{session.title}</p>
-                                    <p className="text-slate-500 text-[10px]">{session.date}</p>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                <div className="space-y-2 overflow-y-auto flex-1 flex flex-col">
+                    {pastSessions.length > 0 ? (
+                        pastSessions.map(session => (
+                            <div 
+                                key={session.id}
+                                className={`p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
+                                    historyOpen ? 'hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30' : 'justify-center'
+                                }`}
+                            >
+                                <FiMessageSquare className="text-purple-400 shrink-0" size={16} />
+                                {historyOpen && (
+                                    <div className="truncate">
+                                        <p className="text-white text-xs font-bold truncate">{session.title}</p>
+                                        <p className="text-slate-500 text-[10px]">{session.date}</p>
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        historyOpen && (
+                            <div className="text-slate-500 text-xs italic text-center py-6">
+                                No past sessions
+                            </div>
+                        )
+                    )}
                 </div>
             </div>
 
@@ -198,7 +219,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             </div>
                         </div>
 
-                        {/* Siri-Style Speaking / Listening Indicator Waveform */}
+                        {/* Siri-Style Speaking Indicator Waveform */}
                         <div className="flex items-center gap-3">
                             {isSpeaking && (
                                 <div className="flex items-center gap-1 bg-purple-600/20 border border-purple-500/40 px-4 py-2 rounded-2xl">
