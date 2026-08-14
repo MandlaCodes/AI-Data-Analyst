@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { FiSend, FiCpu, FiStar, FiMic, FiMicOff, FiClock, FiMessageSquare, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiSend, FiCpu, FiStar, FiMic, FiMicOff, FiClock, FiMessageSquare, FiChevronLeft, FiChevronRight, FiVolume2, FiVolumeX } from "react-icons/fi";
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
@@ -13,6 +13,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     // Feature States
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [voiceEnabled, setVoiceEnabled] = useState(false); // Optional voice reading toggle
     const [historyOpen, setHistoryOpen] = useState(true);
     const [pastSessions, setPastSessions] = useState([]);
 
@@ -31,7 +32,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             setMessages([
                 { sender: "metria", text: welcomeText }
             ]);
-            speakResponse(welcomeText);
+            if (voiceEnabled) speakResponse(welcomeText);
         }, 1200);
 
         return () => clearTimeout(timer);
@@ -55,7 +56,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
     // Siri-Style Voice Synthesizer Reader
     const speakResponse = (text) => {
-        if (!speechSynthRef.current) return;
+        if (!speechSynthRef.current || !voiceEnabled) return;
         speechSynthRef.current.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
@@ -124,14 +125,47 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
             const answerText = res.data.answer;
             setMessages(prev => [...prev, { sender: "metria", text: answerText }]);
-            speakResponse(answerText);
+            if (voiceEnabled) speakResponse(answerText);
         } catch (err) {
             const errorText = "Neural synthesis encountered an error. Please try again.";
             setMessages(prev => [...prev, { sender: "metria", text: errorText }]);
-            speakResponse(errorText);
+            if (voiceEnabled) speakResponse(errorText);
         } finally {
             setIsAnalyzing(false);
         }
+    };
+
+    // Helper to format AI response text into ChatGPT-style clean blocks
+    const formatMessageText = (text, sender) => {
+        if (sender === 'user') return <p className="leading-relaxed">{text}</p>;
+
+        // Split chunk patterns like "1. **Title**: description"
+        const segments = text.split(/(?=\d+\.\s+\*\*)/);
+
+        return (
+            <div className="space-y-3 leading-relaxed">
+                {segments.map((chunk, cIdx) => {
+                    if (cIdx === 0 && !chunk.match(/^\d+\./)) {
+                        return <p key={cIdx} className="text-slate-200 mb-2">{chunk}</p>;
+                    }
+                    const parts = chunk.replace(/^\d+\.\s+/, "").split("**: ");
+                    const title = parts[0]?.replace(/\*\*/g, "");
+                    const body = parts[1] || "";
+
+                    return (
+                        <div key={cIdx} className="bg-black/30 border border-white/10 p-3.5 rounded-2xl flex gap-3">
+                            <span className="flex items-center justify-center shrink-0 w-5 h-5 rounded-lg bg-purple-500/20 text-purple-400 font-bold text-[10px]">
+                                {cIdx}
+                            </span>
+                            <div>
+                                {title && <h6 className="text-white font-bold text-xs uppercase tracking-wider mb-1">{title}</h6>}
+                                <p className="text-slate-300 text-xs">{body}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
 
     if (!activeDataset) return null;
@@ -219,10 +253,31 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             </div>
                         </div>
 
-                        {/* Siri-Style Speaking Indicator Waveform */}
+                        {/* Voice Controls & Status Indicators */}
                         <div className="flex items-center gap-3">
+                            {/* Toggle Voice Speech Output Button */}
+                            <button
+                                onClick={() => {
+                                    setVoiceEnabled(!voiceEnabled);
+                                    if (isSpeaking && speechSynthRef.current) {
+                                        speechSynthRef.current.cancel();
+                                        setIsSpeaking(false);
+                                    }
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                    voiceEnabled 
+                                        ? 'bg-purple-600/30 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
+                                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                                }`}
+                                title="Toggle Voice Reader"
+                            >
+                                {voiceEnabled ? <FiVolume2 size={14} className="text-purple-400" /> : <FiVolumeX size={14} />}
+                                {voiceEnabled ? "Voice Enabled" : "Voice Muted"}
+                            </button>
+
+                            {/* Speaking Indicator Waveform */}
                             {isSpeaking && (
-                                <div className="flex items-center gap-1 bg-purple-600/20 border border-purple-500/40 px-4 py-2 rounded-2xl">
+                                <div className="flex items-center gap-1 bg-purple-600/20 border border-purple-500/40 px-3 py-2 rounded-2xl">
                                     <span className="text-purple-400 text-[10px] font-bold uppercase tracking-widest">Speaking</span>
                                     <div className="flex items-center gap-0.5 h-3 ml-1">
                                         <div className="w-1 bg-purple-400 animate-bounce h-full rounded-full" />
@@ -231,8 +286,9 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                     </div>
                                 </div>
                             )}
-                            <div className="flex items-center gap-2 text-purple-400 text-[10px] font-bold uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-2xl w-fit">
-                                <FiStar size={14} /> Ready for query
+
+                            <div className="hidden sm:flex items-center gap-2 text-purple-400 text-[10px] font-bold uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-2xl">
+                                <FiStar size={14} /> Ready
                             </div>
                         </div>
                     </div>
@@ -241,12 +297,12 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                     <div className="relative z-10 space-y-6 max-h-[420px] overflow-y-auto pr-2 mb-8">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] p-6 rounded-3xl text-xs md:text-sm leading-relaxed shadow-lg ${
+                                <div className={`max-w-[85%] p-6 rounded-3xl text-xs md:text-sm shadow-lg ${
                                     msg.sender === 'user' 
                                         ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-br-sm font-semibold' 
                                         : 'bg-white/[0.04] border border-white/10 text-slate-200 rounded-bl-sm font-normal backdrop-blur-md'
                                 }`}>
-                                    {msg.text}
+                                    {formatMessageText(msg.text, msg.sender)}
                                 </div>
                             </div>
                         ))}
