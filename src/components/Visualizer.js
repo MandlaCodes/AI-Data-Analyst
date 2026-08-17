@@ -387,8 +387,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
       )}
 
       {showScrollTop && (
-        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="fixed bottom-10 right-10 z-[100] w-16 h-16 bg-white text-black rounded-full flex items-center justify-center border-8 border-black shadow-[0_20px_50px_rgba(0,0,0,0.5)] active:scale-90 transition-all">
-          <FiArrowUp className="w-6 h-6" />
+        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="fixed bottom-24 right-6 z-[100] w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.5)] active:scale-90 transition-all">
+          <FiArrowUp className="w-5 h-5" />
         </button>
       )}
     </div>
