@@ -3,6 +3,7 @@
  * Full production file with Session Persistence and Neural Stream processing.
  * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
  * FIX: Removed SDK dependency; Updated Scopes Logic; Logical Gate for aiStorage.
+ * FIX: Floating 'Ask Metria' button hides when scrolled into view of the MetriaFollowUp component.
  */
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -56,6 +57,7 @@ export default function Analytics() {
     const [isImporting, setIsImporting] = useState(false);
     const [isInitializing, setIsInitializing] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [showFloatingBtn, setShowFloatingBtn] = useState(true);
 
     // Import Flow State
     const [selectedApps, setSelectedApps] = useState([]);
@@ -72,6 +74,30 @@ export default function Analytics() {
             metriaRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
         }
     };
+
+    // IntersectionObserver to hide the floating button when the Metria component is visible
+    useEffect(() => {
+        const currentMetriaRef = metriaRef.current;
+        if (!currentMetriaRef) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setShowFloatingBtn(!entry.isIntersecting);
+            },
+            {
+                root: null,
+                threshold: 0.1, // Triggers as soon as 10% of the component is visible
+            }
+        );
+
+        observer.observe(currentMetriaRef);
+
+        return () => {
+            if (currentMetriaRef) {
+                observer.unobserve(currentMetriaRef);
+            }
+        };
+    }, [activeDatasets]);
 
     const handleLiveSync = async () => {
         if (!userToken || activeDatasets.length === 0) return;
@@ -542,11 +568,13 @@ export default function Analytics() {
                 )}
             </div>
 
-            {/* Floating Ask Metria Button */}
+            {/* Floating Ask Metria Button with smooth transition and dynamic hiding */}
             {activeDatasets.length > 0 && activeDatasets[activeDatasets.length - 1]?.aiStorage && (
                 <button
                     onClick={scrollToMetria}
-                    className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white p-4 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] flex items-center gap-3 font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border border-purple-400/30"
+                    className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white p-4 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] flex items-center gap-3 font-black text-xs uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 border border-purple-400/30 ${
+                        showFloatingBtn ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'
+                    }`}
                 >
                     <div className="p-1.5 bg-white/20 rounded-full">
                         <FiCpu size={18} className="animate-pulse" />
