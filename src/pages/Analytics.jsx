@@ -21,7 +21,7 @@ import {
 } from "chart.js";
 import { FaSpinner } from 'react-icons/fa';
 import { MdOutlineAnalytics, MdOutlineTableChart } from "react-icons/md";
-import { FiTrash2, FiPlus } from "react-icons/fi"; 
+import { FiTrash2, FiPlus, FiCpu } from "react-icons/fi"; 
 import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
@@ -65,6 +65,14 @@ export default function Analytics() {
 
     const datasetColors = ["#bc13fe", "#22C55E", "#F97316", "#EAB308"];
     const isFirstMount = useRef(true);
+    const metriaRef = useRef(null);
+
+    const scrollToMetria = () => {
+        if (metriaRef.current) {
+            metriaRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    };
+
     const handleLiveSync = async () => {
         if (!userToken || activeDatasets.length === 0) return;
         
@@ -402,7 +410,7 @@ export default function Analytics() {
     const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
     
     return (
-        <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
+        <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
             {(isInitializing || isImporting) && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
                     <div className="relative mb-6">
@@ -508,11 +516,14 @@ export default function Analytics() {
                                 onAIUpdate={handleAIUpdate} 
                             />
                         </div>
-                        {/* Drop the follow-up analyst right here at the bottom */}
-                        <MetriaFollowUp 
-                            activeDataset={activeDatasets[activeDatasets.length - 1]} 
-                            authToken={userToken} 
-                        />
+                        
+                        {/* Drop the follow-up analyst with ref anchor */}
+                        <div ref={metriaRef}>
+                            <MetriaFollowUp 
+                                activeDataset={activeDatasets[activeDatasets.length - 1]} 
+                                authToken={userToken} 
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="px-6 lg:px-10 pb-12 mt-12">
@@ -530,6 +541,19 @@ export default function Analytics() {
                     </div>
                 )}
             </div>
+
+            {/* Floating Ask Metria Button */}
+            {activeDatasets.length > 0 && activeDatasets[activeDatasets.length - 1]?.aiStorage && (
+                <button
+                    onClick={scrollToMetria}
+                    className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white p-4 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] flex items-center gap-3 font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border border-purple-400/30"
+                >
+                    <div className="p-1.5 bg-white/20 rounded-full">
+                        <FiCpu size={18} className="animate-pulse" />
+                    </div>
+                    <span className="hidden sm:inline pr-1">Ask Metria</span>
+                </button>
+            )}
 
             {showModal && (
                 <ImportModal 
