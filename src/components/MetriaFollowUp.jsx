@@ -54,6 +54,18 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         if (authToken) fetchHistory();
     }, [authToken]);
 
+    // Load a specific past session when clicked in the sidebar
+    const loadSession = async (sessionId) => {
+        try {
+            const res = await axios.get(`${API_BASE_URL}/ai/sessions/${sessionId}`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            setMessages(res.data.messages || []);
+        } catch (err) {
+            console.error("Failed to load session messages", err);
+        }
+    };
+
     // Siri-Style Voice Synthesizer Reader
     const speakResponse = (text) => {
         if (!speechSynthRef.current || !voiceEnabled) return;
@@ -109,7 +121,8 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
         if (speechSynthRef.current) speechSynthRef.current.cancel();
 
-        setMessages(prev => [...prev, { sender: "user", text: textToSend }]);
+        const newMessages = [...messages, { sender: "user", text: textToSend }];
+        setMessages(newMessages);
         setInputQuery("");
         setIsAnalyzing(true);
 
@@ -118,13 +131,15 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                 query: textToSend,
                 dataset_name: activeDataset.name,
                 metrics: activeDataset.metrics,
-                data_sample: activeDataset.data
+                data_sample: activeDataset.data,
+                messages: newMessages // Pass current state array so the backend can save it
             }, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
             const answerText = res.data.answer;
-            setMessages(prev => [...prev, { sender: "metria", text: answerText }]);
+            const finalMessages = res.data.messages || [...newMessages, { sender: "metria", text: answerText }];
+            setMessages(finalMessages);
             if (voiceEnabled) speakResponse(answerText);
         } catch (err) {
             const errorText = "Neural synthesis encountered an error. Please try again.";
@@ -204,6 +219,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                         pastSessions.map(session => (
                             <div 
                                 key={session.id}
+                                onClick={() => loadSession(session.id)}
                                 className={`p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
                                     historyOpen ? 'hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30' : 'justify-center'
                                 }`}
