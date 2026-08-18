@@ -454,16 +454,22 @@ export default function Analytics() {
         console.log("Running single analysis for:", dataset.name);
     };
 
-    const handleCrossAnalysisSubmit = async () => {
+ const handleCrossAnalysisSubmit = async () => {
         setShowMultiSelectModal(false);
         setIsInitializing(true); 
 
         try {
-            const res = await axios.post(`${API_BASE_URL}/ai/analyze`, {
-                dataset_name: activeDatasets.map(d => d.name).join(' + '),
-                metrics: activeDatasets.flatMap(d => d.metrics || []),
-                data_sample: activeDatasets.map(d => d.data).flat()
-            }, {
+            // Pass activeDatasets directly as 'contexts' to align with the backend route
+            const payload = {
+                contexts: activeDatasets.map(d => ({
+                    name: d.name || 'Dataset',
+                    rows: Array.isArray(d.data) ? d.data : [],
+                    metrics: d.metrics || {},
+                    columns: d.columns || []
+                }))
+            };
+
+            const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
             });
 
@@ -472,17 +478,17 @@ export default function Analytics() {
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
-                rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || 0), 0),
+                rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || (Array.isArray(curr.data) ? curr.data.length : 0)), 0),
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
-                data: analysisResult.data || activeDatasets[0].data,
-                aiStorage: analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully."
+                data: analysisResult.data || activeDatasets.flatMap(d => Array.isArray(d.data) ? d.data : []),
+                aiStorage: analysisResult.summary || analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully."
             };
 
             setActiveDatasets([unifiedDataset]);
             setReadyToVisualize([unifiedDataset]);
 
         } catch (err) {
-            console.error("Cross-analysis synthesis failed:", err);
+            console.error("Cross-analysis synthesis failed:", err.response?.data || err);
         } finally {
             setIsInitializing(false); 
         }
