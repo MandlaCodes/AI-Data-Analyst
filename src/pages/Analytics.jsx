@@ -51,6 +51,7 @@ export default function Analytics() {
     const [allDatasets, setAllDatasets] = useState([]);
     const [activeDatasets, setActiveDatasets] = useState([]);
     const [chartType, setChartType] = useState("line");
+    const [readyToVisualize, setReadyToVisualize] = useState([]); // Fixed: converted to proper state variable
     
     // UI Logic State
     const [showModal, setShowModal] = useState(false);
@@ -245,6 +246,7 @@ export default function Analytics() {
                     if (activeDatasetIds && loadedDatasets) {
                         const active = loadedDatasets.filter(d => activeDatasetIds.includes(d.id));
                         setActiveDatasets(active);
+                        setReadyToVisualize(active.filter(d => d.aiStorage !== null));
                     }
 
                     if (uiContext) {
@@ -300,7 +302,11 @@ export default function Analytics() {
             ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
         );
         setAllDatasets(prev => applyUpdate(prev));
-        setActiveDatasets(prev => applyUpdate(prev));
+        setActiveDatasets(prev => {
+            const updated = applyUpdate(prev);
+            setReadyToVisualize(updated.filter(d => d.aiStorage !== null));
+            return updated;
+        });
     };
 
     const handleSave = async () => {
@@ -421,11 +427,9 @@ export default function Analytics() {
                 setAllDatasets(prev => [...prev, ...newlyImported]);
                 
                 setActiveDatasets(prev => {
-                    // Clear out old aiStorage on existing active datasets to remove stale analysis state
                     const clearedPrevious = prev.map(d => ({ ...d, aiStorage: null }));
                     const combinedActive = [...clearedPrevious, ...newlyImported];
                     
-                    // If multiple datasets are active post-import, trigger the choice modal immediately
                     if (combinedActive.length > 1) {
                         setShowMultiSelectModal(true);
                     }
@@ -445,20 +449,16 @@ export default function Analytics() {
         }
     };
 
-    const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
-
     // --- MULTI-DATASET & CROSS ANALYSIS HANDLERS ---
     const executeSingleAnalysisFlow = (dataset) => {
         console.log("Running single analysis for:", dataset.name);
     };
 
- // Handle the multi-dataset cross analysis submission from the popup modal
     const handleCrossAnalysisSubmit = async () => {
         setShowMultiSelectModal(false);
-        setIsInitializing(true); // Trigger loading screen overlay
+        setIsInitializing(true); 
 
         try {
-            // Adjust this endpoint URL if your backend uses /ai/analyze for cross analysis as well
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, {
                 dataset_name: activeDatasets.map(d => d.name).join(' + '),
                 metrics: activeDatasets.flatMap(d => d.metrics || []),
@@ -469,7 +469,6 @@ export default function Analytics() {
 
             const analysisResult = res.data;
 
-            // Build a unified dataset object out of the response
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
@@ -479,14 +478,13 @@ export default function Analytics() {
                 aiStorage: analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully."
             };
 
-            // Update active datasets and trigger visualizer state
             setActiveDatasets([unifiedDataset]);
-            setReadyToVisualize([unifiedDataset]); // This forces the visualizer & Metria to render!
+            setReadyToVisualize([unifiedDataset]);
 
         } catch (err) {
             console.error("Cross-analysis synthesis failed:", err);
         } finally {
-            setIsInitializing(false); // Hides loading screen so visualizer displays
+            setIsInitializing(false); 
         }
     };
     
