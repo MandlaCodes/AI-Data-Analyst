@@ -453,26 +453,26 @@ export default function Analytics() {
     };
 
     const handleCrossAnalysisSubmit = async () => {
-        setShowMultiSelectModal(false);
-        setIsSaving(true);
-        try {
-            const contexts = activeDatasets.map(d => d.data);
-            const res = await axios.post(`${API_BASE_URL}/ai/cross-analyze`, {
-                contexts: contexts
-            }, {
-                headers: { Authorization: `Bearer ${userToken}` }
-            });
-            
-            if (res.data) {
-                handleAIUpdate(activeDatasets[activeDatasets.length - 1].id, res.data);
+            setShowMultiSelectModal(false);
+            setIsSaving(true);
+            try {
+                const contexts = activeDatasets.map(d => d.data);
+                const res = await axios.post(`${API_BASE_URL}/ai/analyze`, {
+                    contexts: contexts
+                }, {
+                    headers: { Authorization: `Bearer ` + userToken }
+                });
+                
+                if (res.data) {
+                    handleAIUpdate(activeDatasets[activeDatasets.length - 1].id, res.data);
+                }
+            } catch (e) {
+                console.error("Cross-analysis failed:", e);
+                alert("Cross-Dataset Intelligence Engine failed.");
+            } finally {
+                setIsSaving(false);
             }
-        } catch (e) {
-            console.error("Cross-analysis failed:", e);
-            alert("Cross-Dataset Intelligence Engine failed.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+        };
     
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
@@ -597,13 +597,15 @@ export default function Analytics() {
                             />
                         </div>
                         
-                        {/* Drop the follow-up analyst with ref anchor */}
-                        <div ref={metriaRef}>
-                            <MetriaFollowUp 
-                                activeDataset={activeDatasets[activeDatasets.length - 1]} 
-                                authToken={userToken} 
-                            />
-                        </div>
+                        {/* Drop the follow-up analyst with ref anchor - conditionally rendered once AI analysis completes */}
+                        {activeDatasets.length > 0 && activeDatasets[activeDatasets.length - 1]?.aiStorage && (
+                            <div ref={metriaRef}>
+                                <MetriaFollowUp 
+                                    activeDataset={activeDatasets[activeDatasets.length - 1]} 
+                                    authToken={userToken} 
+                                />
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="px-6 lg:px-10 pb-12 mt-12">
