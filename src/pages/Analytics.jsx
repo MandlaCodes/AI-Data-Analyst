@@ -474,7 +474,7 @@ export default function Analytics() {
             }
         };
     
-    return (
+   return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
             {(isInitializing || isImporting) && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
@@ -586,16 +586,18 @@ export default function Analytics() {
                             </button>
                         </div>
 
-                        <div className="px-6 lg:px-10 pb-12">
-                            <Visualizer 
-                                activeDatasets={activeDatasets} 
-                                readyDatasets={readyToVisualize}
-                                chartType={chartType} 
-                                chartTypeSet={setChartType} 
-                                authToken={userToken}
-                                onAIUpdate={handleAIUpdate} 
-                            />
-                        </div>
+                        {readyToVisualize && (
+                            <div className="px-6 lg:px-10 pb-12">
+                                <Visualizer 
+                                    activeDatasets={activeDatasets} 
+                                    readyDatasets={readyToVisualize}
+                                    chartType={chartType} 
+                                    chartTypeSet={setChartType} 
+                                    authToken={userToken}
+                                    onAIUpdate={handleAIUpdate} 
+                                />
+                            </div>
+                        )}
                         
                         {/* Drop the follow-up analyst with ref anchor - conditionally rendered once AI analysis completes */}
                         {activeDatasets.length > 0 && activeDatasets[activeDatasets.length - 1]?.aiStorage && (
