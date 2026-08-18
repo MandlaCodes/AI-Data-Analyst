@@ -459,7 +459,6 @@ const handleCrossAnalysisSubmit = async () => {
         setIsInitializing(true); 
 
         try {
-            // Match the backend Pydantic model: List[List[list]]
             const payload = {
                 contexts: activeDatasets.map(d => 
                     Array.isArray(d.data) ? d.data : []
@@ -471,6 +470,7 @@ const handleCrossAnalysisSubmit = async () => {
             });
 
             const analysisResult = res.data;
+            const summaryText = analysisResult.summary || analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully.";
 
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
@@ -478,7 +478,7 @@ const handleCrossAnalysisSubmit = async () => {
                 rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || (Array.isArray(curr.data) ? curr.data.length : 0)), 0),
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
                 data: analysisResult.data || activeDatasets.flatMap(d => Array.isArray(d.data) ? d.data : []),
-                aiStorage: analysisResult.summary || analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully."
+                aiStorage: summaryText // Ensure aiStorage holds the text result
             };
 
             setActiveDatasets([unifiedDataset]);
