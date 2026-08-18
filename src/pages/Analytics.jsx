@@ -434,6 +434,48 @@ export default function Analytics() {
     };
 
     const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
+    // --- MULTI-DATASET & CROSS ANALYSIS HANDLERS ---
+    const [showMultiSelectModal, setShowMultiSelectModal] = useState(false);
+
+    const handleAnalysisTriggerRequest = () => {
+        if (activeDatasets.length > 1) {
+            // Prompt user with choices when more than 1 dataset is active
+            setShowMultiSelectModal(true);
+        } else if (activeDatasets.length === 1) {
+            // Proceed with single dataset analysis view/trigger normally
+            executeSingleAnalysisFlow(activeDatasets[0]);
+        } else {
+            alert("Please select at least one dataset to analyze.");
+        }
+    };
+
+    const executeSingleAnalysisFlow = (dataset) => {
+        // Trigger standard single analysis behavior or scroll/focus visualizer
+        console.log("Running single analysis for:", dataset.name);
+    };
+
+    const handleCrossAnalysisSubmit = async () => {
+        setShowMultiSelectModal(false);
+        setIsSaving(true);
+        try {
+            const contexts = activeDatasets.map(d => d.data);
+            const res = await axios.post(`${API_BASE_URL}/ai/cross-analyze`, {
+                contexts: contexts
+            }, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+            
+            // Pass cross-analysis results back to the latest active dataset's aiStorage or handle accordingly
+            if (res.data) {
+                handleAIUpdate(activeDatasets[activeDatasets.length - 1].id, res.data);
+            }
+        } catch (e) {
+            console.error("Cross-analysis failed:", e);
+            alert("Cross-Dataset Intelligence Engine failed.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
     
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
@@ -602,6 +644,45 @@ export default function Analytics() {
                     csvToImport={csvToImport} 
                     onImport={(ids, names) => importSelected(ids, names)} 
                 />
+            )}
+            {/* Multi-Dataset Cross Analysis Choice Modal */}
+            {showMultiSelectModal && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-[#0a0612] border border-purple-500/30 rounded-[2rem] p-8 max-w-md w-full shadow-2xl relative">
+                        <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">Multiple Datasets Active</h3>
+                        <p className="text-gray-400 text-sm mb-6">
+                            You have selected <span className="text-purple-400 font-bold">{activeDatasets.length} datasets</span>. How would you like the Neural Engine to proceed?
+                        </p>
+                        
+                        <div className="space-y-4">
+                            <button 
+                                onClick={handleCrossAnalysisSubmit}
+                                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-left transition-all shadow-lg shadow-purple-500/20 flex flex-col cursor-pointer"
+                            >
+                                <span className="text-sm uppercase tracking-wider">Option 1: Run Cross-Analysis</span>
+                                <span className="text-xs text-purple-200 font-normal mt-1">Correlate metrics and generate a unified multi-stream strategy.</span>
+                            </button>
+
+                            <button 
+                                onClick={() => {
+                                    setShowMultiSelectModal(false);
+                                    executeSingleAnalysisFlow(activeDatasets[0]);
+                                }}
+                                className="w-full py-4 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-left transition-all flex flex-col cursor-pointer"
+                            >
+                                <span className="text-sm uppercase tracking-wider">Option 2: Analyze Individually</span>
+                                <span className="text-xs text-gray-400 font-normal mt-1">Run standard deep-dive on the primary active dataset.</span>
+                            </button>
+                        </div>
+
+                        <button 
+                            onClick={() => setShowMultiSelectModal(false)}
+                            className="mt-6 w-full text-center text-xs text-gray-500 hover:text-gray-300 uppercase tracking-widest font-bold cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );
