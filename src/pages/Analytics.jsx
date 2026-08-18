@@ -454,15 +454,14 @@ export default function Analytics() {
         console.log("Running single analysis for:", dataset.name);
     };
 
-const handleCrossAnalysisSubmit = async () => {
-        setShowMultiSelectModal(false);
-        setIsInitializing(true); 
+    const handleCrossAnalysisSubmit = async () => {
+            setShowMultiSelectModal(false);
+            setIsInitializing(true); 
 
         try {
-            // Extract raw rows from datasets and convert objects into value arrays (List[list])
-            const combinedRows = activeDatasets.flatMap(d => {
+            // Map each active dataset into its own row array so `contexts` becomes a List[List[list]]
+            const formattedContexts = activeDatasets.map(d => {
                 const rawRows = d.data || d.rows || d.values || d.content || (Array.isArray(d) ? d : []);
-                
                 return rawRows.map(row => {
                     if (Array.isArray(row)) return row;
                     if (row && typeof row === 'object') return Object.values(row);
@@ -470,11 +469,12 @@ const handleCrossAnalysisSubmit = async () => {
                 });
             });
 
+            // Target the `contexts` property explicitly to trigger multi-stream processing in main.py
             const payload = {
-                context: combinedRows
+                contexts: formattedContexts
             };
 
-            console.log("Submitting fixed 2D matrix payload:", payload.context);
+            console.log("Submitting multi-stream contexts payload:", payload);
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
@@ -482,12 +482,14 @@ const handleCrossAnalysisSubmit = async () => {
 
             const analysisResult = res.data;
 
+            const totalRows = formattedContexts.reduce((acc, curr) => acc + curr.length, 0);
+
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
-                rows: combinedRows.length,
+                rows: totalRows,
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
-                data: combinedRows,
+                data: formattedContexts.flat(),
                 aiStorage: analysisResult 
             };
 
