@@ -458,24 +458,23 @@ const handleCrossAnalysisSubmit = async () => {
         setShowMultiSelectModal(false);
         setIsInitializing(true); 
 
-        // Debug: Inspect your dataset structure in the console
-        console.log("Active Datasets Debug:", activeDatasets);
-
         try {
-            // Extract rows safely checking common property names
+            // Combine all rows from the selected active datasets into a single 2D matrix array
+            const combinedRows = activeDatasets.flatMap(d => {
+                if (Array.isArray(d.data)) return d.data;
+                if (Array.isArray(d.rows)) return d.rows;
+                if (Array.isArray(d.values)) return d.values;
+                if (Array.isArray(d.content)) return d.content;
+                if (Array.isArray(d)) return d;
+                return [];
+            });
+
+            // The backend expects { context: [...] } matching your Pydantic model
             const payload = {
-                contexts: activeDatasets.map(d => {
-                    if (Array.isArray(d.data) && d.data.length > 0) return d.data;
-                    if (Array.isArray(d.rows) && d.rows.length > 0) return d.rows;
-                    if (Array.isArray(d.values) && d.values.length > 0) return d.values;
-                    if (Array.isArray(d.content) && d.content.length > 0) return d.content;
-                    // If it's already an array directly
-                    if (Array.isArray(d) && d.length > 0) return d;
-                    return [];
-                })
+                context: combinedRows
             };
 
-            console.log("Submitting cross-analysis payload contexts:", payload.contexts);
+            console.log("Submitting cross-analysis payload context matrix:", payload.context);
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
@@ -488,7 +487,7 @@ const handleCrossAnalysisSubmit = async () => {
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
                 rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || (Array.isArray(curr.data) ? curr.data.length : 0)), 0),
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
-                data: analysisResult.data || activeDatasets.flatMap(d => Array.isArray(d.data) ? d.data : []),
+                data: combinedRows,
                 aiStorage: analysisResult 
             };
 
