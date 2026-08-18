@@ -458,15 +458,24 @@ const handleCrossAnalysisSubmit = async () => {
         setShowMultiSelectModal(false);
         setIsInitializing(true); 
 
+        // Debug: Inspect your dataset structure in the console
+        console.log("Active Datasets Debug:", activeDatasets);
+
         try {
-            // Extract the actual row/data matrices from active datasets
+            // Extract rows safely checking common property names
             const payload = {
                 contexts: activeDatasets.map(d => {
-                    if (Array.isArray(d.data)) return d.data;
-                    if (Array.isArray(d.rows)) return d.rows;
+                    if (Array.isArray(d.data) && d.data.length > 0) return d.data;
+                    if (Array.isArray(d.rows) && d.rows.length > 0) return d.rows;
+                    if (Array.isArray(d.values) && d.values.length > 0) return d.values;
+                    if (Array.isArray(d.content) && d.content.length > 0) return d.content;
+                    // If it's already an array directly
+                    if (Array.isArray(d) && d.length > 0) return d;
                     return [];
                 })
             };
+
+            console.log("Submitting cross-analysis payload contexts:", payload.contexts);
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
@@ -480,7 +489,7 @@ const handleCrossAnalysisSubmit = async () => {
                 rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || (Array.isArray(curr.data) ? curr.data.length : 0)), 0),
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
                 data: analysisResult.data || activeDatasets.flatMap(d => Array.isArray(d.data) ? d.data : []),
-                aiStorage: analysisResult // Store the entire response object so aiInsights has summary, root_cause, risk, opportunity, action, etc.
+                aiStorage: analysisResult 
             };
 
             setActiveDatasets([unifiedDataset]);
