@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { FiSend, FiCpu, FiStar, FiMic, FiMicOff, FiClock, FiMessageSquare, FiChevronLeft, FiChevronRight, FiVolume2, FiVolumeX } from "react-icons/fi";
+import { FiSend, FiCpu, FiStar, FiMic, FiMicOff, FiClock, FiMessageSquare, FiChevronLeft, FiChevronRight, FiVolume2, FiVolumeX, FiMaximize2, FiMinimize2, FiUserCheck } from "react-icons/fi";
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
@@ -13,11 +13,28 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     // Feature States
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [voiceEnabled, setVoiceEnabled] = useState(false); // Optional voice reading toggle
+    const [voiceEnabled, setVoiceEnabled] = useState(false); 
     const [historyOpen, setHistoryOpen] = useState(true);
     const [pastSessions, setPastSessions] = useState([]);
+    const [isExpanded, setIsExpanded] = useState(false); // Full-screen expandable view toggle
 
     const speechSynthRef = useRef(window.speechSynthesis);
+    const [availableVoices, setAvailableVoices] = useState([]);
+
+    // Load available speech synthesis voices
+    useEffect(() => {
+        const updateVoices = () => {
+            if (speechSynthRef.current) {
+                const voices = speechSynthRef.current.getVoices();
+                setAvailableVoices(voices);
+            }
+        };
+
+        updateVoices();
+        if (speechSynthRef.current && speechSynthRef.current.onvoiceschanged !== undefined) {
+            speechSynthRef.current.onvoiceschanged = updateVoices;
+        }
+    }, []);
 
     useEffect(() => {
         if (!activeDataset) {
@@ -28,7 +45,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
         const timer = setTimeout(() => {
             setIsVisible(true);
-            const welcomeText = `I've finished synthesizing "${activeDataset.name}". What insights or anomalies would you like to unpack together?`;
+            const welcomeText = `Hi there! I've gone ahead and reviewed "${activeDataset.name}" for you. Think of me as your personal data consultant—take your time looking through it, and let me know what questions you have or what anomalies we should look into together.`;
             setMessages([
                 { sender: "metria", text: welcomeText }
             ]);
@@ -66,14 +83,26 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Siri-Style Voice Synthesizer Reader
+    // Natural, Non-Robotic Conversational Voice Synthesizer Reader
     const speakResponse = (text) => {
         if (!speechSynthRef.current || !voiceEnabled) return;
         speechSynthRef.current.cancel();
         
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        utterance.pitch = 1.0;
+        const cleanText = text.replace(/[*#_`]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        
+        utterance.rate = 0.98; 
+        utterance.pitch = 1.02;
+
+        if (availableVoices.length > 0) {
+            const preferredVoice = availableVoices.find(v => 
+                (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Aria')) && v.lang.startsWith('en')
+            ) || availableVoices.find(v => v.lang.startsWith('en'));
+            
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+            }
+        }
 
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => setIsSpeaking(false);
@@ -132,7 +161,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                 dataset_name: activeDataset.name,
                 metrics: activeDataset.metrics,
                 data_sample: activeDataset.data,
-                messages: newMessages // Pass current state array so the backend can save it
+                messages: newMessages 
             }, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
@@ -142,7 +171,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             setMessages(finalMessages);
             if (voiceEnabled) speakResponse(answerText);
         } catch (err) {
-            const errorText = "Neural synthesis encountered an error. Please try again.";
+            const errorText = "I ran into a quick snag connecting to the backend servers. Let's try that query one more time.";
             setMessages(prev => [...prev, { sender: "metria", text: errorText }]);
             if (voiceEnabled) speakResponse(errorText);
         } finally {
@@ -150,35 +179,17 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Helper to format AI response text into ChatGPT-style clean blocks
+    // Helper to format AI response text into ChatGPT-style human spacing & readable paragraphs
     const formatMessageText = (text, sender) => {
-        if (sender === 'user') return <p className="leading-relaxed">{text}</p>;
-
-        // Split chunk patterns like "1. **Title**: description"
-        const segments = text.split(/(?=\d+\.\s+\*\*)/);
+        if (sender === 'user') return <p className="leading-relaxed text-sm md:text-base">{text}</p>;
 
         return (
-            <div className="space-y-3 leading-relaxed">
-                {segments.map((chunk, cIdx) => {
-                    if (cIdx === 0 && !chunk.match(/^\d+\./)) {
-                        return <p key={cIdx} className="text-slate-200 mb-2">{chunk}</p>;
-                    }
-                    const parts = chunk.replace(/^\d+\.\s+/, "").split("**: ");
-                    const title = parts[0]?.replace(/\*\*/g, "");
-                    const body = parts[1] || "";
-
-                    return (
-                        <div key={cIdx} className="bg-black/30 border border-white/10 p-3.5 rounded-2xl flex gap-3">
-                            <span className="flex items-center justify-center shrink-0 w-5 h-5 rounded-lg bg-purple-500/20 text-purple-400 font-bold text-[10px]">
-                                {cIdx}
-                            </span>
-                            <div>
-                                {title && <h6 className="text-white font-bold text-xs uppercase tracking-wider mb-1">{title}</h6>}
-                                <p className="text-slate-300 text-xs">{body}</p>
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="space-y-4 text-sm md:text-base leading-relaxed text-slate-100 font-normal">
+                {text.split('\n\n').map((paragraph, pIdx) => (
+                    <p key={pIdx} className="tracking-wide">
+                        {paragraph}
+                    </p>
+                ))}
             </div>
         );
     };
@@ -186,197 +197,212 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     if (!activeDataset) return null;
 
     const suggestedPrompts = [
-        "What are the primary bottlenecks?",
-        "Summarize top revenue drivers",
-        "Identify high-risk deals"
+        "What are the primary bottlenecks we should fix?",
+        "Can you walk me through the top revenue drivers?",
+        "Are there any high-risk data points worth reviewing?"
     ];
 
     return (
-        <div className={`transition-all duration-1000 transform ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12 pointer-events-none'
-        } mt-20 mb-24 px-6 lg:px-10 w-full flex gap-6`}>
-            
-            {/* Past History Sidebar */}
-            <div className={`transition-all duration-300 bg-[#0A0E1A] border border-purple-500/30 rounded-[2.5rem] flex flex-col overflow-hidden ${
-                historyOpen ? 'w-80 p-6' : 'w-20 p-4 items-center'
-            }`}>
-                <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-                    {historyOpen && (
-                        <div className="flex items-center gap-2 text-white font-black text-xs uppercase tracking-wider">
-                            <FiClock className="text-purple-400" /> Past Sessions
-                        </div>
-                    )}
-                    <button 
-                        onClick={() => setHistoryOpen(!historyOpen)} 
-                        className="p-2 rounded-xl bg-white/5 hover:bg-purple-600/20 text-slate-400 hover:text-white transition-all"
-                    >
-                        {historyOpen ? <FiChevronLeft size={16} /> : <FiChevronRight size={16} />}
-                    </button>
+        <div className={`transition-all duration-700 w-full px-4 lg:px-8 mx-auto ${
+            isExpanded ? 'fixed inset-0 z-[9999] bg-[#07050f]/98 p-4 md:p-8 overflow-y-auto' : 'mt-16 mb-20'
+        }`}>
+            <div className={`transition-all duration-1000 transform ${
+                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12 pointer-events-none'
+            } w-full flex gap-6 max-w-[1600px] mx-auto`}>
+                
+                {/* Past History Sidebar */}
+                <div className={`transition-all duration-300 bg-[#0A0E1A] border border-purple-500/30 rounded-[2.5rem] flex flex-col overflow-hidden shadow-2xl ${
+                    historyOpen ? 'w-80 p-6' : 'w-20 p-4 items-center'
+                }`}>
+                    <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+                        {historyOpen && (
+                            <div className="flex items-center gap-2 text-white font-black text-xs uppercase tracking-wider">
+                                <FiClock className="text-purple-400" /> Past Sessions
+                            </div>
+                        )}
+                        <button 
+                            onClick={() => setHistoryOpen(!historyOpen)} 
+                            className="p-2 rounded-xl bg-white/5 hover:bg-purple-600/20 text-slate-400 hover:text-white transition-all cursor-pointer"
+                        >
+                            {historyOpen ? <FiChevronLeft size={16} /> : <FiChevronRight size={16} />}
+                        </button>
+                    </div>
+
+                    <div className="space-y-2 overflow-y-auto flex-1 flex flex-col">
+                        {pastSessions.length > 0 ? (
+                            pastSessions.map(session => (
+                                <div 
+                                    key={session.id}
+                                    onClick={() => loadSession(session.id)}
+                                    className={`p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
+                                        historyOpen ? 'hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30' : 'justify-center'
+                                    }`}
+                                >
+                                    <FiMessageSquare className="text-purple-400 shrink-0" size={16} />
+                                    {historyOpen && (
+                                        <div className="truncate">
+                                            <p className="text-white text-xs font-bold truncate">{session.title}</p>
+                                            <p className="text-slate-500 text-[10px]">{session.date}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            historyOpen && (
+                                <div className="text-slate-500 text-xs italic text-center py-6">
+                                    No past sessions recorded
+                                </div>
+                            )
+                        )}
+                    </div>
                 </div>
 
-                <div className="space-y-2 overflow-y-auto flex-1 flex flex-col">
-                    {pastSessions.length > 0 ? (
-                        pastSessions.map(session => (
-                            <div 
-                                key={session.id}
-                                onClick={() => loadSession(session.id)}
-                                className={`p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
-                                    historyOpen ? 'hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30' : 'justify-center'
-                                }`}
-                            >
-                                <FiMessageSquare className="text-purple-400 shrink-0" size={16} />
-                                {historyOpen && (
-                                    <div className="truncate">
-                                        <p className="text-white text-xs font-bold truncate">{session.title}</p>
-                                        <p className="text-slate-500 text-[10px]">{session.date}</p>
+                {/* Main Interactive Consultant Panel - Full Width Expandable */}
+                <div className="w-full relative group flex-1">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3.5rem] blur-xl opacity-30 group-hover:opacity-60 transition duration-1000 pointer-events-none" />
+
+                    <div className="relative bg-gradient-to-b from-[#120B22] to-[#080B14] border border-purple-500/60 rounded-[3.5rem] p-6 md:p-12 shadow-[0_0_60px_rgba(188,19,254,0.15)] overflow-hidden flex flex-col">
+                        
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.12),rgba(255,255,255,0))] pointer-events-none" />
+
+                        {/* Header Banner: Human Advisor Presentation */}
+                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-purple-500 rounded-2xl blur-md animate-pulse" />
+                                    <div className="relative p-4 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl text-white shadow-lg">
+                                        <FiUserCheck size={26} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2.5">
+                                        <h3 className="text-white font-bold tracking-wide text-base">Metria</h3>
+                                        <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold px-3 py-0.5 rounded-full flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Data Consultant
+                                        </span>
+                                    </div>
+                                    <p className="text-slate-300 text-xs font-normal mt-0.5">Here to help you break down data safely, comfortably, and clearly.</p>
+                                </div>
+                            </div>
+
+                            {/* Voice Controls, Status & Expand View Toggle */}
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => {
+                                        setVoiceEnabled(!voiceEnabled);
+                                        if (isSpeaking && speechSynthRef.current) {
+                                            speechSynthRef.current.cancel();
+                                            setIsSpeaking(false);
+                                        }
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-xs font-medium transition-all cursor-pointer ${
+                                        voiceEnabled 
+                                            ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
+                                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                                    }`}
+                                    title="Toggle Voice Reader"
+                                >
+                                    {voiceEnabled ? <FiVolume2 size={15} className="text-purple-400" /> : <FiVolumeX size={15} />}
+                                    {voiceEnabled ? "Voice On" : "Voice Off"}
+                                </button>
+
+                                {isSpeaking && (
+                                    <div className="flex items-center gap-1.5 bg-purple-600/20 border border-purple-500/40 px-3 py-2 rounded-2xl">
+                                        <span className="text-purple-300 text-xs font-medium">Speaking</span>
+                                        <div className="flex items-center gap-0.5 h-3 ml-1">
+                                            <div className="w-1 bg-purple-400 animate-bounce h-full rounded-full" />
+                                            <div className="w-1 bg-fuchsia-400 animate-bounce h-2 rounded-full delay-100" />
+                                            <div className="w-1 bg-purple-400 animate-bounce h-3 rounded-full delay-200" />
+                                        </div>
                                     </div>
                                 )}
-                            </div>
-                        ))
-                    ) : (
-                        historyOpen && (
-                            <div className="text-slate-500 text-xs italic text-center py-6">
-                                No past sessions
-                            </div>
-                        )
-                    )}
-                </div>
-            </div>
 
-            {/* Main Interactive Neural Analyst Panel */}
-            <div className="w-full relative group flex-1">
-                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3.5rem] blur-xl opacity-40 group-hover:opacity-75 transition duration-1000 pointer-events-none" />
-
-                <div className="relative bg-gradient-to-b from-[#120B22] to-[#080B14] border border-purple-500/60 rounded-[3.5rem] p-8 md:p-12 shadow-[0_0_60px_rgba(188,19,254,0.15)] overflow-hidden">
-                    
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.15),rgba(255,255,255,0))] pointer-events-none" />
-
-                    {/* Header Banner */}
-                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-white/10 mb-8">
-                        <div className="flex items-center gap-4">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-purple-500 rounded-2xl blur-md animate-pulse" />
-                                <div className="relative p-4 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl text-white shadow-lg">
-                                    <FiCpu size={26} className="animate-pulse" />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-white font-black uppercase tracking-wider text-sm">Metria Neural Analyst</h3>
-                                    <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">Active Core</span>
-                                </div>
-                                <p className="text-slate-400 text-[11px] font-medium tracking-wide mt-0.5">Ask questions, request deep-dives, or query variables in real-time</p>
+                                {/* Expand / Full Page Toggle */}
+                                <button
+                                    onClick={() => setIsExpanded(!isExpanded)}
+                                    className="p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition-all cursor-pointer"
+                                    title={isExpanded ? "Minimize Consultant View" : "Expand to Full Page"}
+                                >
+                                    {isExpanded ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+                                </button>
                             </div>
                         </div>
 
-                        {/* Voice Controls & Status Indicators */}
-                        <div className="flex items-center gap-3">
-                            {/* Toggle Voice Speech Output Button */}
-                            <button
-                                onClick={() => {
-                                    setVoiceEnabled(!voiceEnabled);
-                                    if (isSpeaking && speechSynthRef.current) {
-                                        speechSynthRef.current.cancel();
-                                        setIsSpeaking(false);
-                                    }
-                                }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                    voiceEnabled 
-                                        ? 'bg-purple-600/30 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
-                                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                                }`}
-                                title="Toggle Voice Reader"
-                            >
-                                {voiceEnabled ? <FiVolume2 size={14} className="text-purple-400" /> : <FiVolumeX size={14} />}
-                                {voiceEnabled ? "Voice Enabled" : "Voice Muted"}
-                            </button>
-
-                            {/* Speaking Indicator Waveform */}
-                            {isSpeaking && (
-                                <div className="flex items-center gap-1 bg-purple-600/20 border border-purple-500/40 px-3 py-2 rounded-2xl">
-                                    <span className="text-purple-400 text-[10px] font-bold uppercase tracking-widest">Speaking</span>
-                                    <div className="flex items-center gap-0.5 h-3 ml-1">
-                                        <div className="w-1 bg-purple-400 animate-bounce h-full rounded-full" />
-                                        <div className="w-1 bg-fuchsia-400 animate-bounce h-2 rounded-full delay-100" />
-                                        <div className="w-1 bg-purple-400 animate-bounce h-3 rounded-full delay-200" />
+                        {/* Conversation Window: Nicely Spaced ChatGPT-Style Reading Area */}
+                        <div className={`relative z-10 space-y-6 overflow-y-auto pr-3 mb-6 scrollbar-thin scrollbar-thumb-purple-500/30 ${
+                            isExpanded ? 'max-h-[calc(100vh-320px)]' : 'max-h-[500px]'
+                        }`}>
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[90%] md:max-w-[80%] p-6 md:p-8 rounded-[2rem] shadow-xl ${
+                                        msg.sender === 'user' 
+                                            ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-br-sm font-medium' 
+                                            : 'bg-white/[0.03] border border-white/10 text-slate-100 rounded-bl-sm backdrop-blur-md'
+                                    }`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-purple-400">
+                                                {msg.sender === 'user' ? 'You' : 'Metria • Consultant'}
+                                            </span>
+                                        </div>
+                                        {formatMessageText(msg.text, msg.sender)}
+                                    </div>
+                                </div>
+                            ))}
+                            {isAnalyzing && (
+                                <div className="flex justify-start">
+                                    <div className="bg-white/[0.04] border border-white/10 text-purple-300 p-5 rounded-3xl text-sm backdrop-blur-md animate-pulse flex items-center gap-3">
+                                        <FiCpu className="animate-spin text-purple-400" size={18} /> Metria is reviewing the dataset notes for you...
                                     </div>
                                 </div>
                             )}
-
-                            <div className="hidden sm:flex items-center gap-2 text-purple-400 text-[10px] font-bold uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-2xl">
-                                <FiStar size={14} /> Ready
-                            </div>
                         </div>
-                    </div>
 
-                    {/* Conversation Window */}
-                    <div className="relative z-10 space-y-6 max-h-[420px] overflow-y-auto pr-2 mb-8">
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] p-6 rounded-3xl text-xs md:text-sm shadow-lg ${
-                                    msg.sender === 'user' 
-                                        ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-br-sm font-semibold' 
-                                        : 'bg-white/[0.04] border border-white/10 text-slate-200 rounded-bl-sm font-normal backdrop-blur-md'
-                                }`}>
-                                    {formatMessageText(msg.text, msg.sender)}
-                                </div>
+                        {/* Quick Suggestion Pills */}
+                        <div className="relative z-10 flex flex-wrap gap-2 mb-5">
+                            <span className="text-xs font-semibold text-slate-400 self-center mr-2">Suggested questions:</span>
+                            {suggestedPrompts.map((promptText, pIdx) => (
+                                <button
+                                    key={pIdx}
+                                    onClick={() => handleSend(promptText)}
+                                    className="bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-all shadow-sm cursor-pointer"
+                                >
+                                    {promptText}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Input Form Bar with Voice Listener Button */}
+                        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative z-10 flex gap-3">
+                            <div className="relative flex-1 flex items-center">
+                                <input 
+                                    type="text"
+                                    value={inputQuery}
+                                    onChange={(e) => setInputQuery(e.target.value)}
+                                    placeholder={isListening ? "Listening closely... Speak your question..." : `Ask Metria a question about ${activeDataset.name}...`}
+                                    className={`w-full bg-black/70 border rounded-3xl px-7 py-5 text-sm md:text-base text-white focus:outline-none shadow-inner transition-all placeholder:text-slate-500 ${
+                                        isListening ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse' : 'border-white/15 focus:border-purple-500'
+                                    }`}
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={toggleVoiceListener}
+                                    className={`absolute right-4 p-3 rounded-2xl transition-all cursor-pointer ${
+                                        isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                                    }`}
+                                    title="Speak your question"
+                                >
+                                    {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
+                                </button>
                             </div>
-                        ))}
-                        {isAnalyzing && (
-                            <div className="flex justify-start">
-                                <div className="bg-white/[0.04] border border-white/10 text-purple-300 p-5 rounded-3xl text-xs backdrop-blur-md animate-pulse flex items-center gap-3">
-                                    <FiCpu className="animate-spin text-purple-400" size={16} /> Metria is scanning parameters & computing data vectors...
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Quick Suggestion Pills */}
-                    <div className="relative z-10 flex flex-wrap gap-2 mb-6">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest self-center mr-2">Suggested:</span>
-                        {suggestedPrompts.map((promptText, pIdx) => (
-                            <button
-                                key={pIdx}
-                                onClick={() => handleSend(promptText)}
-                                className="bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-[11px] font-bold transition-all shadow-sm"
-                            >
-                                {promptText}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Input Form Bar with Voice Listener Button */}
-                    <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative z-10 flex gap-3">
-                        <div className="relative flex-1 flex items-center">
-                            <input 
-                                type="text"
-                                value={inputQuery}
-                                onChange={(e) => setInputQuery(e.target.value)}
-                                placeholder={isListening ? "Listening... Speak now..." : `Ask Metria anything about ${activeDataset.name}...`}
-                                className={`w-full bg-black/60 border rounded-3xl px-7 py-5 text-xs md:text-sm text-white focus:outline-none shadow-inner transition-all placeholder:text-slate-500 ${
-                                    isListening ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse' : 'border-white/15 focus:border-purple-500'
-                                }`}
-                            />
-                            {/* Voice Listener Mic Toggle */}
                             <button 
-                                type="button" 
-                                onClick={toggleVoiceListener}
-                                className={`absolute right-4 p-2.5 rounded-2xl transition-all ${
-                                    isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-                                }`}
-                                title="Talk to Metria"
+                                type="submit" 
+                                className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white px-8 rounded-3xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-600/30 flex items-center justify-center shrink-0 hover:scale-[1.02] active:scale-95 cursor-pointer"
                             >
-                                {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
+                                <FiSend size={18} />
                             </button>
-                        </div>
-                        <button 
-                            type="submit" 
-                            className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white px-8 rounded-3xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-600/30 flex items-center justify-center shrink-0 hover:scale-[1.02] active:scale-95"
-                        >
-                            <FiSend size={18} />
-                        </button>
-                    </form>
+                        </form>
 
+                    </div>
                 </div>
             </div>
         </div>
