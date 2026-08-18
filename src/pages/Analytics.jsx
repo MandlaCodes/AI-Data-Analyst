@@ -459,10 +459,13 @@ const handleCrossAnalysisSubmit = async () => {
         setIsInitializing(true); 
 
         try {
+            // Extract the actual row/data matrices from active datasets
             const payload = {
-                contexts: activeDatasets.map(d => 
-                    Array.isArray(d.data) ? d.data : []
-                )
+                contexts: activeDatasets.map(d => {
+                    if (Array.isArray(d.data)) return d.data;
+                    if (Array.isArray(d.rows)) return d.rows;
+                    return [];
+                })
             };
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
@@ -470,7 +473,6 @@ const handleCrossAnalysisSubmit = async () => {
             });
 
             const analysisResult = res.data;
-            const summaryText = analysisResult.summary || analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully.";
 
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
@@ -478,7 +480,7 @@ const handleCrossAnalysisSubmit = async () => {
                 rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || (Array.isArray(curr.data) ? curr.data.length : 0)), 0),
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
                 data: analysisResult.data || activeDatasets.flatMap(d => Array.isArray(d.data) ? d.data : []),
-                aiStorage: summaryText // Ensure aiStorage holds the text result
+                aiStorage: analysisResult // Store the entire response object so aiInsights has summary, root_cause, risk, opportunity, action, etc.
             };
 
             setActiveDatasets([unifiedDataset]);
