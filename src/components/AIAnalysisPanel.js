@@ -162,25 +162,21 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    // Core execution function with uniform dataset payload resolution
+    // Core execution function matching backend Pydantic model: context -> List[list]
     const executeAnalysisCall = async () => {
         setLoading(true);
         try {
             const activeDataset = datasets[0];
             
-            // Uniformly extract rows regardless of whether it's an .xlsx upload or Google Sheets stream
-            let payloadContext = activeDataset;
+            // Extract the clean raw data matrix ensuring it matches List[list] format
+            let payloadContext = [];
             if (activeDataset) {
-                if (Array.isArray(activeDataset)) {
-                    payloadContext = activeDataset;
+                if (Array.isArray(activeDataset.data)) {
+                    payloadContext = activeDataset.data;
                 } else if (Array.isArray(activeDataset.rows)) {
                     payloadContext = activeDataset.rows;
-                } else if (Array.isArray(activeDataset.data)) {
-                    payloadContext = activeDataset.data;
-                } else if (Array.isArray(activeDataset.raw)) {
-                    payloadContext = activeDataset.raw;
-                } else if (Array.isArray(activeDataset.records)) {
-                    payloadContext = activeDataset.records;
+                } else if (Array.isArray(activeDataset)) {
+                    payloadContext = activeDataset;
                 }
             }
 
