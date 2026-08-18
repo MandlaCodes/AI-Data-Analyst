@@ -196,8 +196,16 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     const rows = combinedRows.map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])));
     const labels = rows.map((_, i) => `Record #${i+1}`);
 
-    return { name: `Cross-Stream Workspace (${activeDatasets.length} Sources)`, columns, rows, labels };
-  }, [parsed, isMultiStream, activeDatasets.length]);
+    // Preserve aiStorage from the active dataset or fallback cleanly
+    return { 
+      id: 'multi-stream-workspace', 
+      name: `Cross-Stream Workspace (${activeDatasets.length} Sources)`, 
+      columns, 
+      rows, 
+      labels,
+      aiStorage: activeDatasets[0]?.aiStorage || null 
+    };
+  }, [parsed, isMultiStream, activeDatasets]);
 
   if (activeDatasets.length === 0) return null;
 
@@ -291,10 +299,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
       ) : (
         /* STANDARD SINGLE DATASET VIEW */
         parsed.map(ds => {
-          const numericCols = ds.analysis.filter(c => c.isNumeric);
-          const categoricalCols = ds.analysis.filter(c => !c.isNumeric && Object.keys(c.freq).length > 1 && Object.keys(c.freq).length < 15);
-          if (!readyStates[ds.id]) return null;
-
           return (
             <div key={ds.id} className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000" id={`report-${ds.id}`}>
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
