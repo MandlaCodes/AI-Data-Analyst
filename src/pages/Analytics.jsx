@@ -459,22 +459,22 @@ const handleCrossAnalysisSubmit = async () => {
         setIsInitializing(true); 
 
         try {
-            // Combine all rows from the selected active datasets into a single 2D matrix array
+            // Extract raw rows from datasets and convert objects into value arrays (List[list])
             const combinedRows = activeDatasets.flatMap(d => {
-                if (Array.isArray(d.data)) return d.data;
-                if (Array.isArray(d.rows)) return d.rows;
-                if (Array.isArray(d.values)) return d.values;
-                if (Array.isArray(d.content)) return d.content;
-                if (Array.isArray(d)) return d;
-                return [];
+                const rawRows = d.data || d.rows || d.values || d.content || (Array.isArray(d) ? d : []);
+                
+                return rawRows.map(row => {
+                    if (Array.isArray(row)) return row;
+                    if (row && typeof row === 'object') return Object.values(row);
+                    return [row];
+                });
             });
 
-            // The backend expects { context: [...] } matching your Pydantic model
             const payload = {
                 context: combinedRows
             };
 
-            console.log("Submitting cross-analysis payload context matrix:", payload.context);
+            console.log("Submitting fixed 2D matrix payload:", payload.context);
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
@@ -485,7 +485,7 @@ const handleCrossAnalysisSubmit = async () => {
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
-                rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || (Array.isArray(curr.data) ? curr.data.length : 0)), 0),
+                rows: combinedRows.length,
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
                 data: combinedRows,
                 aiStorage: analysisResult 
