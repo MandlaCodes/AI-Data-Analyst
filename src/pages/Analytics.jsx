@@ -454,19 +454,16 @@ export default function Analytics() {
         console.log("Running single analysis for:", dataset.name);
     };
 
- const handleCrossAnalysisSubmit = async () => {
+const handleCrossAnalysisSubmit = async () => {
         setShowMultiSelectModal(false);
         setIsInitializing(true); 
 
         try {
-            // Pass activeDatasets directly as 'contexts' to align with the backend route
+            // Match the backend Pydantic model: List[List[list]]
             const payload = {
-                contexts: activeDatasets.map(d => ({
-                    name: d.name || 'Dataset',
-                    rows: Array.isArray(d.data) ? d.data : [],
-                    metrics: d.metrics || {},
-                    columns: d.columns || []
-                }))
+                contexts: activeDatasets.map(d => 
+                    Array.isArray(d.data) ? d.data : []
+                )
             };
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
@@ -493,6 +490,7 @@ export default function Analytics() {
             setIsInitializing(false); 
         }
     };
+  
     
    return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
