@@ -65,6 +65,9 @@ export default function Analytics() {
     const [selectedSheet, setSelectedSheet] = useState("");
     const [csvToImport, setCsvToImport] = useState(null);
 
+    // Multi-Dataset & Cross Analysis Choice Modal State
+    const [showMultiSelectModal, setShowMultiSelectModal] = useState(false);
+
     const datasetColors = ["#bc13fe", "#22C55E", "#F97316", "#EAB308"];
     const isFirstMount = useRef(true);
     const metriaRef = useRef(null);
@@ -86,7 +89,7 @@ export default function Analytics() {
             },
             {
                 root: null,
-                threshold: 0.1, // Triggers as soon as 10% of the component is visible
+                threshold: 0.1, 
             }
         );
 
@@ -105,7 +108,6 @@ export default function Analytics() {
         try {
             const updatedDatasets = await Promise.all(
                 activeDatasets.map(async (ds) => {
-                    // Only poll/refresh connected cloud streams (Excel or Google Sheets)
                     if (ds.id && typeof ds.id === 'string' || ds.id > 1000) { 
                         const endpoint = ds.name.includes("Excel") || ds.id.toString().length > 10
                             ? `${API_BASE_URL}/excel/sheets/${ds.id}`
@@ -136,7 +138,6 @@ export default function Analytics() {
                 })
             );
 
-            // Update datasets and trigger AI analysis recalibration if needed
             setActiveDatasets(updatedDatasets);
             setAllDatasets(prev => prev.map(d => {
                 const match = updatedDatasets.find(u => u.id === d.id);
@@ -149,7 +150,6 @@ export default function Analytics() {
     };
 
     useEffect(() => {
-        // Automatically check for live updates from Google Sheets or Excel every 60 seconds
         const pollInterval = setInterval(() => {
             handleLiveSync();
         }, 60000);
@@ -327,9 +327,11 @@ export default function Analytics() {
         }
     };
 
-   const importSelected = async (manualIds = [], manualNames = []) => {
+    const importSelected = async (manualIds = [], manualNames = []) => {
         setIsImporting(true);
         try {
+            let newlyImported = [];
+
             if (selectedApps.includes("google_sheets") && Array.isArray(manualIds)) {
                 const importPromises = manualIds.map(async (id, index) => {
                     const res = await axios.get(`${API_BASE_URL}/google/sheets/${id}`, { 
@@ -359,9 +361,7 @@ export default function Analytics() {
                     return null;
                 });
     
-                const newDatasets = (await Promise.all(importPromises)).filter(ds => ds !== null);
-                setAllDatasets(prev => [...prev, ...newDatasets]);
-                setActiveDatasets(prev => [...prev, ...newDatasets]);
+                newlyImported = (await Promise.all(importPromises)).filter(ds => ds !== null);
             } 
             else if (selectedApps.includes("excel") && Array.isArray(manualIds)) {
                 const importPromises = manualIds.map(async (id, index) => {
@@ -392,9 +392,7 @@ export default function Analytics() {
                     return null;
                 });
     
-                const newDatasets = (await Promise.all(importPromises)).filter(ds => ds !== null);
-                setAllDatasets(prev => [...prev, ...newDatasets]);
-                setActiveDatasets(prev => [...prev, ...newDatasets]);
+                newlyImported = (await Promise.all(importPromises)).filter(ds => ds !== null);
             }
             else if (selectedApps.includes("other") && csvToImport) {
                 const sourceName = csvToImport.name.replace(/\.csv$/i,"");
@@ -404,7 +402,7 @@ export default function Analytics() {
                     const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
                     const numeric = detectNumericColumns(cleaned);
                     const category = detectCategoryColumn(cleaned, numeric);
-                    const newDataset = {
+                    newlyImported = [{
                         id: Date.now(),
                         name: sourceName,
                         color: datasetColors[allDatasets.length % datasetColors.length],
@@ -415,10 +413,24 @@ export default function Analytics() {
                         metrics: computeMetrics(cleaned, numeric),
                         categoryCol: category,
                         aiStorage: null
-                    };
-                    setAllDatasets(prev => [...prev, newDataset]);
-                    setActiveDatasets(prev => [...prev, newDataset]);
+                    }];
                 }
+            }
+
+            if (newlyImported.length > 0) {
+                setAllDatasets(prev => [...prev, ...newlyImported]);
+                
+                setActiveDatasets(prev => {
+                    // Clear out old aiStorage on existing active datasets to remove stale analysis state
+                    const clearedPrevious = prev.map(d => ({ ...d, aiStorage: null }));
+                    const combinedActive = [...clearedPrevious, ...newlyImported];
+                    
+                    // If multiple datasets are active post-import, trigger the choice modal immediately
+                    if (combinedActive.length > 1) {
+                        setShowMultiSelectModal(true);
+                    }
+                    return combinedActive;
+                });
             }
     
             setShowModal(false); 
@@ -434,23 +446,9 @@ export default function Analytics() {
     };
 
     const readyToVisualize = activeDatasets.filter(ds => ds.aiStorage !== null);
+
     // --- MULTI-DATASET & CROSS ANALYSIS HANDLERS ---
-    const [showMultiSelectModal, setShowMultiSelectModal] = useState(false);
-
-    const handleAnalysisTriggerRequest = () => {
-        if (activeDatasets.length > 1) {
-            // Prompt user with choices when more than 1 dataset is active
-            setShowMultiSelectModal(true);
-        } else if (activeDatasets.length === 1) {
-            // Proceed with single dataset analysis view/trigger normally
-            executeSingleAnalysisFlow(activeDatasets[0]);
-        } else {
-            alert("Please select at least one dataset to analyze.");
-        }
-    };
-
     const executeSingleAnalysisFlow = (dataset) => {
-        // Trigger standard single analysis behavior or scroll/focus visualizer
         console.log("Running single analysis for:", dataset.name);
     };
 
@@ -465,7 +463,6 @@ export default function Analytics() {
                 headers: { Authorization: `Bearer ${userToken}` }
             });
             
-            // Pass cross-analysis results back to the latest active dataset's aiStorage or handle accordingly
             if (res.data) {
                 handleAIUpdate(activeDatasets[activeDatasets.length - 1].id, res.data);
             }
@@ -515,7 +512,22 @@ export default function Analytics() {
                                 return (
                                     <div 
                                         key={ds.id} 
-                                        onClick={() => setActiveDatasets(prev => isActive ? prev.filter(d => d.id !== ds.id) : [...prev, ds])} 
+                                        onClick={() => {
+                                            setActiveDatasets(prev => {
+                                                const alreadyActive = prev.some(a => a.id === ds.id);
+                                                // Clear out stale analysis state by resetting aiStorage on toggle
+                                                const cleanedPrev = prev.map(d => ({ ...d, aiStorage: null }));
+                                                const updated = alreadyActive 
+                                                    ? cleanedPrev.filter(d => d.id !== ds.id) 
+                                                    : [...cleanedPrev, { ...ds, aiStorage: null }];
+
+                                                // If selecting this dataset pushes active count above 1, trigger modal
+                                                if (updated.length > 1) {
+                                                    setShowMultiSelectModal(true);
+                                                }
+                                                return updated;
+                                            });
+                                        }} 
                                         className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
                                             isActive 
                                             ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_50px_rgba(188,19,254,0.1)] scale-[1.02]' 
@@ -645,6 +657,7 @@ export default function Analytics() {
                     onImport={(ids, names) => importSelected(ids, names)} 
                 />
             )}
+            
             {/* Multi-Dataset Cross Analysis Choice Modal */}
             {showMultiSelectModal && (
                 <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
