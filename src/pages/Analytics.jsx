@@ -452,27 +452,43 @@ export default function Analytics() {
         console.log("Running single analysis for:", dataset.name);
     };
 
+ // Handle the multi-dataset cross analysis submission from the popup modal
     const handleCrossAnalysisSubmit = async () => {
-            setShowMultiSelectModal(false);
-            setIsSaving(true);
-            try {
-                const contexts = activeDatasets.map(d => d.data);
-                const res = await axios.post(`${API_BASE_URL}/ai/analyze`, {
-                    contexts: contexts
-                }, {
-                    headers: { Authorization: `Bearer ` + userToken }
-                });
-                
-                if (res.data) {
-                    handleAIUpdate(activeDatasets[activeDatasets.length - 1].id, res.data);
-                }
-            } catch (e) {
-                console.error("Cross-analysis failed:", e);
-                alert("Cross-Dataset Intelligence Engine failed.");
-            } finally {
-                setIsSaving(false);
-            }
-        };
+        setShowMultiSelectModal(false);
+        setIsInitializing(true); // Trigger loading screen overlay
+
+        try {
+            // Adjust this endpoint URL if your backend uses /ai/analyze for cross analysis as well
+            const res = await axios.post(`${API_BASE_URL}/ai/analyze`, {
+                dataset_name: activeDatasets.map(d => d.name).join(' + '),
+                metrics: activeDatasets.flatMap(d => d.metrics || []),
+                data_sample: activeDatasets.map(d => d.data).flat()
+            }, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+
+            const analysisResult = res.data;
+
+            // Build a unified dataset object out of the response
+            const unifiedDataset = {
+                id: `cross-${Date.now()}`,
+                name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
+                rows: activeDatasets.reduce((acc, curr) => acc + (curr.rows || 0), 0),
+                metrics: analysisResult.metrics || activeDatasets[0].metrics,
+                data: analysisResult.data || activeDatasets[0].data,
+                aiStorage: analysisResult.analysis || analysisResult.answer || "Cross-analysis synchronized successfully."
+            };
+
+            // Update active datasets and trigger visualizer state
+            setActiveDatasets([unifiedDataset]);
+            setReadyToVisualize([unifiedDataset]); // This forces the visualizer & Metria to render!
+
+        } catch (err) {
+            console.error("Cross-analysis synthesis failed:", err);
+        } finally {
+            setIsInitializing(false); // Hides loading screen so visualizer displays
+        }
+    };
     
    return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
