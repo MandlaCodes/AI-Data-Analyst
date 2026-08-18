@@ -162,13 +162,27 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    // Core execution function
+    // Core execution function with uniform dataset payload resolution
     const executeAnalysisCall = async () => {
         setLoading(true);
         try {
             const activeDataset = datasets[0];
-            const rawRows = activeDataset.rows || activeDataset.data || activeDataset.raw || activeDataset.records || [];
-            const payloadContext = rawRows.length > 0 ? rawRows : activeDataset;
+            
+            // Uniformly extract rows regardless of whether it's an .xlsx upload or Google Sheets stream
+            let payloadContext = activeDataset;
+            if (activeDataset) {
+                if (Array.isArray(activeDataset)) {
+                    payloadContext = activeDataset;
+                } else if (Array.isArray(activeDataset.rows)) {
+                    payloadContext = activeDataset.rows;
+                } else if (Array.isArray(activeDataset.data)) {
+                    payloadContext = activeDataset.data;
+                } else if (Array.isArray(activeDataset.raw)) {
+                    payloadContext = activeDataset.raw;
+                } else if (Array.isArray(activeDataset.records)) {
+                    payloadContext = activeDataset.records;
+                }
+            }
 
             const response = await axios.post(
                 `${API_BASE_URL}/ai/analyze`, 
