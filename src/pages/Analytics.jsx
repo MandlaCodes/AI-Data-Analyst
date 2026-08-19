@@ -454,9 +454,9 @@ export default function Analytics() {
         console.log("Running single analysis for:", dataset.name);
     };
 
-    const handleCrossAnalysisSubmit = async () => {
-            setShowMultiSelectModal(false);
-            setIsInitializing(true); 
+const handleCrossAnalysisSubmit = async () => {
+        setShowMultiSelectModal(false);
+        setIsInitializing(true); 
 
         try {
             // Map each active dataset into its own row array so `contexts` becomes a List[List[list]]
