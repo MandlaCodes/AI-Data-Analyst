@@ -116,6 +116,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Assembling executive synthesis report..."
     ], []);
 
+    // Smoothly scroll down to the panel when datasets become active so the user sees the button
+    useEffect(() => {
+        if (datasets.length > 0 && panelRef.current) {
+            panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [datasets]);
+
     useEffect(() => {
         window.speechSynthesis.getVoices();
     }, []);
@@ -386,8 +393,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </motion.div>
                 ) : (
                     <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
-                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
-                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">
+                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10 animate-bounce" />
+                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_30px_rgba(129,140,248,0.3)]">
                             {datasets.length > 1 && !selectedMultiStreamMode ? "Select Cross-Stream Mode" : "Generate Strategic Brief"}
                         </button>
                     </div>

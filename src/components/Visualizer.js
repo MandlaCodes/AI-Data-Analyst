@@ -219,9 +219,11 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
 
   // Reusable renderer for dataset metrics, breakdown cards, and charts
   const renderDatasetAnalytics = (ds) => {
-    // Check if the specific target/workspace has completed analysis
     const targetId = isMultiStream ? 'multi-stream-workspace' : ds.id;
     const isAnalyzed = !!readyStates[targetId] || !!ds.aiStorage;
+
+    // IF NOT ANALYZED YET, RETURN NOTHING (HIDES THE TITLE, TABLES, AND CHARTS ENTIRELY)
+    if (!isAnalyzed) return null;
 
     return (
       <div key={ds.id} className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000" id={`report-${ds.id}`}>
@@ -249,162 +251,154 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
               )}
             </div>
             
-            {/* Export and action buttons only appear after analysis completes */}
-            {isAnalyzed && (
-              <div className="flex w-full md:w-auto gap-4">
-                <button onClick={handleRefresh} className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all">
-                  <FiRefreshCw className="w-5 h-5" />
-                </button>
-                <button onClick={() => handleExport(ds.id, ds.name)} className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl">
-                  <FiDownload className="w-5 h-5" /> {isMultiStream ? "Export Cross-Report" : "Download Report"}
-                </button>
-              </div>
-            )}
+            <div className="flex w-full md:w-auto gap-4">
+              <button onClick={handleRefresh} className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all">
+                <FiRefreshCw className="w-5 h-5" />
+              </button>
+              <button onClick={() => handleExport(ds.id, ds.name)} className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl">
+                <FiDownload className="w-5 h-5" /> {isMultiStream ? "Export Cross-Report" : "Download Report"}
+              </button>
+            </div>
         </div>
 
-        {/* ONLY RENDER TABLES, CHARTS, AND METRICS AFTER AI ANALYSIS IS COMPLETE */}
-        {isAnalyzed && (
-          <>
-            {/* UNIFIED / DATASET TABLE */}
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
-                <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <div className="flex items-center gap-3">
-                        <FiTable className="text-zinc-500 w-4 h-4" />
-                        <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">
-                          {isMultiStream ? "Combined_Multi_Stream_Registry" : "Full_Dataset_Records"}
-                        </span>
-                    </div>
-                    <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{ds.rows.length} Total Records Found</span>
+        {/* UNIFIED / DATASET TABLE */}
+        <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
+            <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <div className="flex items-center gap-3">
+                    <FiTable className="text-zinc-500 w-4 h-4" />
+                    <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">
+                      {isMultiStream ? "Combined_Multi_Stream_Registry" : "Full_Dataset_Records"}
+                    </span>
                 </div>
-                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
-                        <thead className="sticky top-0 bg-[#0a0a0f] z-10">
-                            <tr className="bg-black/60 backdrop-blur-md">
+                <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{ds.rows.length} Total Records Found</span>
+            </div>
+            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead className="sticky top-0 bg-[#0a0a0f] z-10">
+                        <tr className="bg-black/60 backdrop-blur-md">
+                            {ds.columns.map(col => (
+                                <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.03]">
+                        {ds.rows.map((row, i) => (
+                            <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
                                 {ds.columns.map(col => (
-                                    <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
+                                    <td key={col} className={`px-8 py-4 text-[11px] font-medium font-mono truncate max-w-[200px] ${col === 'Stream_Source' ? 'text-[#00F2FF] font-bold' : 'text-zinc-400 group-hover:text-white'} transition-colors`}>
+                                        {row[col]}
+                                    </td>
                                 ))}
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/[0.03]">
-                            {ds.rows.map((row, i) => (
-                                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                                    {ds.columns.map(col => (
-                                        <td key={col} className={`px-8 py-4 text-[11px] font-medium font-mono truncate max-w-[200px] ${col === 'Stream_Source' ? 'text-[#00F2FF] font-bold' : 'text-zinc-400 group-hover:text-white'} transition-colors`}>
-                                            {row[col]}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                    </tbody>
+                </table>
             </div>
+        </div>
 
-            {/* CHARTS & COLUMN ANALYTICS SECTION */}
-            <div className="space-y-12">
-              <div className="flex items-center gap-4">
-                  <div className="h-[1px] flex-1 bg-white/10" />
-                  <div className="flex items-center gap-2">
-                      <FiBarChart2 className="text-[#00F2FF]" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/50">Metric Visualization & Breakdown</span>
+        {/* CHARTS & COLUMN ANALYTICS SECTION */}
+        <div className="space-y-12">
+          <div className="flex items-center gap-4">
+              <div className="h-[1px] flex-1 bg-white/10" />
+              <div className="flex items-center gap-2">
+                  <FiBarChart2 className="text-[#00F2FF]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/50">Metric Visualization & Breakdown</span>
+              </div>
+              <div className="h-[1px] flex-1 bg-white/10" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {ds.analysis.map((item, idx) => {
+              const chartKey = `${ds.id}-${item.col}`;
+              const currentType = localChartTypes[chartKey] || chartType;
+              
+              if (item.isNumeric && item.numeric.length > 0) {
+                const chartData = {
+                  labels: ds.labels,
+                  datasets: [{
+                    label: item.col,
+                    data: ds.rows.map(r => toNumber(r[item.col])),
+                    backgroundColor: COLORS[idx % COLORS.length] + "40",
+                    borderColor: COLORS[idx % COLORS.length],
+                    borderWidth: 2,
+                    fill: currentType === "line",
+                    tension: 0.3
+                  }]
+                };
+
+                return (
+                  <div key={item.col} className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-xl">
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{item.stats?.trendDir === 'up' ? 'Growth Momentum' : 'Downward Drift'}</span>
+                        <h4 className="text-white font-bold text-lg uppercase tracking-tight">{item.col}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => toggleLocalChartType(ds.id, item.col)} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-mono text-zinc-300 hover:bg-white/10">
+                          {currentType === "bar" ? "Line View" : "Bar View"}
+                        </button>
+                        <button onClick={() => setExpandedChart({ title: `${ds.name} - ${item.col}`, data: chartData, type: currentType })} className="p-2 bg-white/5 border border-white/10 rounded-xl text-zinc-300 hover:text-white">
+                          <FiMaximize2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="h-64 w-full my-4">
+                      {currentType === "bar" ? <Bar data={chartData} options={chartOptions} /> : <Line data={chartData} options={chartOptions} />}
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5 mt-4 text-center">
+                      <div className="bg-white/[0.02] p-2 rounded-xl">
+                        <span className="text-[8px] text-zinc-500 uppercase block">Avg</span>
+                        <span className="text-xs font-mono text-white font-bold">{item.stats?.avg.toFixed(1)}</span>
+                      </div>
+                      <div className="bg-white/[0.02] p-2 rounded-xl">
+                        <span className="text-[8px] text-zinc-500 uppercase block">Total</span>
+                        <span className="text-xs font-mono text-white font-bold">{item.stats?.sum.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-white/[0.02] p-2 rounded-xl">
+                        <span className="text-[8px] text-zinc-500 uppercase block">Peak</span>
+                        <span className="text-xs font-mono text-white font-bold">{item.stats?.max}</span>
+                      </div>
+                      <div className="bg-white/[0.02] p-2 rounded-xl">
+                        <span className="text-[8px] text-zinc-500 uppercase block">Trend</span>
+                        <span className={`text-xs font-mono font-bold flex items-center justify-center gap-0.5 ${item.stats?.trendDir === 'up' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {item.stats?.trendDir === 'up' ? <FiTrendingUp size={10} /> : <FiTrendingDown size={10} />}
+                          {item.stats?.trend}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-[1px] flex-1 bg-white/10" />
-              </div>
+                );
+              } else if (!item.isNumeric && Object.keys(item.freq).length > 0) {
+                const freqEntries = Object.entries(item.freq).slice(0, 6);
+                const pieData = {
+                  labels: freqEntries.map(([k]) => k),
+                  datasets: [{
+                    data: freqEntries.map(([, v]) => v),
+                    backgroundColor: COLORS.slice(0, freqEntries.length),
+                    borderWidth: 0
+                  }]
+                };
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {ds.analysis.map((item, idx) => {
-                  const chartKey = `${ds.id}-${item.col}`;
-                  const currentType = localChartTypes[chartKey] || chartType;
-                  
-                  if (item.isNumeric && item.numeric.length > 0) {
-                    const chartData = {
-                      labels: ds.labels,
-                      datasets: [{
-                        label: item.col,
-                        data: ds.rows.map(r => toNumber(r[item.col])),
-                        backgroundColor: COLORS[idx % COLORS.length] + "40",
-                        borderColor: COLORS[idx % COLORS.length],
-                        borderWidth: 2,
-                        fill: currentType === "line",
-                        tension: 0.3
-                      }]
-                    };
-
-                    return (
-                      <div key={item.col} className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-xl">
-                        <div className="flex justify-between items-center mb-6">
-                          <div>
-                            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{item.stats?.trendDir === 'up' ? 'Growth Momentum' : 'Downward Drift'}</span>
-                            <h4 className="text-white font-bold text-lg uppercase tracking-tight">{item.col}</h4>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => toggleLocalChartType(ds.id, item.col)} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-mono text-zinc-300 hover:bg-white/10">
-                              {currentType === "bar" ? "Line View" : "Bar View"}
-                            </button>
-                            <button onClick={() => setExpandedChart({ title: `${ds.name} - ${item.col}`, data: chartData, type: currentType })} className="p-2 bg-white/5 border border-white/10 rounded-xl text-zinc-300 hover:text-white">
-                              <FiMaximize2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="h-64 w-full my-4">
-                          {currentType === "bar" ? <Bar data={chartData} options={chartOptions} /> : <Line data={chartData} options={chartOptions} />}
-                        </div>
-
-                        <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5 mt-4 text-center">
-                          <div className="bg-white/[0.02] p-2 rounded-xl">
-                            <span className="text-[8px] text-zinc-500 uppercase block">Avg</span>
-                            <span className="text-xs font-mono text-white font-bold">{item.stats?.avg.toFixed(1)}</span>
-                          </div>
-                          <div className="bg-white/[0.02] p-2 rounded-xl">
-                            <span className="text-[8px] text-zinc-500 uppercase block">Total</span>
-                            <span className="text-xs font-mono text-white font-bold">{item.stats?.sum.toLocaleString()}</span>
-                          </div>
-                          <div className="bg-white/[0.02] p-2 rounded-xl">
-                            <span className="text-[8px] text-zinc-500 uppercase block">Peak</span>
-                            <span className="text-xs font-mono text-white font-bold">{item.stats?.max}</span>
-                          </div>
-                          <div className="bg-white/[0.02] p-2 rounded-xl">
-                            <span className="text-[8px] text-zinc-500 uppercase block">Trend</span>
-                            <span className={`text-xs font-mono font-bold flex items-center justify-center gap-0.5 ${item.stats?.trendDir === 'up' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {item.stats?.trendDir === 'up' ? <FiTrendingUp size={10} /> : <FiTrendingDown size={10} />}
-                              {item.stats?.trend}%
-                            </span>
-                          </div>
-                        </div>
+                return (
+                  <div key={item.col} className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-xl">
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Categorical Frequency</span>
+                        <h4 className="text-white font-bold text-lg uppercase tracking-tight">{item.col} Distribution</h4>
                       </div>
-                    );
-                  } else if (!item.isNumeric && Object.keys(item.freq).length > 0) {
-                    const freqEntries = Object.entries(item.freq).slice(0, 6);
-                    const pieData = {
-                      labels: freqEntries.map(([k]) => k),
-                      datasets: [{
-                        data: freqEntries.map(([, v]) => v),
-                        backgroundColor: COLORS.slice(0, freqEntries.length),
-                        borderWidth: 0
-                      }]
-                    };
-
-                    return (
-                      <div key={item.col} className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-xl">
-                        <div className="flex justify-between items-center mb-6">
-                          <div>
-                            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Categorical Frequency</span>
-                            <h4 className="text-white font-bold text-lg uppercase tracking-tight">{item.col} Distribution</h4>
-                          </div>
-                        </div>
-                        <div className="h-64 w-full my-4 flex items-center justify-center">
-                          <Pie data={pieData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#a1a1aa', font: { size: 10 } } } } }} />
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
-              </div>
-            </div>
-          </>
-        )}
+                    </div>
+                    <div className="h-64 w-full my-4 flex items-center justify-center">
+                      <Pie data={pieData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#a1a1aa', font: { size: 10 } } } } }} />
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        </div>
       </div>
     );
   };
@@ -413,7 +407,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     <div key={refreshKey} className="mt-10 md:mt-16 space-y-16 pb-32 max-w-[1600px] mx-auto px-4 md:px-10">
       {flash && <div className="fixed inset-0 z-[9999] bg-white pointer-events-none" />}
       
-      {/* 1. TOP AI ANALYSIS RUN (ALWAYS AVAILABLE TO INITIATE BRIEF) */}
+      {/* 1. TOP AI ANALYSIS RUN (ALWAYS AVAILABLE) */}
       <section className="scroll-mt-28">
           <div className="mb-6 flex items-center gap-4">
              <div className="h-[1px] flex-1 bg-white/10" />
@@ -428,7 +422,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
           <AIAnalysisPanel datasets={isMultiStream ? [multiStreamCombined] : parsed} onUpdateAI={handleAIComplete} />
       </section>
 
-      {/* 2. CONDITIONAL RENDERING OF DATASET/WORKSPACE ANALYTICS AFTER ANALYSIS COMPLETES */}
+      {/* 2. ENTIRE TITLE, TABLE, AND CHARTS WRAPPER (HIDDEN UNTIL ANALYZED) */}
       {isMultiStream ? renderDatasetAnalytics(multiStreamCombined) : parsed.map(ds => renderDatasetAnalytics(ds))}
 
       {expandedChart && (
