@@ -12,7 +12,6 @@ import {
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
-// Replace with your actual Paddle Price ID from your Paddle Dashboard
 const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y"; 
 
 // Sub-component: Audio Waveform
@@ -104,7 +103,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-    const aiInsights = datasets[0]?.aiStorage;
+    const activeDataset = datasets[0];
+    const aiInsights = activeDataset?.aiStorage;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
@@ -123,7 +123,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         }
     }, [datasets.length]);
 
-    // Smoothly scroll down to the panel when datasets become active so the user sees the button
+    // Smoothly scroll down to the panel when datasets become active
     useEffect(() => {
         if (datasets.length > 0 && panelRef.current) {
             panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -183,11 +183,10 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     // Core execution function supporting both single datasets and multi-stream cross-analyses
     const executeAnalysisCall = async () => {
+        if (!activeDataset) return;
         setLoading(true);
         try {
-            const activeDataset = datasets[0];
             let payloadBody = {};
-            
             const isMultiStream = Array.isArray(datasets) && datasets.length > 1;
 
             if (isMultiStream) {
@@ -207,14 +206,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 };
             } else {
                 let payloadContext = [];
-                if (activeDataset) {
-                    if (Array.isArray(activeDataset.data)) {
-                        payloadContext = activeDataset.data;
-                    } else if (Array.isArray(activeDataset.rows)) {
-                        payloadContext = activeDataset.rows;
-                    } else if (Array.isArray(activeDataset)) {
-                        payloadContext = activeDataset;
-                    }
+                if (Array.isArray(activeDataset.data)) {
+                    payloadContext = activeDataset.data;
+                } else if (Array.isArray(activeDataset.rows)) {
+                    payloadContext = activeDataset.rows;
+                } else if (Array.isArray(activeDataset)) {
+                    payloadContext = activeDataset;
                 }
                 payloadBody = { context: payloadContext };
             }
@@ -230,7 +227,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 }
             );
 
-            if (response.data && activeDataset) {
+            if (response.data) {
                 onUpdateAI(activeDataset.id, response.data);
             }
         } catch (error) { 
@@ -246,7 +243,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             return;
         }
 
-        // If there are multiple datasets and an option hasn't been chosen yet, show selection modal first
         if (datasets.length > 1 && !selectedMultiStreamMode) {
             setIsSelectionModalOpen(true);
             return;
@@ -265,9 +261,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             if (window.Paddle) {
                 const checkoutOptions = {
                     items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-                    customData: {
-                        user_id: String(userId)
-                    }
+                    customData: { user_id: String(userId) }
                 };
 
                 if (userProfile?.email) {
@@ -294,8 +288,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             window.Paddle.Update({
                 eventCallback: (event) => {
                     if (event.name === "checkout.completed") {
-                        console.log("[Paddle] Payment completed successfully!");
-
                         if (window.Paddle.Checkout) {
                             window.Paddle.Checkout.close();
                         }
@@ -367,7 +359,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 <button 
                                     onClick={() => handleCopy(aiInsights.summary)}
                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:bg-white/10 transition-all font-bold uppercase tracking-wider"
-                                    title="Copy executive message"
                                 >
                                     <FaCopy size={12} /> {copied ? "Copied!" : "Copy Brief"}
                                 </button>

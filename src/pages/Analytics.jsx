@@ -51,7 +51,7 @@ export default function Analytics() {
     const [allDatasets, setAllDatasets] = useState([]);
     const [activeDatasets, setActiveDatasets] = useState([]);
     const [chartType, setChartType] = useState("line");
-    const [readyToVisualize, setReadyToVisualize] = useState([]); // Fixed: converted to proper state variable
+    const [readyToVisualize, setReadyToVisualize] = useState([]); 
     
     // UI Logic State
     const [showModal, setShowModal] = useState(false);
@@ -427,9 +427,7 @@ export default function Analytics() {
                 setAllDatasets(prev => [...prev, ...newlyImported]);
                 
                 setActiveDatasets(prev => {
-                    const clearedPrevious = prev.map(d => ({ ...d, aiStorage: null }));
-                    const combinedActive = [...clearedPrevious, ...newlyImported];
-                    
+                    const combinedActive = [...prev, ...newlyImported];
                     if (combinedActive.length > 1) {
                         setShowMultiSelectModal(true);
                     }
@@ -450,16 +448,35 @@ export default function Analytics() {
     };
 
     // --- MULTI-DATASET & CROSS ANALYSIS HANDLERS ---
-    const executeSingleAnalysisFlow = (dataset) => {
-        console.log("Running single analysis for:", dataset.name);
+    const executeSingleAnalysisFlow = async (dataset) => {
+        setIsInitializing(true);
+        try {
+            const rawRows = dataset.data || dataset.rows || [];
+            const formattedContext = rawRows.map(row => {
+                if (Array.isArray(row)) {
+                    return row.reduce((acc, val, i) => ({ ...acc, [`col_${i}`]: val }), {});
+                }
+                return row;
+            });
+
+            const payload = { contexts: [formattedContext] };
+            const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+
+            handleAIUpdate(dataset.id, res.data);
+        } catch (err) {
+            console.error("Single analysis flow failed:", err);
+        } finally {
+            setIsInitializing(false);
+        }
     };
 
-const handleCrossAnalysisSubmit = async () => {
+    const handleCrossAnalysisSubmit = async () => {
         setShowMultiSelectModal(false);
         setIsInitializing(true); 
 
         try {
-            // Map each active dataset to a clean array of row objects (List[List[dict]])
             const datasetContexts = activeDatasets.map(d => {
                 const rawRows = d.data || d.rows || d.values || d.content || [];
                 return rawRows.map(row => {
@@ -470,12 +487,7 @@ const handleCrossAnalysisSubmit = async () => {
                 });
             }).filter(stream => stream.length > 0);
 
-            // Matches Pydantic's List[List[dict]] expectation for `contexts`
-            const payload = {
-                contexts: datasetContexts
-            };
-
-            console.log("Submitting 3-tier payload to main.py:", payload);
+            const payload = { contexts: datasetContexts };
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
@@ -484,14 +496,13 @@ const handleCrossAnalysisSubmit = async () => {
             const analysisResult = res.data;
             const totalRows = datasetContexts.reduce((acc, curr) => acc + curr.length, 0);
 
-           const unifiedDataset = {
+            const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
                 rows: totalRows,
-                metrics: analysisResult.metrics || activeDatasets[0].metrics,
+                metrics: analysisResult.metrics || activeDatasets[0]?.metrics || {},
                 data: datasetContexts.flat(),
                 aiStorage: analysisResult, 
-                // Add these properties so your UI renderers pick up the result immediately:
                 analysis: analysisResult,
                 summary: analysisResult.summary,
                 root_cause: analysisResult.root_cause,
@@ -499,19 +510,14 @@ const handleCrossAnalysisSubmit = async () => {
                 action: analysisResult.action
             };
 
-            // Keep your active datasets or update the active analysis state if you have a dedicated setter
-            setActiveDatasets(prev => [...prev, unifiedDataset]);
+            setActiveDatasets([unifiedDataset]);
             setReadyToVisualize([unifiedDataset]);
-            
-            // If you have a state setter for the current AI analysis result, set it here:
-            // setAnalysisData(analysisResult);
         } catch (err) {
             console.error("Cross-analysis synthesis failed:", err.response?.data || err);
         } finally {
             setIsInitializing(false); 
         }
     };
-  
     
    return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
