@@ -459,32 +459,39 @@ const handleCrossAnalysisSubmit = async () => {
         setIsInitializing(true); 
 
         try {
-            // Extract the actual row arrays from each active dataset object
+            // Wrap each dataset's rows into the object structure `flatten_dataset` explicitly looks for: { rows: [...] }
             const datasetContexts = activeDatasets.map(d => {
-                const rows = d.data || d.rows || d.values || d.content;
-                return Array.isArray(rows) ? rows : [];
-            }).filter(stream => stream.length > 0);
+                const rawRows = d.data || d.rows || d.values || d.content || [];
+                // Ensure rows are clean objects
+                const cleanRows = rawRows.map(row => {
+                    if (Array.isArray(row)) {
+                        // Convert array rows to indexed objects if validator expects dicts
+                        return row.reduce((acc, val, i) => ({ ...acc, [`col_${i}`]: val }), {});
+                    }
+                    return row;
+                });
+                return { rows: cleanRows };
+            }).filter(stream => stream.rows.length > 0);
 
-            // Match `contexts` expected by main.py
             const payload = {
                 contexts: datasetContexts
             };
 
-            console.log("Submitting valid dataset streams to main.py:", payload);
+            console.log("Submitting wrapped contexts payload:", payload);
 
             const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
                 headers: { Authorization: `Bearer ${userToken}` }
             });
 
             const analysisResult = res.data;
-            const totalRows = datasetContexts.reduce((acc, curr) => acc + curr.length, 0);
+            const totalRows = datasetContexts.reduce((acc, curr) => acc + curr.rows.length, 0);
 
             const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
                 rows: totalRows,
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
-                data: datasetContexts.flat(),
+                data: datasetContexts.flatMap(d => d.rows),
                 aiStorage: analysisResult 
             };
 
