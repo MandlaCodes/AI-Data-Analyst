@@ -99,10 +99,16 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     setReadyStates(updatedReady);
   }, [activeDatasets]);
 
-  const handleAIComplete = (id, aiData) => {
+const handleAIComplete = (id, aiData) => {
     setReadyStates(prev => ({ ...prev, [id]: true }));
     if (id === 'multi-stream-workspace') {
       setMultiStreamAiStorage(aiData);
+    } else {
+      // Find the dataset and ensure its parsed representation or state gets the aiStorage payload
+      const targetDataset = activeDatasets.find(d => d.id === id);
+      if (targetDataset) {
+        targetDataset.aiStorage = aiData;
+      }
     }
     if (onAIUpdate) onAIUpdate(id, aiData);
   };
