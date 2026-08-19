@@ -83,6 +83,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
   const [localChartTypes, setLocalChartTypes] = useState({});
   const [expandedChart, setExpandedChart] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); 
+  const [multiStreamAiStorage, setMultiStreamAiStorage] = useState(null);
 
   const isMultiStream = activeDatasets.length > 1;
 
@@ -100,6 +101,9 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
 
   const handleAIComplete = (id, aiData) => {
     setReadyStates(prev => ({ ...prev, [id]: true }));
+    if (id === 'multi-stream-workspace') {
+      setMultiStreamAiStorage(aiData);
+    }
     if (onAIUpdate) onAIUpdate(id, aiData);
   };
 
@@ -207,9 +211,9 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
 
     return { 
       ...parsedMulti,
-      aiStorage: activeDatasets[0]?.aiStorage || null 
+      aiStorage: multiStreamAiStorage || activeDatasets[0]?.aiStorage || null 
     };
-  }, [parsed, isMultiStream, activeDatasets]);
+  }, [parsed, isMultiStream, activeDatasets, multiStreamAiStorage]);
 
   if (activeDatasets.length === 0) return null;
 
