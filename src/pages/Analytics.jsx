@@ -484,18 +484,27 @@ const handleCrossAnalysisSubmit = async () => {
             const analysisResult = res.data;
             const totalRows = datasetContexts.reduce((acc, curr) => acc + curr.length, 0);
 
-            const unifiedDataset = {
+           const unifiedDataset = {
                 id: `cross-${Date.now()}`,
                 name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
                 rows: totalRows,
                 metrics: analysisResult.metrics || activeDatasets[0].metrics,
                 data: datasetContexts.flat(),
-                aiStorage: analysisResult 
+                aiStorage: analysisResult, 
+                // Add these properties so your UI renderers pick up the result immediately:
+                analysis: analysisResult,
+                summary: analysisResult.summary,
+                root_cause: analysisResult.root_cause,
+                opportunity: analysisResult.opportunity,
+                action: analysisResult.action
             };
 
-            setActiveDatasets([unifiedDataset]);
+            // Keep your active datasets or update the active analysis state if you have a dedicated setter
+            setActiveDatasets(prev => [...prev, unifiedDataset]);
             setReadyToVisualize([unifiedDataset]);
-
+            
+            // If you have a state setter for the current AI analysis result, set it here:
+            // setAnalysisData(analysisResult);
         } catch (err) {
             console.error("Cross-analysis synthesis failed:", err.response?.data || err);
         } finally {
