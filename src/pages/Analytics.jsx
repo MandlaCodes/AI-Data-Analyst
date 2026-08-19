@@ -454,48 +454,49 @@ export default function Analytics() {
         console.log("Running single analysis for:", dataset.name);
     };
 
-    const handleCrossAnalysisSubmit = async () => {
-            setShowMultiSelectModal(false);
-            setIsInitializing(true); 
+const handleCrossAnalysisSubmit = async () => {
+        setShowMultiSelectModal(false);
+        setIsInitializing(true); 
 
-            try {
-                // Flatten all active datasets into a single array of row objects/arrays 
-                // so main.py's `payload.context` branch handles it reliably.
-                const combinedRows = activeDatasets.flatMap(d => {
-                    const rawRows = d.data || d.rows || d.values || d.content || (Array.isArray(d) ? d : []);
-                    return rawRows;
-                });
+        try {
+            // Extract the actual row arrays from each active dataset object
+            const datasetContexts = activeDatasets.map(d => {
+                const rows = d.data || d.rows || d.values || d.content;
+                return Array.isArray(rows) ? rows : [];
+            }).filter(stream => stream.length > 0);
 
-                const payload = {
-                    context: combinedRows
-                };
+            // Match `contexts` expected by main.py
+            const payload = {
+                contexts: datasetContexts
+            };
 
-                console.log("Submitting flat context payload for cross-analysis:", payload);
+            console.log("Submitting valid dataset streams to main.py:", payload);
 
-                const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
-                    headers: { Authorization: `Bearer ${userToken}` }
-                });
+            const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
 
-                const analysisResult = res.data;
+            const analysisResult = res.data;
+            const totalRows = datasetContexts.reduce((acc, curr) => acc + curr.length, 0);
 
-                const unifiedDataset = {
-                    id: `cross-${Date.now()}`,
-                    name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
-                    rows: combinedRows.length,
-                    metrics: analysisResult.metrics || activeDatasets[0].metrics,
-                    data: combinedRows,
-                    aiStorage: analysisResult 
-                };
+            const unifiedDataset = {
+                id: `cross-${Date.now()}`,
+                name: `Cross-Analysis (${activeDatasets.map(d => d.name).join(' + ')})`,
+                rows: totalRows,
+                metrics: analysisResult.metrics || activeDatasets[0].metrics,
+                data: datasetContexts.flat(),
+                aiStorage: analysisResult 
+            };
 
             setActiveDatasets([unifiedDataset]);
-                setReadyToVisualize([unifiedDataset]);
+            setReadyToVisualize([unifiedDataset]);
 
-            } catch (err) {
-                console.error("Cross-analysis synthesis failed:", err.response?.data || err);
-            } finally {
-                setIsInitializing(false); 
-            }
-        };
+        } catch (err) {
+            console.error("Cross-analysis synthesis failed:", err.response?.data || err);
+        } finally {
+            setIsInitializing(false); 
+        }
+    };
   
     
    return (
