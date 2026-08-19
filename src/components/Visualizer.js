@@ -123,60 +123,64 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     pdf.save(`Strategic_Report_${name}.pdf`);
   };
 
+  // Helper function to parse raw dataset objects into structured analytical rows & metrics
+  const parseDatasetObject = (dsName, rawData, customId) => {
+    const columns = Array.isArray(rawData?.[0]) ? rawData[0] : Object.keys(rawData?.[0] || {});
+    const rows = Array.isArray(rawData?.[0]) 
+      ? rawData.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
+      : rawData || [];
+      
+    const labelCol = columns.find(col => {
+        const cLower = col.toLowerCase();
+        if (cLower.includes('value') || cLower.includes('amount') || cLower.includes('price') || cLower.includes('cost') || cLower.includes('total') || cLower.includes('revenue')) return false;
+        return cLower.includes('name') || cLower.includes('product') || cLower.includes('item') || cLower.includes('deal') || cLower.includes('client') || cLower.includes('company') || cLower.includes('rep') || cLower.includes('title') || cLower.includes('id') || cLower.includes('source');
+    }) || columns.find(col => {
+        const cLower = col.toLowerCase();
+        return cLower.includes('date') || cLower.includes('time');
+    }) || columns[0];
+
+    const isDateLabel = labelCol.toLowerCase().includes('date') || labelCol.toLowerCase().includes('time');
+
+    const analysis = columns.map(col => {
+      const numeric = rows.map(r => toNumber(r[col])).filter(v => v !== null);
+      const isDateCol = col.toLowerCase().includes('date') || col.toLowerCase().includes('time');
+      const isNumeric = numeric.length > 0 && col !== labelCol && !isDateCol;
+      let stats = null;
+      if (isNumeric) {
+          const mid = Math.floor(numeric.length / 2);
+          const firstHalf = numeric.slice(0, mid);
+          const secondHalf = numeric.slice(mid);
+          const avg1 = firstHalf.reduce((a,b)=>a+b,0) / (firstHalf.length || 1);
+          const avg2 = secondHalf.reduce((a,b)=>a+b,0) / (secondHalf.length || 1);
+          const trendVal = avg1 === 0 ? 0 : ((avg2 - avg1) / avg1) * 100;
+          stats = {
+              avg: numeric.reduce((a,b)=>a+b,0) / numeric.length,
+              min: Math.min(...numeric), max: Math.max(...numeric), sum: numeric.reduce((a,b)=>a+b,0),
+              trend: Math.abs(trendVal).toFixed(1), trendDir: trendVal >= 0 ? 'up' : 'down'
+          };
+      }
+      const freq = {};
+      if (!isNumeric) {
+          rows.forEach(r => { const val = r[col] || "N/A"; freq[val] = (freq[val] || 0) + 1; });
+      }
+      return { col, isNumeric, numeric, stats, freq };
+    });
+
+    return { 
+      id: customId || 'ds-parsed',
+      name: dsName, 
+      rows, 
+      columns, 
+      analysis, 
+      labelCol,
+      isDateLabel,
+      labels: rows.map(r => r[labelCol] || "N/A") 
+    };
+  };
+
   // Parse individual datasets
   const parsed = useMemo(() => {
-    return activeDatasets.map(ds => {
-      const columns = Array.isArray(ds.data?.[0]) ? ds.data[0] : Object.keys(ds.data?.[0] || {});
-      const rows = Array.isArray(ds.data?.[0]) 
-        ? ds.data.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
-        : ds.data || [];
-        
-      const labelCol = columns.find(col => {
-          const cLower = col.toLowerCase();
-          if (cLower.includes('value') || cLower.includes('amount') || cLower.includes('price') || cLower.includes('cost') || cLower.includes('total') || cLower.includes('revenue')) return false;
-          return cLower.includes('name') || cLower.includes('product') || cLower.includes('item') || cLower.includes('deal') || cLower.includes('client') || cLower.includes('company') || cLower.includes('rep') || cLower.includes('title') || cLower.includes('id');
-      }) || columns.find(col => {
-          const cLower = col.toLowerCase();
-          return cLower.includes('date') || cLower.includes('time');
-      }) || columns[0];
-
-      const isDateLabel = labelCol.toLowerCase().includes('date') || labelCol.toLowerCase().includes('time');
-
-      const analysis = columns.map(col => {
-        const numeric = rows.map(r => toNumber(r[col])).filter(v => v !== null);
-        const isDateCol = col.toLowerCase().includes('date') || col.toLowerCase().includes('time');
-        const isNumeric = numeric.length > 0 && col !== labelCol && !isDateCol;
-        let stats = null;
-        if (isNumeric) {
-            const mid = Math.floor(numeric.length / 2);
-            const firstHalf = numeric.slice(0, mid);
-            const secondHalf = numeric.slice(mid);
-            const avg1 = firstHalf.reduce((a,b)=>a+b,0) / (firstHalf.length || 1);
-            const avg2 = secondHalf.reduce((a,b)=>a+b,0) / (secondHalf.length || 1);
-            const trendVal = avg1 === 0 ? 0 : ((avg2 - avg1) / avg1) * 100;
-            stats = {
-                avg: numeric.reduce((a,b)=>a+b,0) / numeric.length,
-                min: Math.min(...numeric), max: Math.max(...numeric), sum: numeric.reduce((a,b)=>a+b,0),
-                trend: Math.abs(trendVal).toFixed(1), trendDir: trendVal >= 0 ? 'up' : 'down'
-            };
-        }
-        const freq = {};
-        if (!isNumeric) {
-            rows.forEach(r => { const val = r[col] || "N/A"; freq[val] = (freq[val] || 0) + 1; });
-        }
-        return { col, isNumeric, numeric, stats, freq };
-      });
-
-      return { 
-        ...ds, 
-        rows, 
-        columns, 
-        analysis, 
-        labelCol,
-        isDateLabel,
-        labels: rows.map(r => r[labelCol] || "N/A") 
-      };
-    });
+    return activeDatasets.map(ds => parseDatasetObject(ds.name, ds.data, ds.id));
   }, [activeDatasets, refreshKey]);
 
   // Combined Multi-Stream Dataset for Cross Analysis View
@@ -193,21 +197,199 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     });
 
     const columns = ["Stream_Source", ...baseColumns];
-    const rows = combinedRows.map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])));
-    const labels = rows.map((_, i) => `Record #${i+1}`);
+    const rawCombinedData = [columns, ...combinedRows.map(r => columns.map((c, i) => r[i]))];
+    
+    const parsedMulti = parseDatasetObject(
+      `Cross-Stream Workspace (${activeDatasets.length} Sources)`, 
+      rawCombinedData, 
+      'multi-stream-workspace'
+    );
 
-    // Preserve aiStorage from the active dataset or fallback cleanly
     return { 
-      id: 'multi-stream-workspace', 
-      name: `Cross-Stream Workspace (${activeDatasets.length} Sources)`, 
-      columns, 
-      rows, 
-      labels,
+      ...parsedMulti,
       aiStorage: activeDatasets[0]?.aiStorage || null 
     };
   }, [parsed, isMultiStream, activeDatasets]);
 
   if (activeDatasets.length === 0) return null;
+
+  // Reusable renderer for dataset metrics, breakdown cards, and charts
+  const renderDatasetAnalytics = (ds) => (
+    <div key={ds.id} className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000" id={`report-${ds.id}`}>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
+          <div className="max-w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-[#00F2FF]/10 rounded-xl border border-[#00F2FF]/20">
+                {isMultiStream ? <FiLayers className="text-[#00F2FF] w-5 h-5" /> : <FiDatabase className="text-[#7000FF] w-5 h-5" />}
+              </div>
+              <h3 className="text-zinc-500 font-black text-[9px] uppercase tracking-[0.6em]">
+                {isMultiStream ? "Multi_Stream_Cross_Correlation_Active" : "System_Source_Verified"}
+              </h3>
+            </div>
+            <h2 className="text-4xl sm:text-6xl md:text-7xl font-[1000] text-white uppercase tracking-tighter italic leading-none break-words">
+              {ds.name}
+            </h2>
+            {isMultiStream && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {activeDatasets.map((sourceDs, idx) => (
+                  <span key={sourceDs.id} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-mono text-zinc-400">
+                    Stream {idx + 1}: <strong className="text-white">{sourceDs.name}</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="flex w-full md:w-auto gap-4">
+            <button onClick={handleRefresh} className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all">
+              <FiRefreshCw className="w-5 h-5" />
+            </button>
+            <button onClick={() => handleExport(ds.id, ds.name)} className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl">
+              <FiDownload className="w-5 h-5" /> {isMultiStream ? "Export Cross-Report" : "Download Report"}
+            </button>
+          </div>
+      </div>
+
+      {/* UNIFIED / DATASET TABLE */}
+      <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
+          <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+              <div className="flex items-center gap-3">
+                  <FiTable className="text-zinc-500 w-4 h-4" />
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">
+                    {isMultiStream ? "Combined_Multi_Stream_Registry" : "Full_Dataset_Records"}
+                  </span>
+              </div>
+              <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{ds.rows.length} Total Records Found</span>
+          </div>
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead className="sticky top-0 bg-[#0a0a0f] z-10">
+                      <tr className="bg-black/60 backdrop-blur-md">
+                          {ds.columns.map(col => (
+                              <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
+                          ))}
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.03]">
+                      {ds.rows.map((row, i) => (
+                          <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                              {ds.columns.map(col => (
+                                  <td key={col} className={`px-8 py-4 text-[11px] font-medium font-mono truncate max-w-[200px] ${col === 'Stream_Source' ? 'text-[#00F2FF] font-bold' : 'text-zinc-400 group-hover:text-white'} transition-colors`}>
+                                      {row[col]}
+                                  </td>
+                              ))}
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+
+      {/* CHARTS & COLUMN ANALYTICS SECTION */}
+      <div className="space-y-12">
+        <div className="flex items-center gap-4">
+            <div className="h-[1px] flex-1 bg-white/10" />
+            <div className="flex items-center gap-2">
+                <FiBarChart2 className="text-[#00F2FF]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/50">Metric Visualization & Breakdown</span>
+            </div>
+            <div className="h-[1px] flex-1 bg-white/10" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {ds.analysis.map((item, idx) => {
+            const chartKey = `${ds.id}-${item.col}`;
+            const currentType = localChartTypes[chartKey] || chartType;
+            
+            if (item.isNumeric && item.numeric.length > 0) {
+              const chartData = {
+                labels: ds.labels,
+                datasets: [{
+                  label: item.col,
+                  data: ds.rows.map(r => toNumber(r[item.col])),
+                  backgroundColor: COLORS[idx % COLORS.length] + "40",
+                  borderColor: COLORS[idx % COLORS.length],
+                  borderWidth: 2,
+                  fill: currentType === "line",
+                  tension: 0.3
+                }]
+              };
+
+              return (
+                <div key={item.col} className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-xl">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{item.stats?.trendDir === 'up' ? 'Growth Momentum' : 'Downward Drift'}</span>
+                      <h4 className="text-white font-bold text-lg uppercase tracking-tight">{item.col}</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => toggleLocalChartType(ds.id, item.col)} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-mono text-zinc-300 hover:bg-white/10">
+                        {currentType === "bar" ? "Line View" : "Bar View"}
+                      </button>
+                      <button onClick={() => setExpandedChart({ title: `${ds.name} - ${item.col}`, data: chartData, type: currentType })} className="p-2 bg-white/5 border border-white/10 rounded-xl text-zinc-300 hover:text-white">
+                        <FiMaximize2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="h-64 w-full my-4">
+                    {currentType === "bar" ? <Bar data={chartData} options={chartOptions} /> : <Line data={chartData} options={chartOptions} />}
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5 mt-4 text-center">
+                    <div className="bg-white/[0.02] p-2 rounded-xl">
+                      <span className="text-[8px] text-zinc-500 uppercase block">Avg</span>
+                      <span className="text-xs font-mono text-white font-bold">{item.stats?.avg.toFixed(1)}</span>
+                    </div>
+                    <div className="bg-white/[0.02] p-2 rounded-xl">
+                      <span className="text-[8px] text-zinc-500 uppercase block">Total</span>
+                      <span className="text-xs font-mono text-white font-bold">{item.stats?.sum.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-white/[0.02] p-2 rounded-xl">
+                      <span className="text-[8px] text-zinc-500 uppercase block">Peak</span>
+                      <span className="text-xs font-mono text-white font-bold">{item.stats?.max}</span>
+                    </div>
+                    <div className="bg-white/[0.02] p-2 rounded-xl">
+                      <span className="text-[8px] text-zinc-500 uppercase block">Trend</span>
+                      <span className={`text-xs font-mono font-bold flex items-center justify-center gap-0.5 ${item.stats?.trendDir === 'up' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {item.stats?.trendDir === 'up' ? <FiTrendingUp size={10} /> : <FiTrendingDown size={10} />}
+                        {item.stats?.trend}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else if (!item.isNumeric && Object.keys(item.freq).length > 0) {
+              const freqEntries = Object.entries(item.freq).slice(0, 6);
+              const pieData = {
+                labels: freqEntries.map(([k]) => k),
+                datasets: [{
+                  data: freqEntries.map(([, v]) => v),
+                  backgroundColor: COLORS.slice(0, freqEntries.length),
+                  borderWidth: 0
+                }]
+              };
+
+              return (
+                <div key={item.col} className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-between shadow-xl">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Categorical Frequency</span>
+                      <h4 className="text-white font-bold text-lg uppercase tracking-tight">{item.col} Distribution</h4>
+                    </div>
+                  </div>
+                  <div className="h-64 w-full my-4 flex items-center justify-center">
+                    <Pie data={pieData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#a1a1aa', font: { size: 10 } } } } }} />
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div key={refreshKey} className="mt-10 md:mt-16 space-y-16 pb-32 max-w-[1600px] mx-auto px-4 md:px-10">
@@ -228,138 +410,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
           <AIAnalysisPanel datasets={isMultiStream ? [multiStreamCombined] : parsed} onUpdateAI={handleAIComplete} />
       </section>
 
-      {/* MULTI-STREAM HYBRID SUMMARY VIEW OR INDIVIDUAL BREAKDOWNS */}
-      {isMultiStream ? (
-        <div className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000" id="report-multi-stream">
-            
-            {/* MULTI-STREAM IDENTITY HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
-                <div className="max-w-full">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-[#00F2FF]/10 rounded-xl border border-[#00F2FF]/20">
-                      <FiLayers className="text-[#00F2FF] w-5 h-5" />
-                    </div>
-                    <h3 className="text-zinc-500 font-black text-[9px] uppercase tracking-[0.6em]">Multi_Stream_Cross_Correlation_Active</h3>
-                  </div>
-                  <h2 className="text-4xl sm:text-6xl md:text-7xl font-[1000] text-white uppercase tracking-tighter italic leading-none break-words">
-                    Cross-Stream Workspace
-                  </h2>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {activeDatasets.map((ds, idx) => (
-                      <span key={ds.id} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-mono text-zinc-400">
-                        Stream {idx + 1}: <strong className="text-white">{ds.name}</strong>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="flex w-full md:w-auto gap-4">
-                  <button onClick={handleRefresh} className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all">
-                    <FiRefreshCw className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => handleExport("multi-stream", "Cross_Stream_Workspace")} className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl">
-                    <FiDownload className="w-5 h-5" /> Export Cross-Report
-                  </button>
-                </div>
-            </div>
-
-            {/* UNIFIED MULTI-STREAM TABLE */}
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
-                <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <div className="flex items-center gap-3">
-                        <FiTable className="text-zinc-500 w-4 h-4" />
-                        <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">Combined_Multi_Stream_Registry</span>
-                    </div>
-                    <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{multiStreamCombined.rows.length} Total Consolidated Rows</span>
-                </div>
-                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
-                        <thead className="sticky top-0 bg-[#0a0a0f] z-10">
-                            <tr className="bg-black/60 backdrop-blur-md">
-                                {multiStreamCombined.columns.map(col => (
-                                    <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/[0.03]">
-                            {multiStreamCombined.rows.map((row, i) => (
-                                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                                    {multiStreamCombined.columns.map(col => (
-                                        <td key={col} className={`px-8 py-4 text-[11px] font-medium font-mono truncate max-w-[200px] ${col === 'Stream_Source' ? 'text-[#00F2FF] font-bold' : 'text-zinc-400 group-hover:text-white'} transition-colors`}>
-                                            {row[col]}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-      ) : (
-        /* STANDARD SINGLE DATASET VIEW */
-        parsed.map(ds => {
-          return (
-            <div key={ds.id} className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000" id={`report-${ds.id}`}>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
-                  <div className="max-w-full">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2.5 bg-[#7000FF]/10 rounded-xl border border-[#7000FF]/20">
-                        <FiDatabase className="text-[#7000FF] w-5 h-5" />
-                      </div>
-                      <h3 className="text-zinc-500 font-black text-[9px] uppercase tracking-[0.6em]">System_Source_Verified</h3>
-                    </div>
-                    <h2 className="text-5xl sm:text-6xl md:text-8xl font-[1000] text-white uppercase tracking-tighter italic leading-none break-words">
-                      {ds.name}
-                    </h2>
-                  </div>
-                  
-                  <div className="flex w-full md:w-auto gap-4">
-                    <button onClick={handleRefresh} className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all">
-                      <FiRefreshCw className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleExport(ds.id, ds.name)} className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl">
-                      <FiDownload className="w-5 h-5" /> Download Report
-                    </button>
-                  </div>
-              </div>
-
-              {/* LIVE TABLE */}
-              <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
-                  <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                      <div className="flex items-center gap-3">
-                          <FiTable className="text-zinc-500 w-4 h-4" />
-                          <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">Full_Dataset_Records</span>
-                      </div>
-                      <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">{ds.rows.length} Total Records Found</span>
-                  </div>
-                  <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                      <table className="w-full text-left border-collapse min-w-[800px]">
-                          <thead className="sticky top-0 bg-[#0a0a0f] z-10">
-                              <tr className="bg-black/60 backdrop-blur-md">
-                                  {ds.columns.map(col => (
-                                      <th key={col} className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5">{col}</th>
-                                  ))}
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/[0.03]">
-                              {ds.rows.map((row, i) => (
-                                  <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                                      {ds.columns.map(col => (
-                                          <td key={col} className="px-8 py-4 text-[11px] font-medium text-zinc-400 font-mono truncate max-w-[200px] group-hover:text-white transition-colors">
-                                              {row[col]}
-                                          </td>
-                                      ))}
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-            </div>
-          );
-        })
-      )}
+      {/* 2. RENDER CHARTS & ANALYTICS FOR EITHER MULTI-STREAM WORKSPACE OR INDIVIDUAL DATASETS */}
+      {isMultiStream ? renderDatasetAnalytics(multiStreamCombined) : parsed.map(ds => renderDatasetAnalytics(ds))}
 
       {expandedChart && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 backdrop-blur-3xl p-6 md:p-12">
