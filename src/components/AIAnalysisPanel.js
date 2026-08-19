@@ -116,6 +116,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Assembling executive synthesis report..."
     ], []);
 
+    // Reset multi-stream mode if dataset selection drops back to 1 or 0
+    useEffect(() => {
+        if (datasets.length <= 1) {
+            setSelectedMultiStreamMode(null);
+        }
+    }, [datasets.length]);
+
     // Smoothly scroll down to the panel when datasets become active so the user sees the button
     useEffect(() => {
         if (datasets.length > 0 && panelRef.current) {
