@@ -162,27 +162,42 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    // Core execution function matching backend Pydantic model: context -> List[list]
+    // Core execution function supporting both single datasets and multi-stream cross-analyses
     const executeAnalysisCall = async () => {
         setLoading(true);
         try {
             const activeDataset = datasets[0];
             
-            // Extract the clean raw data matrix ensuring it matches List[list] format
-            let payloadContext = [];
-            if (activeDataset) {
-                if (Array.isArray(activeDataset.data)) {
-                    payloadContext = activeDataset.data;
-                } else if (Array.isArray(activeDataset.rows)) {
-                    payloadContext = activeDataset.rows;
-                } else if (Array.isArray(activeDataset)) {
-                    payloadContext = activeDataset;
+            let payloadBody = {};
+            if (activeDataset && activeDataset.id && activeDataset.id.startsWith('cross-') && Array.isArray(datasets)) {
+                const datasetContexts = datasets.map(d => {
+                    const rawRows = d.data || d.rows || d.values || d.content || [];
+                    return rawRows.map(row => {
+                        if (Array.isArray(row)) {
+                            return row.reduce((acc, val, i) => ({ ...acc, [`col_${i}`]: val }), {});
+                        }
+                        return row;
+                    });
+                }).filter(stream => stream.length > 0);
+
+                payloadBody = { contexts: datasetContexts.length > 0 ? datasetContexts : [activeDataset.data || activeDataset.rows || []] };
+            } else {
+                let payloadContext = [];
+                if (activeDataset) {
+                    if (Array.isArray(activeDataset.data)) {
+                        payloadContext = activeDataset.data;
+                    } else if (Array.isArray(activeDataset.rows)) {
+                        payloadContext = activeDataset.rows;
+                    } else if (Array.isArray(activeDataset)) {
+                        payloadContext = activeDataset;
+                    }
                 }
+                payloadBody = { context: payloadContext };
             }
 
             const response = await axios.post(
                 `${API_BASE_URL}/ai/analyze`, 
-                { context: payloadContext }, 
+                payloadBody, 
                 { 
                     headers: { 
                         'Authorization': `Bearer ${userToken}`,
@@ -191,7 +206,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 }
             );
 
-            if (response.data) {
+            if (response.data && activeDataset) {
                 onUpdateAI(activeDataset.id, response.data);
             }
         } catch (error) { 
@@ -207,7 +222,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             return;
         }
 
-        // Check subscription status from user profile
         const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
 
         if (!isSubscribed) {
@@ -226,7 +240,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     }
                 };
 
-                // Only attach customer object if email exists
                 if (userProfile?.email) {
                     checkoutOptions.customer = { email: userProfile.email };
                 }
@@ -235,14 +248,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             } else {
                 alert("Payment gateway is initializing, please try again in a moment.");
             }
-            return; // Pause until payment succeeds
+            return; 
         }
 
-        // IF SUBSCRIBED -> Execute analysis directly
         await executeAnalysisCall();
     };
 
-    // Auto-close checkout overlay and resume analysis when Paddle payment succeeds
     useEffect(() => {
         if (window.Paddle) {
             window.Paddle.Update({
@@ -250,18 +261,15 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     if (event.name === "checkout.completed") {
                         console.log("[Paddle] Payment completed successfully!");
 
-                        // 1. Explicitly close the Paddle modal overlay
                         if (window.Paddle.Checkout) {
                             window.Paddle.Checkout.close();
                         }
 
-                        // 2. Update local storage profile representation
                         const currentProfile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
                         currentProfile.isPro = true;
                         currentProfile.is_pro = true;
                         localStorage.setItem("adt_profile", JSON.stringify(currentProfile));
 
-                        // 3. Wait 500ms for overlay closing animation before starting analysis
                         setTimeout(() => {
                             executeAnalysisCall();
                         }, 500);
