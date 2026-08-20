@@ -88,6 +88,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [localAiInsights, setLocalAiInsights] = useState(null);
     
     // Multi-stream configuration state
     const [selectedMultiStreamMode, setSelectedMultiStreamMode] = useState(null);
@@ -104,7 +105,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     }, []);
 
     const activeDataset = datasets[0];
-    const aiInsights = activeDataset?.aiStorage;
+    useEffect(() => {
+    setLocalAiInsights(activeDataset?.aiStorage || null);
+}, [activeDataset?.id]);
+
+    const aiInsights = localAiInsights || activeDataset?.aiStorage;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
@@ -182,7 +187,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     // Core execution function supporting both single datasets and multi-stream cross-analyses
-    const executeAnalysisCall = async () => {
+const executeAnalysisCall = async () => {
         if (!activeDataset) return;
         setLoading(true);
         try {
@@ -228,6 +233,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             );
 
             if (response.data) {
+                setLocalAiInsights(response.data);
                 onUpdateAI(activeDataset.id, response.data);
             }
         } catch (error) { 
