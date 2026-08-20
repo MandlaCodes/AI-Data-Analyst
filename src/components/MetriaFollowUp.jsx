@@ -18,8 +18,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [pastSessions, setPastSessions] = useState([]);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const audioRef = useRef(null);
-
     useEffect(() => {
         if (!activeDataset) {
             setIsVisible(false);
@@ -67,45 +65,38 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Next-Gen Neural Human Voice Generator
-    const playHumanVoice = async (text) => {
+    // Free Browser-Native Neural Voice Generator
+    const playHumanVoice = (text) => {
         if (!voiceEnabled) return;
+        if (!('speechSynthesis' in window)) return;
+
+        window.speechSynthesis.cancel();
+
+        const cleanText = text.replace(/[*#_`]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         
-        try {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => 
+            (v.name.includes('Neural') || v.name.includes('Natural') || v.name.includes('Online')) && v.lang.startsWith('en')
+        ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
 
-            setIsSpeaking(true);
-            const cleanText = text.replace(/[*#_`]/g, '');
-
-            const res = await axios.post(`${API_BASE_URL}/ai/speak`, {
-                text: cleanText
-            }, {
-                headers: { Authorization: `Bearer ${authToken}` }
-            });
-
-            const audioBlob = new Blob([Uint8Array.from(atob(res.data.audio_base64), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            
-            const audio = new Audio(audioUrl);
-            audioRef.current = audio;
-
-            audio.onended = () => setIsSpeaking(false);
-            audio.onerror = () => setIsSpeaking(false);
-            
-            await audio.play();
-        } catch (err) {
-            console.error("Neural voice playback failed", err);
-            setIsSpeaking(false);
+        if (preferredVoice) {
+            utterance.voice = preferredVoice;
         }
+
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+
+        window.speechSynthesis.speak(utterance);
     };
 
     const stopVoice = () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current = null;
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
         }
         setIsSpeaking(false);
     };
