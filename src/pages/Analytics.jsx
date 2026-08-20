@@ -232,6 +232,16 @@ export default function Analytics() {
         const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
+                // Instant local cache recovery check
+                const cachedAll = localStorage.getItem("metria_all_datasets");
+                const cachedActive = localStorage.getItem("metria_active_datasets");
+                if (cachedAll) setAllDatasets(JSON.parse(cachedAll));
+                if (cachedActive) {
+                    const activeParsed = JSON.parse(cachedActive);
+                    setActiveDatasets(activeParsed);
+                    setReadyToVisualize(activeParsed.filter(d => d.aiStorage !== null));
+                }
+
                 const res = await axios.get(`${API_BASE_URL}/analysis/current`, { 
                     headers: { Authorization: `Bearer ${userToken}` } 
                 });
@@ -244,13 +254,17 @@ export default function Analytics() {
                         uiContext 
                     } = res.data.page_state;
 
-                    setAllDatasets(loadedDatasets || []);
+                    if (loadedDatasets && loadedDatasets.length > 0) {
+                        setAllDatasets(loadedDatasets);
+                        localStorage.setItem("metria_all_datasets", JSON.stringify(loadedDatasets));
+                    }
                     setChartType(loadedChartType || "line");
                     
                     if (activeDatasetIds && loadedDatasets) {
                         const active = loadedDatasets.filter(d => activeDatasetIds.includes(d.id));
                         setActiveDatasets(active);
                         setReadyToVisualize(active.filter(d => d.aiStorage !== null));
+                        localStorage.setItem("metria_active_datasets", JSON.stringify(active));
                     }
 
                     if (uiContext) {
@@ -305,10 +319,18 @@ export default function Analytics() {
         const applyUpdate = (list) => list.map(ds => 
             ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
         );
-        setAllDatasets(prev => applyUpdate(prev));
+        
+        setAllDatasets(prev => {
+            const updated = applyUpdate(prev);
+            localStorage.setItem("metria_all_datasets", JSON.stringify(updated));
+            return updated;
+        });
+
         setActiveDatasets(prev => {
             const updated = applyUpdate(prev);
-            setReadyToVisualize(updated.filter(d => d.aiStorage !== null));
+            const ready = updated.filter(d => d.aiStorage !== null);
+            setReadyToVisualize(ready);
+            localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
             return updated;
         });
     };
@@ -440,13 +462,16 @@ export default function Analytics() {
                 setAllDatasets(prev => {
                     const map = new Map(prev.map(d => [d.id, d]));
                     newlyImported.forEach(d => map.set(d.id, d));
-                    return Array.from(map.values());
+                    const resArr = Array.from(map.values());
+                    localStorage.setItem("metria_all_datasets", JSON.stringify(resArr));
+                    return resArr;
                 });
                 
                 setActiveDatasets(prev => {
                     const map = new Map(prev.map(d => [d.id, d]));
                     newlyImported.forEach(d => map.set(d.id, d));
                     const combinedActive = Array.from(map.values());
+                    localStorage.setItem("metria_active_datasets", JSON.stringify(combinedActive));
                     
                     if (combinedActive.length > 1) {
                         setShowMultiSelectModal(true);
@@ -538,6 +563,7 @@ export default function Analytics() {
 
             setActiveDatasets([unifiedDataset]);
             setReadyToVisualize([unifiedDataset]);
+            localStorage.setItem("metria_active_datasets", JSON.stringify([unifiedDataset]));
         } catch (err) {
             console.error("Cross-analysis synthesis failed:", err.response?.data || err);
         } finally {
