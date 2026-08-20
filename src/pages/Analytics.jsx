@@ -644,11 +644,11 @@ export default function Analytics() {
                             </div>
                         )}
                         
-                        {/* Drop the follow-up analyst with ref anchor - conditionally rendered once AI analysis completes */}
-                        {activeDatasets.length > 0 && activeDatasets[activeDatasets.length - 1]?.aiStorage && (
+                        {/* Drop the follow-up analyst with ref anchor - checking any active dataset for aiStorage */}
+                        {activeDatasets.length > 0 && activeDatasets.some(ds => ds?.aiStorage) && (
                             <div ref={metriaRef}>
                                 <MetriaFollowUp 
-                                    activeDataset={activeDatasets[activeDatasets.length - 1]} 
+                                    activeDataset={activeDatasets.find(ds => ds?.aiStorage) || activeDatasets[0]} 
                                     authToken={userToken} 
                                 />
                             </div>
@@ -671,8 +671,8 @@ export default function Analytics() {
                 )}
             </div>
 
-            {/* Floating Ask Metria Button with smooth transition and dynamic hiding */}
-            {activeDatasets.length > 0 && activeDatasets[activeDatasets.length - 1]?.aiStorage && (
+            {/* Floating Ask Metria Button checking any active dataset for aiStorage */}
+            {activeDatasets.length > 0 && activeDatasets.some(ds => ds?.aiStorage) && (
                 <button
                     onClick={scrollToMetria}
                     className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white p-4 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] flex items-center gap-3 font-black text-xs uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 border border-purple-400/30 ${
