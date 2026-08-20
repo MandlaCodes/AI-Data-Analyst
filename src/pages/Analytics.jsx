@@ -124,6 +124,9 @@ export default function Analytics() {
                             const numeric = detectNumericColumns(cleaned);
                             const category = detectCategoryColumn(cleaned, numeric);
                             
+                            // Preserve existing aiStorage if it was already analyzed
+                            const existing = activeDatasets.find(d => d.id === ds.id);
+                            
                             return {
                                 ...ds,
                                 rows: cleaned.length - 1,
@@ -132,6 +135,7 @@ export default function Analytics() {
                                 numericCols: numeric,
                                 metrics: computeMetrics(cleaned, numeric),
                                 categoryCol: category,
+                                aiStorage: existing?.aiStorage || ds.aiStorage || null
                             };
                         }
                     }
@@ -351,8 +355,11 @@ export default function Analytics() {
                         const numeric = detectNumericColumns(cleaned);
                         const category = detectCategoryColumn(cleaned, numeric);
                         
+                        // Check if this dataset already exists in allDatasets to preserve its aiStorage
+                        const existingMatch = allDatasets.find(d => d.id === id);
+
                         return {
-                            id: Date.now() + index,
+                            id: id || Date.now() + index,
                             name: sourceName,
                             color: datasetColors[(allDatasets.length + index) % datasetColors.length],
                             rows: cleaned.length - 1,
@@ -361,7 +368,7 @@ export default function Analytics() {
                             numericCols: numeric,
                             metrics: computeMetrics(cleaned, numeric),
                             categoryCol: category,
-                            aiStorage: null
+                            aiStorage: existingMatch?.aiStorage || null
                         };
                     }
                     return null;
@@ -382,8 +389,10 @@ export default function Analytics() {
                         const numeric = detectNumericColumns(cleaned);
                         const category = detectCategoryColumn(cleaned, numeric);
                         
+                        const existingMatch = allDatasets.find(d => d.id === id);
+
                         return {
-                            id: Date.now() + index,
+                            id: id || Date.now() + index,
                             name: sourceName,
                             color: datasetColors[(allDatasets.length + index) % datasetColors.length],
                             rows: cleaned.length - 1,
@@ -392,7 +401,7 @@ export default function Analytics() {
                             numericCols: numeric,
                             metrics: computeMetrics(cleaned, numeric),
                             categoryCol: category,
-                            aiStorage: null
+                            aiStorage: existingMatch?.aiStorage || null
                         };
                     }
                     return null;
@@ -408,8 +417,11 @@ export default function Analytics() {
                     const cleaned = importedRows.map((row, idx) => idx === 0 ? row : row.map(sanitizeCellValue));
                     const numeric = detectNumericColumns(cleaned);
                     const category = detectCategoryColumn(cleaned, numeric);
+                    
+                    const existingMatch = allDatasets.find(d => d.name === sourceName);
+
                     newlyImported = [{
-                        id: Date.now(),
+                        id: existingMatch?.id || Date.now(),
                         name: sourceName,
                         color: datasetColors[allDatasets.length % datasetColors.length],
                         rows: cleaned.length - 1,
@@ -418,20 +430,34 @@ export default function Analytics() {
                         numericCols: numeric,
                         metrics: computeMetrics(cleaned, numeric),
                         categoryCol: category,
-                        aiStorage: null
+                        aiStorage: existingMatch?.aiStorage || null
                     }];
                 }
             }
 
             if (newlyImported.length > 0) {
-                setAllDatasets(prev => [...prev, ...newlyImported]);
+                // Merge cleanly with allDatasets, keeping existing ones updated
+                setAllDatasets(prev => {
+                    const map = new Map(prev.map(d => [d.id, d]));
+                    newlyImported.forEach(d => map.set(d.id, d));
+                    return Array.from(map.values());
+                });
                 
                 setActiveDatasets(prev => {
-                    const combinedActive = [...prev, ...newlyImported];
+                    const map = new Map(prev.map(d => [d.id, d]));
+                    newlyImported.forEach(d => map.set(d.id, d));
+                    const combinedActive = Array.from(map.values());
+                    
                     if (combinedActive.length > 1) {
                         setShowMultiSelectModal(true);
                     }
                     return combinedActive;
+                });
+
+                // Auto-sync readyToVisualize if any re-imported dataset already had aiStorage
+                setReadyToVisualize(prev => {
+                    const combined = [...prev, ...newlyImported.filter(d => d.aiStorage !== null)];
+                    return Array.from(new Set(combined));
                 });
             }
     
