@@ -18,23 +18,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [pastSessions, setPastSessions] = useState([]);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const speechSynthRef = useRef(window.speechSynthesis);
-    const [availableVoices, setAvailableVoices] = useState([]);
-
-    // Load available speech synthesis voices
-    useEffect(() => {
-        const updateVoices = () => {
-            if (speechSynthRef.current) {
-                const voices = speechSynthRef.current.getVoices();
-                setAvailableVoices(voices);
-            }
-        };
-
-        updateVoices();
-        if (speechSynthRef.current && speechSynthRef.current.onvoiceschanged !== undefined) {
-            speechSynthRef.current.onvoiceschanged = updateVoices;
-        }
-    }, []);
+    const audioRef = useRef(null);
 
     useEffect(() => {
         if (!activeDataset) {
@@ -45,12 +29,11 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
         const timer = setTimeout(() => {
             setIsVisible(true);
-            // Written specifically for the ear: asymmetrical rhythms and conversational pacing
-            const welcomeText = `Hey there. I've just taken a look through "${activeDataset.name}". Honestly? There are some interesting patterns in here. Take your time looking things over, and whenever you're ready, let me know what we should dig into first.`;
+            const welcomeText = `Hey there. I've just taken a look through "${activeDataset.name}". Honestly, there are some really interesting patterns in here. Take your time looking things over, and whenever you're ready, let me know what we should dig into first.`;
             setMessages([
                 { sender: "metria", text: welcomeText }
             ]);
-            if (voiceEnabled) speakResponse(welcomeText);
+            if (voiceEnabled) playHumanVoice(welcomeText);
         }, 400);
 
         return () => clearTimeout(timer);
@@ -72,7 +55,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         if (authToken) fetchHistory();
     }, [authToken]);
 
-    // Load a specific past session and populate messages
     const loadSession = async (sessionId) => {
         try {
             const res = await axios.get(`${API_BASE_URL}/ai/sessions/${sessionId}`, {
@@ -85,39 +67,47 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Human-tuned Speech Synthesizer Reader
-    const speakResponse = (text) => {
-        if (!speechSynthRef.current || !voiceEnabled) return;
-        speechSynthRef.current.cancel();
+    // Next-Gen Neural Human Voice Generator
+    const playHumanVoice = async (text) => {
+        if (!voiceEnabled) return;
         
-        // Clean markdown characters and add micro-pauses for natural cadence
-        const cleanText = text
-            .replace(/[*#_`]/g, '')
-            .replace(/\. /g, '... ') // Adds a natural cognitive pause between sentences
-            .replace(/, /g, ', ');
-
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        
-        // Optimized rate and pitch parameters to break monotone cadence
-        utterance.rate = 0.95; 
-        utterance.pitch = 0.98;
-
-        if (availableVoices.length > 0) {
-            // Prioritize high-quality local or neural/natural voices across platforms
-            const preferredVoice = availableVoices.find(v => 
-                (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Aria') || v.name.includes('Jenny') || v.name.includes('Libby')) && v.lang.startsWith('en')
-            ) || availableVoices.find(v => v.lang.startsWith('en') && v.localService);
-            
-            if (preferredVoice) {
-                utterance.voice = preferredVoice;
+        try {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
             }
+
+            setIsSpeaking(true);
+            const cleanText = text.replace(/[*#_`]/g, '');
+
+            const res = await axios.post(`${API_BASE_URL}/ai/speak`, {
+                text: cleanText
+            }, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+
+            const audioBlob = new Blob([Uint8Array.from(atob(res.data.audio_base64), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+
+            audio.onended = () => setIsSpeaking(false);
+            audio.onerror = () => setIsSpeaking(false);
+            
+            await audio.play();
+        } catch (err) {
+            console.error("Neural voice playback failed", err);
+            setIsSpeaking(false);
         }
+    };
 
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
-        speechSynthRef.current.speak(utterance);
+    const stopVoice = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+        setIsSpeaking(false);
     };
 
     // Speech-to-Text Voice Listener
@@ -157,7 +147,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         const textToSend = queryText || inputQuery;
         if (!textToSend.trim() || !activeDataset) return;
 
-        if (speechSynthRef.current) speechSynthRef.current.cancel();
+        stopVoice();
 
         const newMessages = [...messages, { sender: "user", text: textToSend }];
         setMessages(newMessages);
@@ -178,11 +168,11 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             const answerText = res.data.answer;
             const finalMessages = res.data.messages || [...newMessages, { sender: "metria", text: answerText }];
             setMessages(finalMessages);
-            if (voiceEnabled) speakResponse(answerText);
+            if (voiceEnabled) playHumanVoice(answerText);
         } catch (err) {
             const errorText = "Ah, my connection just dropped for a split second. Let's try sending that query again.";
             setMessages(prev => [...prev, { sender: "metria", text: errorText }]);
-            if (voiceEnabled) speakResponse(errorText);
+            if (voiceEnabled) playHumanVoice(errorText);
         } finally {
             setIsAnalyzing(false);
         }
@@ -297,11 +287,9 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
                                 <button
                                     onClick={() => {
-                                        setVoiceEnabled(!voiceEnabled);
-                                        if (isSpeaking && speechSynthRef.current) {
-                                            speechSynthRef.current.cancel();
-                                            setIsSpeaking(false);
-                                        }
+                                        const nextState = !voiceEnabled;
+                                        setVoiceEnabled(nextState);
+                                        if (!nextState) stopVoice();
                                     }}
                                     className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-medium transition-all cursor-pointer ${
                                         voiceEnabled 
