@@ -45,7 +45,8 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
         const timer = setTimeout(() => {
             setIsVisible(true);
-            const welcomeText = `Hi there! I've gone ahead and reviewed "${activeDataset.name}" for you. Think of me as your personal data consultant—take your time looking through it, and let me know what questions you have or what anomalies we should look into together.`;
+            // Written specifically for the ear: asymmetrical rhythms and conversational pacing
+            const welcomeText = `Hey there. I've just taken a look through "${activeDataset.name}". Honestly? There are some interesting patterns in here. Take your time looking things over, and whenever you're ready, let me know what we should dig into first.`;
             setMessages([
                 { sender: "metria", text: welcomeText }
             ]);
@@ -84,21 +85,28 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Natural Voice Synthesizer Reader
+    // Human-tuned Speech Synthesizer Reader
     const speakResponse = (text) => {
         if (!speechSynthRef.current || !voiceEnabled) return;
         speechSynthRef.current.cancel();
         
-        const cleanText = text.replace(/[*#_`]/g, '');
+        // Clean markdown characters and add micro-pauses for natural cadence
+        const cleanText = text
+            .replace(/[*#_`]/g, '')
+            .replace(/\. /g, '... ') // Adds a natural cognitive pause between sentences
+            .replace(/, /g, ', ');
+
         const utterance = new SpeechSynthesisUtterance(cleanText);
         
-        utterance.rate = 0.98; 
-        utterance.pitch = 1.02;
+        // Optimized rate and pitch parameters to break monotone cadence
+        utterance.rate = 0.95; 
+        utterance.pitch = 0.98;
 
         if (availableVoices.length > 0) {
+            // Prioritize high-quality local or neural/natural voices across platforms
             const preferredVoice = availableVoices.find(v => 
-                (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Aria')) && v.lang.startsWith('en')
-            ) || availableVoices.find(v => v.lang.startsWith('en'));
+                (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Aria') || v.name.includes('Jenny') || v.name.includes('Libby')) && v.lang.startsWith('en')
+            ) || availableVoices.find(v => v.lang.startsWith('en') && v.localService);
             
             if (preferredVoice) {
                 utterance.voice = preferredVoice;
@@ -172,7 +180,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             setMessages(finalMessages);
             if (voiceEnabled) speakResponse(answerText);
         } catch (err) {
-            const errorText = "I ran into a quick snag connecting to the backend servers. Let's try that query one more time.";
+            const errorText = "Ah, my connection just dropped for a split second. Let's try sending that query again.";
             setMessages(prev => [...prev, { sender: "metria", text: errorText }]);
             if (voiceEnabled) speakResponse(errorText);
         } finally {
@@ -347,7 +355,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             {isAnalyzing && (
                                 <div className="flex justify-start">
                                     <div className="bg-white/[0.04] border border-white/10 text-purple-300 p-4 rounded-2xl text-xs md:text-sm backdrop-blur-md animate-pulse flex items-center gap-2.5">
-                                        <FiCpu className="animate-spin text-purple-400" size={16} /> Metria is reviewing the dataset notes for you...
+                                        <FiCpu className="animate-spin text-purple-400" size={16} /> Metria is scanning the numbers...
                                     </div>
                                 </div>
                             )}
