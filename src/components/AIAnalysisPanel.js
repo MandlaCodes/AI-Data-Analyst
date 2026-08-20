@@ -106,8 +106,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     const activeDataset = datasets[0];
     useEffect(() => {
-    setLocalAiInsights(activeDataset?.aiStorage || null);
-}, [activeDataset?.id]);
+        setLocalAiInsights(activeDataset?.aiStorage || null);
+    }, [activeDataset?.id]);
 
     const aiInsights = localAiInsights || activeDataset?.aiStorage;
 
@@ -127,13 +127,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             setSelectedMultiStreamMode(null);
         }
     }, [datasets.length]);
-
-    // Smoothly scroll down to the panel when datasets become active
-    useEffect(() => {
-        if (datasets.length > 0 && panelRef.current) {
-            panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }, [datasets]);
 
     useEffect(() => {
         window.speechSynthesis.getVoices();
@@ -187,7 +180,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     // Core execution function supporting both single datasets and multi-stream cross-analyses
-const executeAnalysisCall = async () => {
+    const executeAnalysisCall = async () => {
         if (!activeDataset) return;
         setLoading(true);
         try {
