@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { FiSend, FiCpu, FiStar, FiMic, FiMicOff, FiClock, FiMessageSquare, FiChevronLeft, FiChevronRight, FiVolume2, FiVolumeX, FiMaximize2, FiMinimize2, FiUserCheck } from "react-icons/fi";
+import { FiSend, FiCpu, FiMic, FiMicOff, FiClock, FiMessageSquare, FiVolume2, FiVolumeX, FiMaximize2, FiMinimize2, FiUserCheck, FiX } from "react-icons/fi";
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
@@ -14,9 +14,9 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState(false); 
-    const [historyOpen, setHistoryOpen] = useState(true);
+    const [showHistoryModal, setShowHistoryModal] = useState(false); // ChatGPT-style clock history modal toggle
     const [pastSessions, setPastSessions] = useState([]);
-    const [isExpanded, setIsExpanded] = useState(false); // Full-screen expandable view toggle
+    const [isExpanded, setIsExpanded] = useState(false); // True full-page view toggle
 
     const speechSynthRef = useRef(window.speechSynthesis);
     const [availableVoices, setAvailableVoices] = useState([]);
@@ -55,7 +55,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         return () => clearTimeout(timer);
     }, [activeDataset]);
 
-    // Fetch past sessions dynamically from main.py and db.py
+    // Fetch past sessions dynamically from backend
     useEffect(() => {
         const fetchHistory = async () => {
             try {
@@ -71,19 +71,20 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         if (authToken) fetchHistory();
     }, [authToken]);
 
-    // Load a specific past session when clicked in the sidebar
+    // Load a specific past session
     const loadSession = async (sessionId) => {
         try {
             const res = await axios.get(`${API_BASE_URL}/ai/sessions/${sessionId}`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
             setMessages(res.data.messages || []);
+            setShowHistoryModal(false);
         } catch (err) {
             console.error("Failed to load session messages", err);
         }
     };
 
-    // Natural, Non-Robotic Conversational Voice Synthesizer Reader
+    // Natural Voice Synthesizer Reader
     const speakResponse = (text) => {
         if (!speechSynthRef.current || !voiceEnabled) return;
         speechSynthRef.current.cancel();
@@ -179,7 +180,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Helper to format AI response text into ChatGPT-style human spacing & readable paragraphs
     const formatMessageText = (text, sender) => {
         if (sender === 'user') return <p className="leading-relaxed text-sm md:text-base">{text}</p>;
 
@@ -203,69 +203,26 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     ];
 
     return (
-        <div className={`transition-all duration-700 w-full px-4 lg:px-8 mx-auto ${
-            isExpanded ? 'fixed inset-0 z-[9999] bg-[#07050f]/98 p-4 md:p-8 overflow-y-auto' : 'mt-16 mb-20'
+        <div className={`transition-all duration-500 ${
+            isExpanded 
+                ? 'fixed inset-0 z-[99999] bg-[#07050f] p-4 md:p-10 overflow-y-auto flex items-center justify-center' 
+                : 'w-full px-4 lg:px-8 mx-auto mt-16 mb-20'
         }`}>
-            <div className={`transition-all duration-1000 transform ${
+            <div className={`transition-all duration-700 transform ${
                 isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12 pointer-events-none'
-            } w-full flex gap-6 max-w-[1600px] mx-auto`}>
+            } w-full max-w-[1500px] mx-auto`}>
                 
-                {/* Past History Sidebar */}
-                <div className={`transition-all duration-300 bg-[#0A0E1A] border border-purple-500/30 rounded-[2.5rem] flex flex-col overflow-hidden shadow-2xl ${
-                    historyOpen ? 'w-80 p-6' : 'w-20 p-4 items-center'
-                }`}>
-                    <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-                        {historyOpen && (
-                            <div className="flex items-center gap-2 text-white font-black text-xs uppercase tracking-wider">
-                                <FiClock className="text-purple-400" /> Past Sessions
-                            </div>
-                        )}
-                        <button 
-                            onClick={() => setHistoryOpen(!historyOpen)} 
-                            className="p-2 rounded-xl bg-white/5 hover:bg-purple-600/20 text-slate-400 hover:text-white transition-all cursor-pointer"
-                        >
-                            {historyOpen ? <FiChevronLeft size={16} /> : <FiChevronRight size={16} />}
-                        </button>
-                    </div>
-
-                    <div className="space-y-2 overflow-y-auto flex-1 flex flex-col">
-                        {pastSessions.length > 0 ? (
-                            pastSessions.map(session => (
-                                <div 
-                                    key={session.id}
-                                    onClick={() => loadSession(session.id)}
-                                    className={`p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
-                                        historyOpen ? 'hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30' : 'justify-center'
-                                    }`}
-                                >
-                                    <FiMessageSquare className="text-purple-400 shrink-0" size={16} />
-                                    {historyOpen && (
-                                        <div className="truncate">
-                                            <p className="text-white text-xs font-bold truncate">{session.title}</p>
-                                            <p className="text-slate-500 text-[10px]">{session.date}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            historyOpen && (
-                                <div className="text-slate-500 text-xs italic text-center py-6">
-                                    No past sessions recorded
-                                </div>
-                            )
-                        )}
-                    </div>
-                </div>
-
-                {/* Main Interactive Consultant Panel - Full Width Expandable */}
-                <div className="w-full relative group flex-1">
+                {/* Main Interactive Consultant Panel */}
+                <div className="relative group w-full">
                     <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3.5rem] blur-xl opacity-30 group-hover:opacity-60 transition duration-1000 pointer-events-none" />
 
-                    <div className="relative bg-gradient-to-b from-[#120B22] to-[#080B14] border border-purple-500/60 rounded-[3.5rem] p-6 md:p-12 shadow-[0_0_60px_rgba(188,19,254,0.15)] overflow-hidden flex flex-col">
+                    <div className={`relative bg-gradient-to-b from-[#120B22] to-[#080B14] border border-purple-500/60 rounded-[3.5rem] p-6 md:p-12 shadow-[0_0_60px_rgba(188,19,254,0.15)] overflow-hidden flex flex-col ${
+                        isExpanded ? 'h-[90vh] max-h-[1100px]' : ''
+                    }`}>
                         
                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.12),rgba(255,255,255,0))] pointer-events-none" />
 
-                        {/* Header Banner: Human Advisor Presentation */}
+                        {/* Header Banner with Integrated Clock History Toggle */}
                         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="relative">
@@ -285,8 +242,55 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                 </div>
                             </div>
 
-                            {/* Voice Controls, Status & Expand View Toggle */}
+                            {/* Controls: Clock History, Voice & Fullpage Expand */}
                             <div className="flex items-center gap-3">
+                                {/* ChatGPT-style Clock History Button */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowHistoryModal(!showHistoryModal)}
+                                        className="p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-purple-600/20 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-2 text-xs font-medium"
+                                        title="Past Chat Sessions"
+                                    >
+                                        <FiClock size={16} className="text-purple-400" />
+                                        <span className="hidden sm:inline">History</span>
+                                    </button>
+
+                                    {/* History Popup Dropdown */}
+                                    {showHistoryModal && (
+                                        <div className="absolute right-0 mt-3 w-80 bg-[#0A0E1A] border border-purple-500/40 rounded-3xl p-5 shadow-2xl z-50 backdrop-blur-xl">
+                                            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                                                <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                                                    <FiClock className="text-purple-400" /> Past Sessions
+                                                </div>
+                                                <button onClick={() => setShowHistoryModal(false)} className="text-slate-400 hover:text-white">
+                                                    <FiX size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                                                {pastSessions.length > 0 ? (
+                                                    pastSessions.map(session => (
+                                                        <div 
+                                                            key={session.id}
+                                                            onClick={() => loadSession(session.id)}
+                                                            className="p-3 rounded-2xl cursor-pointer hover:bg-purple-600/20 border border-transparent hover:border-purple-500/30 transition-all flex items-center gap-3"
+                                                        >
+                                                            <FiMessageSquare className="text-purple-400 shrink-0" size={15} />
+                                                            <div className="truncate">
+                                                                <p className="text-white text-xs font-bold truncate">{session.title}</p>
+                                                                <p className="text-slate-500 text-[10px]">{session.date}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="text-slate-500 text-xs italic text-center py-4">
+                                                        No past sessions recorded
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <button
                                     onClick={() => {
                                         setVoiceEnabled(!voiceEnabled);
@@ -300,7 +304,6 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                             ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
                                             : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
                                     }`}
-                                    title="Toggle Voice Reader"
                                 >
                                     {voiceEnabled ? <FiVolume2 size={15} className="text-purple-400" /> : <FiVolumeX size={15} />}
                                     {voiceEnabled ? "Voice On" : "Voice Off"}
@@ -317,7 +320,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                     </div>
                                 )}
 
-                                {/* Expand / Full Page Toggle */}
+                                {/* True Fullscreen Toggle */}
                                 <button
                                     onClick={() => setIsExpanded(!isExpanded)}
                                     className="p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition-all cursor-pointer"
@@ -328,9 +331,9 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             </div>
                         </div>
 
-                        {/* Conversation Window: Nicely Spaced ChatGPT-Style Reading Area */}
-                        <div className={`relative z-10 space-y-6 overflow-y-auto pr-3 mb-6 scrollbar-thin scrollbar-thumb-purple-500/30 ${
-                            isExpanded ? 'max-h-[calc(100vh-320px)]' : 'max-h-[500px]'
+                        {/* Conversation Window */}
+                        <div className={`relative z-10 space-y-6 overflow-y-auto pr-3 mb-6 scrollbar-thin scrollbar-thumb-purple-500/30 flex-1 ${
+                            isExpanded ? 'max-h-[calc(100vh-360px)]' : 'max-h-[500px]'
                         }`}>
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -371,7 +374,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             ))}
                         </div>
 
-                        {/* Input Form Bar with Voice Listener Button */}
+                        {/* Input Form Bar */}
                         <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative z-10 flex gap-3">
                             <div className="relative flex-1 flex items-center">
                                 <input 
@@ -404,6 +407,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
 
                     </div>
                 </div>
+
             </div>
         </div>
     );
