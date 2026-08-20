@@ -14,9 +14,9 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState(false); 
-    const [showHistoryModal, setShowHistoryModal] = useState(false); // ChatGPT-style clock history modal toggle
+    const [showHistoryDropdown, setShowHistoryDropdown] = useState(false); // Clean dropdown toggle
     const [pastSessions, setPastSessions] = useState([]);
-    const [isExpanded, setIsExpanded] = useState(false); // True full-page view toggle
+    const [isExpanded, setIsExpanded] = useState(false); // Fills right-side container area cleanly
 
     const speechSynthRef = useRef(window.speechSynthesis);
     const [availableVoices, setAvailableVoices] = useState([]);
@@ -50,7 +50,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                 { sender: "metria", text: welcomeText }
             ]);
             if (voiceEnabled) speakResponse(welcomeText);
-        }, 1200);
+        }, 600);
 
         return () => clearTimeout(timer);
     }, [activeDataset]);
@@ -71,14 +71,14 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         if (authToken) fetchHistory();
     }, [authToken]);
 
-    // Load a specific past session
+    // Load a specific past session and populate messages
     const loadSession = async (sessionId) => {
         try {
             const res = await axios.get(`${API_BASE_URL}/ai/sessions/${sessionId}`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
             setMessages(res.data.messages || []);
-            setShowHistoryModal(false);
+            setShowHistoryDropdown(false);
         } catch (err) {
             console.error("Failed to load session messages", err);
         }
@@ -203,32 +203,30 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     ];
 
     return (
-        <div className={`transition-all duration-500 ${
+        <div className={`transition-all duration-300 w-full ${
             isExpanded 
-                ? 'fixed inset-0 z-[99999] bg-[#07050f] p-4 md:p-10 overflow-y-auto flex items-center justify-center' 
-                : 'w-full px-4 lg:px-8 mx-auto mt-16 mb-20'
+                ? 'fixed top-0 right-0 bottom-0 left-64 z-50 bg-[#07050f] p-6 flex flex-col' 
+                : 'w-full h-full min-h-[calc(100vh-2rem)] flex flex-col px-4 lg:px-8 py-4'
         }`}>
-            <div className={`transition-all duration-700 transform ${
-                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12 pointer-events-none'
-            } w-full max-w-[1500px] mx-auto`}>
+            <div className={`transition-all duration-500 transform ${
+                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'
+            } w-full max-w-[1500px] mx-auto flex-1 flex flex-col`}>
                 
                 {/* Main Interactive Consultant Panel */}
-                <div className="relative group w-full">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3.5rem] blur-xl opacity-30 group-hover:opacity-60 transition duration-1000 pointer-events-none" />
+                <div className="relative group w-full flex-1 flex flex-col">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 rounded-[3rem] blur-xl opacity-20 group-hover:opacity-40 transition duration-1000 pointer-events-none" />
 
-                    <div className={`relative bg-gradient-to-b from-[#120B22] to-[#080B14] border border-purple-500/60 rounded-[3.5rem] p-6 md:p-12 shadow-[0_0_60px_rgba(188,19,254,0.15)] overflow-hidden flex flex-col ${
-                        isExpanded ? 'h-[90vh] max-h-[1100px]' : ''
-                    }`}>
+                    <div className="relative bg-gradient-to-b from-[#120B22] to-[#080B14] border border-purple-500/50 rounded-[3rem] p-6 md:p-10 shadow-[0_0_50px_rgba(188,19,254,0.1)] flex-1 flex flex-col justify-between overflow-visible">
                         
-                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.12),rgba(255,255,255,0))] pointer-events-none" />
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(188,19,254,0.1),rgba(255,255,255,0))] pointer-events-none rounded-[3rem]" />
 
-                        {/* Header Banner with Integrated Clock History Toggle */}
-                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-6">
+                        {/* Top Header & Controls */}
+                        <div className="relative z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/10 mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="relative">
                                     <div className="absolute inset-0 bg-purple-500 rounded-2xl blur-md animate-pulse" />
-                                    <div className="relative p-4 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl text-white shadow-lg">
-                                        <FiUserCheck size={26} />
+                                    <div className="relative p-3.5 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl text-white shadow-lg">
+                                        <FiUserCheck size={24} />
                                     </div>
                                 </div>
                                 <div>
@@ -242,27 +240,26 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                 </div>
                             </div>
 
-                            {/* Controls: Clock History, Voice & Fullpage Expand */}
+                            {/* Controls */}
                             <div className="flex items-center gap-3">
-                                {/* ChatGPT-style Clock History Button */}
+                                {/* Clean History Dropdown Menu */}
                                 <div className="relative">
                                     <button
-                                        onClick={() => setShowHistoryModal(!showHistoryModal)}
+                                        onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
                                         className="p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-purple-600/20 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-2 text-xs font-medium"
                                         title="Past Chat Sessions"
                                     >
                                         <FiClock size={16} className="text-purple-400" />
-                                        <span className="hidden sm:inline">History</span>
+                                        <span>History</span>
                                     </button>
 
-                                    {/* History Popup Dropdown */}
-                                    {showHistoryModal && (
-                                        <div className="absolute right-0 mt-3 w-80 bg-[#0A0E1A] border border-purple-500/40 rounded-3xl p-5 shadow-2xl z-50 backdrop-blur-xl">
+                                    {showHistoryDropdown && (
+                                        <div className="absolute right-0 top-full mt-2 w-80 bg-[#0A0E1A] border border-purple-500/40 rounded-3xl p-5 shadow-2xl z-50 backdrop-blur-xl">
                                             <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
                                                 <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
                                                     <FiClock className="text-purple-400" /> Past Sessions
                                                 </div>
-                                                <button onClick={() => setShowHistoryModal(false)} className="text-slate-400 hover:text-white">
+                                                <button onClick={() => setShowHistoryDropdown(false)} className="text-slate-400 hover:text-white cursor-pointer">
                                                     <FiX size={16} />
                                                 </button>
                                             </div>
@@ -299,7 +296,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                             setIsSpeaking(false);
                                         }
                                     }}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-xs font-medium transition-all cursor-pointer ${
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs font-medium transition-all cursor-pointer ${
                                         voiceEnabled 
                                             ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
                                             : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
@@ -310,7 +307,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                 </button>
 
                                 {isSpeaking && (
-                                    <div className="flex items-center gap-1.5 bg-purple-600/20 border border-purple-500/40 px-3 py-2 rounded-2xl">
+                                    <div className="flex items-center gap-1.5 bg-purple-600/20 border border-purple-500/40 px-3 py-2.5 rounded-2xl">
                                         <span className="text-purple-300 text-xs font-medium">Speaking</span>
                                         <div className="flex items-center gap-0.5 h-3 ml-1">
                                             <div className="w-1 bg-purple-400 animate-bounce h-full rounded-full" />
@@ -320,24 +317,21 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                     </div>
                                 )}
 
-                                {/* True Fullscreen Toggle */}
                                 <button
                                     onClick={() => setIsExpanded(!isExpanded)}
                                     className="p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition-all cursor-pointer"
-                                    title={isExpanded ? "Minimize Consultant View" : "Expand to Full Page"}
+                                    title={isExpanded ? "Minimize" : "Expand to Right Pane View"}
                                 >
                                     {isExpanded ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
                                 </button>
                             </div>
                         </div>
 
-                        {/* Conversation Window */}
-                        <div className={`relative z-10 space-y-6 overflow-y-auto pr-3 mb-6 scrollbar-thin scrollbar-thumb-purple-500/30 flex-1 ${
-                            isExpanded ? 'max-h-[calc(100vh-360px)]' : 'max-h-[500px]'
-                        }`}>
+                        {/* Middle Conversation Area */}
+                        <div className="relative z-10 space-y-6 overflow-y-auto pr-2 my-auto flex-1 max-h-[calc(100vh-300px)] scrollbar-thin scrollbar-thumb-purple-500/30">
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[90%] md:max-w-[80%] p-6 md:p-8 rounded-[2rem] shadow-xl ${
+                                    <div className={`max-w-[90%] md:max-w-[80%] p-6 md:p-7 rounded-[2rem] shadow-xl ${
                                         msg.sender === 'user' 
                                             ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-br-sm font-medium' 
                                             : 'bg-white/[0.03] border border-white/10 text-slate-100 rounded-bl-sm backdrop-blur-md'
@@ -360,50 +354,51 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             )}
                         </div>
 
-                        {/* Quick Suggestion Pills */}
-                        <div className="relative z-10 flex flex-wrap gap-2 mb-5">
-                            <span className="text-xs font-semibold text-slate-400 self-center mr-2">Suggested questions:</span>
-                            {suggestedPrompts.map((promptText, pIdx) => (
-                                <button
-                                    key={pIdx}
-                                    onClick={() => handleSend(promptText)}
-                                    className="bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl text-xs font-medium transition-all shadow-sm cursor-pointer"
-                                >
-                                    {promptText}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Input Form Bar */}
-                        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative z-10 flex gap-3">
-                            <div className="relative flex-1 flex items-center">
-                                <input 
-                                    type="text"
-                                    value={inputQuery}
-                                    onChange={(e) => setInputQuery(e.target.value)}
-                                    placeholder={isListening ? "Listening closely... Speak your question..." : `Ask Metria a question about ${activeDataset.name}...`}
-                                    className={`w-full bg-black/70 border rounded-3xl px-7 py-5 text-sm md:text-base text-white focus:outline-none shadow-inner transition-all placeholder:text-slate-500 ${
-                                        isListening ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse' : 'border-white/15 focus:border-purple-500'
-                                    }`}
-                                />
-                                <button 
-                                    type="button" 
-                                    onClick={toggleVoiceListener}
-                                    className={`absolute right-4 p-3 rounded-2xl transition-all cursor-pointer ${
-                                        isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-                                    }`}
-                                    title="Speak your question"
-                                >
-                                    {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
-                                </button>
+                        {/* Bottom Suggestions & Form */}
+                        <div className="relative z-10 pt-4 mt-auto">
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                <span className="text-xs font-semibold text-slate-400 self-center mr-2">Suggested questions:</span>
+                                {suggestedPrompts.map((promptText, pIdx) => (
+                                    <button
+                                        key={pIdx}
+                                        onClick={() => handleSend(promptText)}
+                                        className="bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-medium transition-all shadow-sm cursor-pointer"
+                                    >
+                                        {promptText}
+                                    </button>
+                                ))}
                             </div>
-                            <button 
-                                type="submit" 
-                                className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white px-8 rounded-3xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-600/30 flex items-center justify-center shrink-0 hover:scale-[1.02] active:scale-95 cursor-pointer"
-                            >
-                                <FiSend size={18} />
-                            </button>
-                        </form>
+
+                            <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-3">
+                                <div className="relative flex-1 flex items-center">
+                                    <input 
+                                        type="text"
+                                        value={inputQuery}
+                                        onChange={(e) => setInputQuery(e.target.value)}
+                                        placeholder={isListening ? "Listening closely... Speak your question..." : `Ask Metria a question about ${activeDataset.name}...`}
+                                        className={`w-full bg-black/70 border rounded-3xl px-7 py-4.5 text-sm md:text-base text-white focus:outline-none shadow-inner transition-all placeholder:text-slate-500 ${
+                                            isListening ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse' : 'border-white/15 focus:border-purple-500'
+                                        }`}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={toggleVoiceListener}
+                                        className={`absolute right-4 p-3 rounded-2xl transition-all cursor-pointer ${
+                                            isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                                        }`}
+                                        title="Speak your question"
+                                    >
+                                        {isListening ? <FiMicOff size={18} /> : <FiMic size={18} />}
+                                    </button>
+                                </div>
+                                <button 
+                                    type="submit" 
+                                    className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white px-8 rounded-3xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-600/30 flex items-center justify-center shrink-0 hover:scale-[1.02] active:scale-95 cursor-pointer"
+                                >
+                                    <FiSend size={18} />
+                                </button>
+                            </form>
+                        </div>
 
                     </div>
                 </div>
