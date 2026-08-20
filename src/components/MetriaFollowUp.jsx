@@ -347,6 +347,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                                 {suggestedPrompts.map((promptText, pIdx) => (
                                     <button
                                         key={pIdx}
+                                        type="button"
                                         onClick={() => handleSend(promptText)}
                                         className="bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shadow-sm cursor-pointer"
                                     >
