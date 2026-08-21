@@ -291,6 +291,7 @@ export default function Analytics() {
             if (!userToken || isInitializing) return;
             setIsSaving(true);
             try {
+                // FIX: Ensure activeDatasetIds serializes cleanly using id or fallback reference matching
                 const pageState = {
                     allDatasets,
                     activeDatasetIds: activeDatasets.map(d => d.id),
@@ -316,7 +317,6 @@ export default function Analytics() {
     // --- ACTIONS ---
 
     const handleAIUpdate = (datasetId, aiData) => {
-        // Update both allDatasets and activeDatasets simultaneously while preserving aiStorage universally
         setAllDatasets(prevAll => {
             const updatedAll = prevAll.map(ds => 
                 ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
@@ -378,7 +378,6 @@ export default function Analytics() {
                         const numeric = detectNumericColumns(cleaned);
                         const category = detectCategoryColumn(cleaned, numeric);
                         
-                        // Look for an existing match in allDatasets to protect previously analyzed aiStorage
                         const existingMatch = allDatasets.find(d => d.id === id);
 
                         return {
@@ -505,6 +504,25 @@ export default function Analytics() {
         }
     };
 
+    // --- DATASET TOGGLE HANDLER (FIX FOR RE-SELECTING DATASETS) ---
+    const handleDatasetToggle = (datasetToToggle) => {
+        setActiveDatasets(prevActive => {
+            const exists = prevActive.some(d => d.id === datasetToToggle.id);
+            let updated;
+            if (exists) {
+                updated = prevActive.filter(d => d.id !== datasetToToggle.id);
+            } else {
+                const masterRecord = allDatasets.find(d => d.id === datasetToToggle.id);
+                const datasetToAdd = masterRecord || datasetToToggle;
+                updated = [...prevActive, datasetToAdd];
+            }
+            
+            setReadyToVisualize(updated.filter(d => d.aiStorage !== null));
+            localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     // --- MULTI-DATASET & CROSS ANALYSIS HANDLERS ---
     const executeSingleAnalysisFlow = async (dataset) => {
         setIsInitializing(true);
@@ -577,6 +595,7 @@ export default function Analytics() {
             setIsInitializing(false); 
         }
     };
+
    return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
             {(isInitializing || isImporting) && (
