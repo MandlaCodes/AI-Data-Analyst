@@ -316,22 +316,23 @@ export default function Analytics() {
     // --- ACTIONS ---
 
     const handleAIUpdate = (datasetId, aiData) => {
-        const applyUpdate = (list) => list.map(ds => 
-            ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
-        );
-        
-        setAllDatasets(prev => {
-            const updated = applyUpdate(prev);
-            localStorage.setItem("metria_all_datasets", JSON.stringify(updated));
-            return updated;
+        // Update both allDatasets and activeDatasets simultaneously while preserving aiStorage universally
+        setAllDatasets(prevAll => {
+            const updatedAll = prevAll.map(ds => 
+                ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
+            );
+            localStorage.setItem("metria_all_datasets", JSON.stringify(updatedAll));
+            return updatedAll;
         });
 
-        setActiveDatasets(prev => {
-            const updated = applyUpdate(prev);
-            const ready = updated.filter(d => d.aiStorage !== null);
+        setActiveDatasets(prevActive => {
+            const updatedActive = prevActive.map(ds => 
+                ds.id === datasetId ? { ...ds, aiStorage: aiData } : ds
+            );
+            const ready = updatedActive.filter(d => d.aiStorage !== null);
             setReadyToVisualize(ready);
-            localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
-            return updated;
+            localStorage.setItem("metria_active_datasets", JSON.stringify(updatedActive));
+            return updatedActive;
         });
     };
 
@@ -377,7 +378,7 @@ export default function Analytics() {
                         const numeric = detectNumericColumns(cleaned);
                         const category = detectCategoryColumn(cleaned, numeric);
                         
-                        // Check if this dataset already exists in allDatasets to preserve its aiStorage
+                        // Look for an existing match in allDatasets to protect previously analyzed aiStorage
                         const existingMatch = allDatasets.find(d => d.id === id);
 
                         return {
@@ -458,10 +459,13 @@ export default function Analytics() {
             }
 
             if (newlyImported.length > 0) {
-                // Merge cleanly with allDatasets, keeping existing ones updated
                 setAllDatasets(prev => {
                     const map = new Map(prev.map(d => [d.id, d]));
-                    newlyImported.forEach(d => map.set(d.id, d));
+                    newlyImported.forEach(d => {
+                        const old = map.get(d.id);
+                        if (old && !d.aiStorage) d.aiStorage = old.aiStorage;
+                        map.set(d.id, d);
+                    });
                     const resArr = Array.from(map.values());
                     localStorage.setItem("metria_all_datasets", JSON.stringify(resArr));
                     return resArr;
@@ -469,7 +473,11 @@ export default function Analytics() {
                 
                 setActiveDatasets(prev => {
                     const map = new Map(prev.map(d => [d.id, d]));
-                    newlyImported.forEach(d => map.set(d.id, d));
+                    newlyImported.forEach(d => {
+                        const old = map.get(d.id);
+                        if (old && !d.aiStorage) d.aiStorage = old.aiStorage;
+                        map.set(d.id, d);
+                    });
                     const combinedActive = Array.from(map.values());
                     localStorage.setItem("metria_active_datasets", JSON.stringify(combinedActive));
                     
@@ -479,7 +487,6 @@ export default function Analytics() {
                     return combinedActive;
                 });
 
-                // Auto-sync readyToVisualize if any re-imported dataset already had aiStorage
                 setReadyToVisualize(prev => {
                     const combined = [...prev, ...newlyImported.filter(d => d.aiStorage !== null)];
                     return Array.from(new Set(combined));
@@ -570,7 +577,6 @@ export default function Analytics() {
             setIsInitializing(false); 
         }
     };
-    
    return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
             {(isInitializing || isImporting) && (
