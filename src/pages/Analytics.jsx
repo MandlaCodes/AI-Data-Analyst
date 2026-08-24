@@ -512,11 +512,9 @@ export default function Analytics() {
             if (exists) {
                 updated = prevActive.filter(d => d.id !== datasetToToggle.id);
             } else {
-                // Pull the master record from allDatasets to guarantee aiStorage and metrics are fully preserved
                 const masterRecord = allDatasets.find(d => d.id === datasetToToggle.id);
                 const datasetToAdd = masterRecord || datasetToToggle;
                 
-                // Fallback check: if masterRecord is somehow missing aiStorage, check localStorage cache
                 if (!datasetToAdd.aiStorage) {
                     try {
                         const cachedAll = JSON.parse(localStorage.getItem("metria_all_datasets") || "[]");
@@ -532,7 +530,10 @@ export default function Analytics() {
                 updated = [...prevActive, datasetToAdd];
             }
             
-            // Immediately sync visual readiness and local storage persistence
+            if (updated.length > 1) {
+                setShowMultiSelectModal(true);
+            }
+
             const readyFiltered = updated.filter(d => d.aiStorage !== null && d.aiStorage !== undefined);
             setReadyToVisualize(readyFiltered);
             localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
