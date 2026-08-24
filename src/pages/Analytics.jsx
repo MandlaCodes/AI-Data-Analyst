@@ -291,7 +291,6 @@ export default function Analytics() {
             if (!userToken || isInitializing) return;
             setIsSaving(true);
             try {
-                // FIX: Ensure activeDatasetIds serializes cleanly using id or fallback reference matching
                 const pageState = {
                     allDatasets,
                     activeDatasetIds: activeDatasets.map(d => d.id),
@@ -504,20 +503,38 @@ export default function Analytics() {
         }
     };
 
-    // --- DATASET TOGGLE HANDLER (FIX FOR RE-SELECTING DATASETS) ---
+    // --- DATASET TOGGLE HANDLER (FIXED FOR PERSISTENCE) ---
     const handleDatasetToggle = (datasetToToggle) => {
         setActiveDatasets(prevActive => {
             const exists = prevActive.some(d => d.id === datasetToToggle.id);
             let updated;
+            
             if (exists) {
                 updated = prevActive.filter(d => d.id !== datasetToToggle.id);
             } else {
+                // Pull the master record from allDatasets to guarantee aiStorage and metrics are fully preserved
                 const masterRecord = allDatasets.find(d => d.id === datasetToToggle.id);
                 const datasetToAdd = masterRecord || datasetToToggle;
+                
+                // Fallback check: if masterRecord is somehow missing aiStorage, check localStorage cache
+                if (!datasetToAdd.aiStorage) {
+                    try {
+                        const cachedAll = JSON.parse(localStorage.getItem("metria_all_datasets") || "[]");
+                        const cachedMatch = cachedAll.find(d => d.id === datasetToToggle.id);
+                        if (cachedMatch && cachedMatch.aiStorage) {
+                            datasetToAdd.aiStorage = cachedMatch.aiStorage;
+                        }
+                    } catch (e) {
+                        console.warn("Could not recover aiStorage from local storage fallback", e);
+                    }
+                }
+
                 updated = [...prevActive, datasetToAdd];
             }
             
-            setReadyToVisualize(updated.filter(d => d.aiStorage !== null));
+            // Immediately sync visual readiness and local storage persistence
+            const readyFiltered = updated.filter(d => d.aiStorage !== null && d.aiStorage !== undefined);
+            setReadyToVisualize(readyFiltered);
             localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
             return updated;
         });
