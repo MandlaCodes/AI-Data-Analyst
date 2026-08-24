@@ -503,7 +503,7 @@ export default function Analytics() {
         }
     };
 
-    // --- DATASET TOGGLE HANDLER (FIXED FOR PERSISTENCE) ---
+    // --- DATASET TOGGLE HANDLER (FIXED WITH AUTO-ANALYZE) ---
     const handleDatasetToggle = (datasetToToggle) => {
         setActiveDatasets(prevActive => {
             const exists = prevActive.some(d => d.id === datasetToToggle.id);
@@ -528,6 +528,11 @@ export default function Analytics() {
                 }
 
                 updated = [...prevActive, datasetToAdd];
+                
+                // Trigger AI analysis immediately if this dataset doesn't have stored insights yet
+                if (!datasetToAdd.aiStorage) {
+                    executeSingleAnalysisFlow(datasetToAdd);
+                }
             }
             
             if (updated.length > 1) {
