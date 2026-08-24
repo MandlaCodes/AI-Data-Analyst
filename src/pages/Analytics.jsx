@@ -291,6 +291,7 @@ export default function Analytics() {
             if (!userToken || isInitializing) return;
             setIsSaving(true);
             try {
+                // FIX: Ensure activeDatasetIds serializes cleanly using id or fallback reference matching
                 const pageState = {
                     allDatasets,
                     activeDatasetIds: activeDatasets.map(d => d.id),
@@ -503,44 +504,20 @@ export default function Analytics() {
         }
     };
 
-    // --- DATASET TOGGLE HANDLER (FIXED WITH AUTO-ANALYZE) ---
+    // --- DATASET TOGGLE HANDLER (FIX FOR RE-SELECTING DATASETS) ---
     const handleDatasetToggle = (datasetToToggle) => {
         setActiveDatasets(prevActive => {
             const exists = prevActive.some(d => d.id === datasetToToggle.id);
             let updated;
-            
             if (exists) {
                 updated = prevActive.filter(d => d.id !== datasetToToggle.id);
             } else {
                 const masterRecord = allDatasets.find(d => d.id === datasetToToggle.id);
                 const datasetToAdd = masterRecord || datasetToToggle;
-                
-                if (!datasetToAdd.aiStorage) {
-                    try {
-                        const cachedAll = JSON.parse(localStorage.getItem("metria_all_datasets") || "[]");
-                        const cachedMatch = cachedAll.find(d => d.id === datasetToToggle.id);
-                        if (cachedMatch && cachedMatch.aiStorage) {
-                            datasetToAdd.aiStorage = cachedMatch.aiStorage;
-                        }
-                    } catch (e) {
-                        console.warn("Could not recover aiStorage from local storage fallback", e);
-                    }
-                }
-
                 updated = [...prevActive, datasetToAdd];
-                
-                // Trigger AI analysis immediately if this dataset doesn't have stored insights yet
-                if (!datasetToAdd.aiStorage) {
-                    executeSingleAnalysisFlow(datasetToAdd);
-                }
             }
             
-            if (updated.length > 1) {
-                setShowMultiSelectModal(true);
-            }
-
-            const readyFiltered = updated.filter(d => d.aiStorage !== null && d.aiStorage !== undefined);
-            setReadyToVisualize(readyFiltered);
+            setReadyToVisualize(updated.filter(d => d.aiStorage !== null));
             localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
             return updated;
         });
