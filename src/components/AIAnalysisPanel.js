@@ -106,7 +106,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     const activeDataset = datasets[0];
 
-    // Resilient state hook to capture cached data across reloads
+    // Resilient state hook to capture cached data from database/local storage on refresh
     useEffect(() => {
         if (activeDataset) {
             const recoveredInsights = activeDataset.aiStorage || activeDataset.analysis || (activeDataset.summary ? activeDataset : null);
