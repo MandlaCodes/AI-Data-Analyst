@@ -105,11 +105,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     }, []);
 
     const activeDataset = datasets[0];
-    useEffect(() => {
-        setLocalAiInsights(activeDataset?.aiStorage || null);
-    }, [activeDataset?.id]);
 
-    const aiInsights = localAiInsights || activeDataset?.aiStorage;
+    // Resilient state hook to capture cached data across reloads
+    useEffect(() => {
+        if (activeDataset) {
+            const recoveredInsights = activeDataset.aiStorage || activeDataset.analysis || (activeDataset.summary ? activeDataset : null);
+            setLocalAiInsights(recoveredInsights);
+        } else {
+            setLocalAiInsights(null);
+        }
+    }, [activeDataset?.id, activeDataset]);
+
+    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.analysis;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
