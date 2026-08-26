@@ -104,12 +104,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-    const activeDataset = datasets[0];
-    useEffect(() => {
-        setLocalAiInsights(activeDataset?.aiStorage || null);
-    }, [activeDataset?.id]);
+const activeDataset = datasets[0];
 
-    const aiInsights = localAiInsights || activeDataset?.aiStorage;
+useEffect(() => {
+    setLocalAiInsights(activeDataset?.aiStorage || null);
+}, [activeDataset?.id, activeDataset?.aiStorage]);
+
+const aiInsights = localAiInsights || activeDataset?.aiStorage;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
