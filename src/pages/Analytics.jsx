@@ -236,7 +236,7 @@ useEffect(() => {
                         uiContext 
                     } = res.data.page_state;
 
-                    // 1. Ensure every dataset retains its aiStorage from database
+                    // Bind global aiStorage into the individual datasets if missing
                     const sanitizedDatasets = loadedDatasets.map(d => ({
                         ...d,
                         aiStorage: d.aiStorage || globalAiStorage
@@ -246,22 +246,18 @@ useEffect(() => {
                     setChartType(loadedChartType);
                     
                     if (sanitizedDatasets.length > 0) {
-                        let active = activeDatasetIds?.length > 0 
+                        const active = activeDatasetIds?.length > 0 
                             ? sanitizedDatasets.filter(d => activeDatasetIds.includes(d.id))
                             : [sanitizedDatasets[0]];
 
-                        // 2. Fallback check: if active dataset is missing aiStorage, assign global or its master record copy
-                        active = active.map(act => {
-                            if (!act.aiStorage) {
-                                const master = sanitizedDatasets.find(m => m.id === act.id);
-                                return { ...act, aiStorage: master?.aiStorage || globalAiStorage };
-                            }
-                            return act;
-                        });
+                        // Ensure active datasets explicitly have the aiStorage attached
+                        const finalizedActive = active.map(act => ({
+                            ...act,
+                            aiStorage: act.aiStorage || globalAiStorage
+                        }));
 
-                        setActiveDatasets(active);
-                        // Renders charts and AI panel as long as data or aiStorage exists
-                        setReadyToVisualize(active.filter(d => (d.data && d.data.length > 0) || d.aiStorage));
+                        setActiveDatasets(finalizedActive);
+                        setReadyToVisualize(finalizedActive.filter(d => (d.data && d.data.length > 0) || d.aiStorage));
                     }
 
                     if (uiContext) {
@@ -280,7 +276,6 @@ useEffect(() => {
         };
         loadSession();
     }, [userToken]);
-
     useEffect(() => {
         if (isFirstMount.current) {
             isFirstMount.current = false;
@@ -290,12 +285,18 @@ const autosave = async () => {
             if (!userToken || isInitializing || !hasLoadedSession.current) return;
             setIsSaving(true);
             try {
-                const currentActive = activeDatasets[0];
+                const currentAiStorage = activeDatasets[0]?.aiStorage || allDatasets.find(d => d.aiStorage)?.aiStorage || null;
+                
+                // Ensure the dataset itself carries the aiStorage property
+                const updatedDatasets = allDatasets.map((ds, idx) => 
+                    idx === 0 && currentAiStorage ? { ...ds, aiStorage: currentAiStorage } : ds
+                );
+
                 const pageState = {
-                    allDatasets,
+                    allDatasets: updatedDatasets,
                     activeDatasetIds: activeDatasets.map(d => d.id),
                     chartType,
-                    aiStorage: currentActive?.aiStorage || allDatasets.find(d => d.aiStorage)?.aiStorage || null,
+                    aiStorage: currentAiStorage,
                     uiContext: { showModal, selectedApps, selectedSheet }
                 };
                 
