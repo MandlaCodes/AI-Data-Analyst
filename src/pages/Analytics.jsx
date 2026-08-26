@@ -232,24 +232,26 @@ useEffect(() => {
                         allDatasets: loadedDatasets = [], 
                         activeDatasetIds = [], 
                         chartType: loadedChartType = "line",
-                        aiStorage: loadedAiStorage = null, // <--- 1. Pull saved aiStorage
+                        aiStorage: globalAiStorage = null, // Fallback if saved globally
                         uiContext 
                     } = res.data.page_state;
 
-                    setAllDatasets(loadedDatasets);
+                    // Ensure every loaded dataset retains its aiStorage if present
+                    const sanitizedDatasets = loadedDatasets.map(d => ({
+                        ...d,
+                        aiStorage: d.aiStorage || globalAiStorage
+                    }));
+
+                    setAllDatasets(sanitizedDatasets);
                     setChartType(loadedChartType);
                     
-                    if (loadedDatasets.length > 0) {
+                    if (sanitizedDatasets.length > 0) {
                         const active = activeDatasetIds?.length > 0 
-                            ? loadedDatasets.filter(d => activeDatasetIds.includes(d.id))
-                            : [loadedDatasets[0]];
-
-                        // 2. Attach the loaded aiStorage to the active dataset if missing
-                        if (loadedAiStorage && active[0] && !active[0].aiStorage) {
-                            active[0].aiStorage = loadedAiStorage;
-                        }
+                            ? sanitizedDatasets.filter(d => activeDatasetIds.includes(d.id))
+                            : [sanitizedDatasets[0]];
 
                         setActiveDatasets(active);
+                        // Renders as long as dataset contains data or aiStorage
                         setReadyToVisualize(active.filter(d => (d.data && d.data.length > 0) || d.aiStorage));
                     }
 
