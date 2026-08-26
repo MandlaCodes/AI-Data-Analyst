@@ -1,10 +1,3 @@
-/**
- * pages/Analytics.js - VERSION: METRIA AI HIGH-ENERGY
- * Full production file with Session Persistence and Neural Stream processing.
- * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
- * FIX: Removed SDK dependency; Updated Scopes Logic; Logical Gate for aiStorage.
- * FIX: Floating 'Ask Metria' button hides when scrolled into view of the MetriaFollowUp component.
- */
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { 
@@ -871,7 +864,7 @@ export default function Analytics() {
                                     chartType={chartType} 
                                     chartTypeSet={setChartType} 
                                     authToken={userToken}
-                                    onAIUpdate={handleAIUpdate} 
+                                    onUpdateAI={handleAIUpdate} 
                                 />
                             </div>
                         )}
