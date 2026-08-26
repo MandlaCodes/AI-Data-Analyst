@@ -104,13 +104,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-const activeDataset = datasets[0];
+    const activeDataset = datasets[0];
 
-useEffect(() => {
-    setLocalAiInsights(activeDataset?.aiStorage || null);
-}, [activeDataset?.id, activeDataset?.aiStorage]);
+    // Sync local state whenever activeDataset or its backend storage changes
+    useEffect(() => {
+        setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
+    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
 
-const aiInsights = localAiInsights || activeDataset?.aiStorage;
+    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
@@ -227,8 +228,11 @@ const aiInsights = localAiInsights || activeDataset?.aiStorage;
             );
 
             if (response.data) {
-                setLocalAiInsights(response.data);
-                onUpdateAI(activeDataset.id, response.data);
+                const backendInsights = response.data.insights || response.data;
+                setLocalAiInsights(backendInsights);
+                if (typeof onUpdateAI === 'function') {
+                    onUpdateAI(activeDataset.id, backendInsights);
+                }
             }
         } catch (error) { 
             console.error("AI Analysis failed:", error.response?.data || error.message); 
