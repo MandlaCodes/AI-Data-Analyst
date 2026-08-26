@@ -270,7 +270,7 @@ export default function Analytics() {
             isFirstMount.current = false;
             return;
         }
-        const autosave = async () => {
+const autosave = async () => {
             if (!userToken || isInitializing || !hasLoadedSession.current) return;
             setIsSaving(true);
             try {
@@ -278,6 +278,7 @@ export default function Analytics() {
                     allDatasets,
                     activeDatasetIds: activeDatasets.map(d => d.id),
                     chartType,
+                    aiStorage: activeDatasets[0]?.aiStorage || null, 
                     uiContext: { showModal, selectedApps, selectedSheet }
                 };
                 await axios.post(`${API_BASE_URL}/analysis/save`, {
@@ -346,7 +347,7 @@ export default function Analytics() {
         }
     };
 
-    const handleSave = async () => {
+const handleSave = async () => {
         if (!userToken) return;
         setIsSaving(true);
         try {
@@ -354,6 +355,7 @@ export default function Analytics() {
                 allDatasets,
                 activeDatasetIds: activeDatasets.map(d => d.id),
                 chartType,
+                aiStorage: activeDatasets[0]?.aiStorage || null,
                 uiContext: { showModal, selectedApps, selectedSheet }
             };
             await axios.post(`${API_BASE_URL}/analysis/save`, {
