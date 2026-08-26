@@ -281,13 +281,15 @@ const autosave = async () => {
             if (!userToken || isInitializing || !hasLoadedSession.current) return;
             setIsSaving(true);
             try {
+                const currentActive = activeDatasets[0];
                 const pageState = {
                     allDatasets,
                     activeDatasetIds: activeDatasets.map(d => d.id),
                     chartType,
-                    aiStorage: activeDatasets[0]?.aiStorage || null, 
+                    aiStorage: currentActive?.aiStorage || allDatasets.find(d => d.aiStorage)?.aiStorage || null,
                     uiContext: { showModal, selectedApps, selectedSheet }
                 };
+                
                 await axios.post(`${API_BASE_URL}/analysis/save`, {
                     name: "Autosave Dashboard",
                     page_state: pageState
@@ -306,45 +308,42 @@ const autosave = async () => {
 
     // --- ACTIONS ---
 
-    const handleAIUpdate = async (datasetId, aiData) => {
+   const handleAIUpdate = async (datasetId, aiData) => {
+        // Update state and immediately include aiStorage inside the dataset objects
         const updatedAll = allDatasets.map(ds =>
             ds.id === datasetId
-                ? { ...ds, aiStorage: aiData }
+                ? { ...ds, aiStorage: aiData, analysis: aiData, summary: aiData?.summary, root_cause: aiData?.root_cause, opportunity: aiData?.opportunity, action: aiData?.action }
                 : ds
         );
 
         const updatedActive = activeDatasets.map(ds =>
             ds.id === datasetId
-                ? { ...ds, aiStorage: aiData }
+                ? { ...ds, aiStorage: aiData, analysis: aiData, summary: aiData?.summary, root_cause: aiData?.root_cause, opportunity: aiData?.opportunity, action: aiData?.action }
                 : ds
         );
 
-        // Update React state
         setAllDatasets(updatedAll);
         setActiveDatasets(updatedActive);
         setReadyToVisualize(updatedActive);
 
-        // Persist directly to database via API
+        // Force an immediate save to the database with the populated aiStorage
         try {
+            const pageState = {
+                allDatasets: updatedAll,
+                activeDatasetIds: updatedActive.map(d => d.id),
+                chartType,
+                aiStorage: aiData, // Save explicitly at root level too
+                uiContext: { showModal, selectedApps, selectedSheet }
+            };
+
             await axios.post(
                 `${API_BASE_URL}/analysis/save`,
                 {
                     name: "AI Analysis Update",
-                    page_state: {
-                        allDatasets: updatedAll,
-                        activeDatasetIds: updatedActive.map(d => d.id),
-                        chartType,
-                        uiContext: {
-                            showModal,
-                            selectedApps,
-                            selectedSheet
-                        }
-                    }
+                    page_state: pageState
                 },
                 {
-                    headers: {
-                        Authorization: `Bearer ${userToken}`
-                    }
+                    headers: { Authorization: `Bearer ${userToken}` }
                 }
             );
 
@@ -353,7 +352,6 @@ const autosave = async () => {
             console.error("Failed to persist AI analysis to database:", err.response?.data || err);
         }
     };
-
 const handleSave = async () => {
         if (!userToken) return;
         setIsSaving(true);
