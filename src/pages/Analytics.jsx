@@ -221,7 +221,7 @@ export default function Analytics() {
 
     // --- SESSION & DATABASE PERSISTENCE ---
 
-    useEffect(() => {
+useEffect(() => {
         const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
@@ -240,8 +240,11 @@ export default function Analytics() {
                     setAllDatasets(loadedDatasets);
                     setChartType(loadedChartType);
                     
-                    if (loadedDatasets.length > 0 && activeDatasetIds.length > 0) {
-                        const active = loadedDatasets.filter(d => activeDatasetIds.includes(d.id));
+                    if (loadedDatasets.length > 0) {
+                        const active = activeDatasetIds?.length > 0 
+                            ? loadedDatasets.filter(d => activeDatasetIds.includes(d.id))
+                            : [loadedDatasets[0]];
+
                         setActiveDatasets(active);
                         setReadyToVisualize(active);
                     }
