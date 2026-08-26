@@ -232,11 +232,11 @@ useEffect(() => {
                         allDatasets: loadedDatasets = [], 
                         activeDatasetIds = [], 
                         chartType: loadedChartType = "line",
-                        aiStorage: globalAiStorage = null, // Fallback if saved globally
+                        aiStorage: globalAiStorage = null,
                         uiContext 
                     } = res.data.page_state;
 
-                    // Ensure every loaded dataset retains its aiStorage if present
+                    // 1. Ensure every dataset retains its aiStorage from database
                     const sanitizedDatasets = loadedDatasets.map(d => ({
                         ...d,
                         aiStorage: d.aiStorage || globalAiStorage
@@ -246,12 +246,21 @@ useEffect(() => {
                     setChartType(loadedChartType);
                     
                     if (sanitizedDatasets.length > 0) {
-                        const active = activeDatasetIds?.length > 0 
+                        let active = activeDatasetIds?.length > 0 
                             ? sanitizedDatasets.filter(d => activeDatasetIds.includes(d.id))
                             : [sanitizedDatasets[0]];
 
+                        // 2. Fallback check: if active dataset is missing aiStorage, assign global or its master record copy
+                        active = active.map(act => {
+                            if (!act.aiStorage) {
+                                const master = sanitizedDatasets.find(m => m.id === act.id);
+                                return { ...act, aiStorage: master?.aiStorage || globalAiStorage };
+                            }
+                            return act;
+                        });
+
                         setActiveDatasets(active);
-                        // Renders as long as dataset contains data or aiStorage
+                        // Renders charts and AI panel as long as data or aiStorage exists
                         setReadyToVisualize(active.filter(d => (d.data && d.data.length > 0) || d.aiStorage));
                     }
 
