@@ -118,7 +118,6 @@ export default function Analytics() {
                             const numeric = detectNumericColumns(cleaned);
                             const category = detectCategoryColumn(cleaned, numeric);
                             
-                            // Preserve existing aiStorage if it was already analyzed
                             const existing = activeDatasets.find(d => d.id === ds.id);
                             
                             return {
@@ -220,94 +219,31 @@ export default function Analytics() {
         return metrics;
     };
 
-    // --- SESSION & PERSISTENCE ---
+    // --- SESSION & DATABASE PERSISTENCE ---
 
     useEffect(() => {
         const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
-                // Instant local cache recovery check
-                const cachedAll = localStorage.getItem("metria_all_datasets");
-                const cachedActive = localStorage.getItem("metria_active_datasets");
-                if (cachedAll) setAllDatasets(JSON.parse(cachedAll));
-                if (cachedActive) {
-                    const activeParsed = JSON.parse(cachedActive);
-                    setActiveDatasets(activeParsed);
-                    setReadyToVisualize(activeParsed.filter(d => d.aiStorage !== null));
-                }
-
                 const res = await axios.get(`${API_BASE_URL}/analysis/current`, { 
                     headers: { Authorization: `Bearer ${userToken}` } 
                 });
                 
                 if (res.data?.page_state) {
                     let { 
-                        allDatasets: loadedDatasets, 
-                        activeDatasetIds, 
-                        chartType: loadedChartType,
+                        allDatasets: loadedDatasets = [], 
+                        activeDatasetIds = [], 
+                        chartType: loadedChartType = "line",
                         uiContext 
                     } = res.data.page_state;
 
-                    if (loadedDatasets && loadedDatasets.length > 0) {
-                        const cached = JSON.parse(
-                            localStorage.getItem("metria_all_datasets") || "[]"
-                        );
-
-                        const mergedDatasets = loadedDatasets.map(serverDs => {
-                            const cachedDs = cached.find(c => c.id === serverDs.id);
-
-                            return {
-                                ...serverDs,
-
-                                // Backend wins for normal dataset data,
-                                // but preserve cached AI if backend doesn't have it.
-                                aiStorage:
-                                    serverDs.aiStorage ||
-                                    cachedDs?.aiStorage ||
-                                    null
-                            };
-                        });
-
-                        setAllDatasets(mergedDatasets);
-
-                        localStorage.setItem(
-                            "metria_all_datasets",
-                            JSON.stringify(mergedDatasets)
-                        );
-
-                        loadedDatasets = mergedDatasets;
-                    }
+                    setAllDatasets(loadedDatasets);
+                    setChartType(loadedChartType);
                     
-                    setChartType(loadedChartType || "line");
-                    
-                    if (activeDatasetIds && loadedDatasets) {
-                        const cachedActive = JSON.parse(
-                            localStorage.getItem("metria_active_datasets") || "[]"
-                        );
-
-                        const active = loadedDatasets
-                            .filter(d => activeDatasetIds.includes(d.id))
-                            .map(serverDs => {
-                                const cachedDs = cachedActive.find(
-                                    d => d.id === serverDs.id
-                                );
-
-                                return {
-                                    ...serverDs,
-                                    aiStorage:
-                                        serverDs.aiStorage ||
-                                        cachedDs?.aiStorage ||
-                                        null
-                                };
-                            });
-
+                    if (loadedDatasets.length > 0 && activeDatasetIds.length > 0) {
+                        const active = loadedDatasets.filter(d => activeDatasetIds.includes(d.id));
                         setActiveDatasets(active);
-                        setReadyToVisualize(active.filter(d => d.aiStorage !== null));
-
-                        localStorage.setItem(
-                            "metria_active_datasets",
-                            JSON.stringify(active)
-                        );
+                        setReadyToVisualize(active);
                     }
 
                     if (uiContext) {
@@ -316,11 +252,9 @@ export default function Analytics() {
                         setSelectedSheet(uiContext.selectedSheet || "");
                     }
                 }
-                
-                // Mark session as fully loaded so autosave can begin
                 hasLoadedSession.current = true;
             } catch (e) {
-                console.error("Session load failed:", e);
+                console.error("Session load from database failed:", e);
                 hasLoadedSession.current = true;
             } finally {
                 setIsInitializing(false);
@@ -351,7 +285,7 @@ export default function Analytics() {
                     headers: { Authorization: `Bearer ${userToken}` } 
                 });
             } catch (e) {
-                console.warn("Autosave failed", e);
+                console.warn("Database autosave failed", e);
             } finally {
                 setIsSaving(false);
             }
@@ -363,21 +297,13 @@ export default function Analytics() {
     // --- ACTIONS ---
 
     const handleAIUpdate = async (datasetId, aiData) => {
-        const currentAll = JSON.parse(
-            localStorage.getItem("metria_all_datasets") || "[]"
-        );
-
-        const currentActive = JSON.parse(
-            localStorage.getItem("metria_active_datasets") || "[]"
-        );
-
-        const updatedAll = currentAll.map(ds =>
+        const updatedAll = allDatasets.map(ds =>
             ds.id === datasetId
                 ? { ...ds, aiStorage: aiData }
                 : ds
         );
 
-        const updatedActive = currentActive.map(ds =>
+        const updatedActive = activeDatasets.map(ds =>
             ds.id === datasetId
                 ? { ...ds, aiStorage: aiData }
                 : ds
@@ -386,22 +312,9 @@ export default function Analytics() {
         // Update React state
         setAllDatasets(updatedAll);
         setActiveDatasets(updatedActive);
-        setReadyToVisualize(
-            updatedActive.filter(ds => ds.aiStorage)
-        );
+        setReadyToVisualize(updatedActive);
 
-        // Update local persistence immediately
-        localStorage.setItem(
-            "metria_all_datasets",
-            JSON.stringify(updatedAll)
-        );
-
-        localStorage.setItem(
-            "metria_active_datasets",
-            JSON.stringify(updatedActive)
-        );
-
-        // Explicitly persist AI result to backend
+        // Persist directly to database via API
         try {
             await axios.post(
                 `${API_BASE_URL}/analysis/save`,
@@ -425,9 +338,9 @@ export default function Analytics() {
                 }
             );
 
-            console.log("AI analysis persisted successfully.");
+            console.log("AI analysis persisted to database successfully.");
         } catch (err) {
-            console.error("Failed to persist AI analysis:", err.response?.data || err);
+            console.error("Failed to persist AI analysis to database:", err.response?.data || err);
         }
     };
 
@@ -447,7 +360,7 @@ export default function Analytics() {
             }, { 
                 headers: { Authorization: `Bearer ${userToken}` } 
             });
-            alert("Workspace snapshot saved!");
+            alert("Workspace snapshot saved to database!");
         } catch (e) {
             alert("Save failed.");
         } finally {
@@ -560,9 +473,7 @@ export default function Analytics() {
                         if (old && !d.aiStorage) d.aiStorage = old.aiStorage;
                         map.set(d.id, d);
                     });
-                    const resArr = Array.from(map.values());
-                    localStorage.setItem("metria_all_datasets", JSON.stringify(resArr));
-                    return resArr;
+                    return Array.from(map.values());
                 });
                 
                 setActiveDatasets(prev => {
@@ -573,7 +484,6 @@ export default function Analytics() {
                         map.set(d.id, d);
                     });
                     const combinedActive = Array.from(map.values());
-                    localStorage.setItem("metria_active_datasets", JSON.stringify(combinedActive));
                     
                     if (combinedActive.length > 1) {
                         setShowMultiSelectModal(true);
@@ -582,7 +492,7 @@ export default function Analytics() {
                 });
 
                 setReadyToVisualize(prev => {
-                    const combined = [...prev, ...newlyImported.filter(d => d.aiStorage !== null)];
+                    const combined = [...prev, ...newlyImported];
                     return Array.from(new Set(combined));
                 });
             }
@@ -599,7 +509,6 @@ export default function Analytics() {
         }
     };
 
-    // --- DATASET TOGGLE HANDLER (FIXED WITH AUTO-ANALYZE) ---
     const handleDatasetToggle = (datasetToToggle) => {
         let shouldAnalyze = false;
 
@@ -612,19 +521,6 @@ export default function Analytics() {
             } else {
                 const masterRecord = allDatasets.find(d => d.id === datasetToToggle.id);
                 const datasetToAdd = masterRecord || datasetToToggle;
-                
-                if (!datasetToAdd.aiStorage) {
-                    try {
-                        const cachedAll = JSON.parse(localStorage.getItem("metria_all_datasets") || "[]");
-                        const cachedMatch = cachedAll.find(d => d.id === datasetToToggle.id);
-                        if (cachedMatch && cachedMatch.aiStorage) {
-                            datasetToAdd.aiStorage = cachedMatch.aiStorage;
-                        }
-                    } catch (e) {
-                        console.warn("Could not recover aiStorage from local storage fallback", e);
-                    }
-                }
-
                 updated = [...prevActive, datasetToAdd];
                 
                 if (!datasetToAdd.aiStorage) {
@@ -636,9 +532,7 @@ export default function Analytics() {
                 setShowMultiSelectModal(true);
             }
 
-            const readyFiltered = updated.filter(d => d.aiStorage !== null && d.aiStorage !== undefined);
-            setReadyToVisualize(readyFiltered);
-            localStorage.setItem("metria_active_datasets", JSON.stringify(updated));
+            setReadyToVisualize(updated);
             return updated;
         });
 
@@ -647,7 +541,6 @@ export default function Analytics() {
         }
     };
 
-    // --- MULTI-DATASET & CROSS ANALYSIS HANDLERS ---
     const executeSingleAnalysisFlow = async (dataset) => {
         setIsInitializing(true);
         try {
@@ -710,19 +603,13 @@ export default function Analytics() {
                 action: analysisResult.action
             };
 
-            // Push cross-analysis directly to master allDatasets list so persistence captures it
-            setAllDatasets(prev => {
-                const updated = [
-                    ...prev.filter(d => d.id !== unifiedDataset.id),
-                    unifiedDataset
-                ];
-                localStorage.setItem("metria_all_datasets", JSON.stringify(updated));
-                return updated;
-            });
+            setAllDatasets(prev => [
+                ...prev.filter(d => d.id !== unifiedDataset.id),
+                unifiedDataset
+            ]);
 
             setActiveDatasets([unifiedDataset]);
             setReadyToVisualize([unifiedDataset]);
-            localStorage.setItem("metria_active_datasets", JSON.stringify([unifiedDataset]));
         } catch (err) {
             console.error("Cross-analysis synthesis failed:", err.response?.data || err);
         } finally {
@@ -730,7 +617,7 @@ export default function Analytics() {
         }
     };
 
-   return (
+    return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden relative">
             {(isInitializing || isImporting) && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
@@ -768,36 +655,7 @@ export default function Analytics() {
                                 return (
                                     <div 
                                         key={ds.id} 
-                                      onClick={() => {
-                                                        setActiveDatasets(prev => {
-                                                            const alreadyActive = prev.some(a => a.id === ds.id);
-
-                                                            let updated;
-
-                                                            if (alreadyActive) {
-                                                                updated = prev.filter(a => a.id !== ds.id);
-                                                            } else {
-                                                                // IMPORTANT:
-                                                                // Get the dataset from allDatasets so we preserve aiStorage
-                                                                const masterRecord = allDatasets.find(a => a.id === ds.id);
-
-                                                                updated = [
-                                                                    ...prev,
-                                                                    masterRecord || ds
-                                                                ];
-                                                            }
-
-                                                            setReadyToVisualize(
-                                                                updated.filter(d => d.aiStorage)
-                                                            );
-
-                                                            if (updated.length > 1) {
-                                                                setShowMultiSelectModal(true);
-                                                            }
-
-                                                            return updated;
-                                                        });
-                                                    }}
+                                        onClick={() => handleDatasetToggle(ds)}
                                         className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
                                             isActive 
                                             ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_50px_rgba(188,19,254,0.1)] scale-[1.02]' 
@@ -847,7 +705,7 @@ export default function Analytics() {
                             })}
                             <button 
                                 onClick={() => setShowModal(true)}
-                                className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group"
+                                className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group cursor-pointer"
                             >
                                 <div className="p-4 rounded-full border-2 border-dashed border-slate-800 group-hover:border-purple-500/50 transition-all">
                                     <FiPlus size={28} />
@@ -856,7 +714,7 @@ export default function Analytics() {
                             </button>
                         </div>
 
-                        {readyToVisualize && (
+                        {readyToVisualize.length > 0 && (
                             <div className="px-6 lg:px-10 pb-12">
                                 <Visualizer 
                                     activeDatasets={activeDatasets} 
@@ -869,7 +727,6 @@ export default function Analytics() {
                             </div>
                         )}
                         
-                        {/* Drop the follow-up analyst with ref anchor - checking any active dataset for aiStorage */}
                         {activeDatasets.length > 0 && activeDatasets.some(ds => ds?.aiStorage) && (
                             <div ref={metriaRef}>
                                 <MetriaFollowUp 
@@ -887,7 +744,7 @@ export default function Analytics() {
                             <h3 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">Neural Link Disconnected</h3>
                             <button 
                                 onClick={() => setShowModal(true)} 
-                                className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
+                                className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20 cursor-pointer"
                             >
                                 Initialize Stream
                             </button>
@@ -896,11 +753,10 @@ export default function Analytics() {
                 )}
             </div>
 
-            {/* Floating Ask Metria Button checking any active dataset for aiStorage */}
             {activeDatasets.length > 0 && activeDatasets.some(ds => ds?.aiStorage) && (
                 <button
                     onClick={scrollToMetria}
-                    className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white p-4 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] flex items-center gap-3 font-black text-xs uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 border border-purple-400/30 ${
+                    className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white p-4 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] flex items-center gap-3 font-black text-xs uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 border border-purple-400/30 cursor-pointer ${
                         showFloatingBtn ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'
                     }`}
                 >
@@ -932,7 +788,6 @@ export default function Analytics() {
                 />
             )}
             
-            {/* Multi-Dataset Cross Analysis Choice Modal */}
             {showMultiSelectModal && (
                 <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
                     <div className="bg-[#0a0612] border border-purple-500/30 rounded-[2rem] p-8 max-w-md w-full shadow-2xl relative">
