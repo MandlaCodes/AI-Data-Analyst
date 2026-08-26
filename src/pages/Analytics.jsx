@@ -219,9 +219,7 @@ export default function Analytics() {
         return metrics;
     };
 
-    // --- SESSION & DATABASE PERSISTENCE ---
-
-useEffect(() => {
+ useEffect(() => {
         const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
@@ -246,7 +244,8 @@ useEffect(() => {
                             : [loadedDatasets[0]];
 
                         setActiveDatasets(active);
-                        setReadyToVisualize(active);
+                        // Updated check: renders as long as dataset contains rows or aiStorage
+                        setReadyToVisualize(active.filter(d => (d.data && d.data.length > 0) || d.aiStorage));
                     }
 
                     if (uiContext) {
