@@ -219,7 +219,7 @@ export default function Analytics() {
         return metrics;
     };
 
- useEffect(() => {
+useEffect(() => {
         const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
@@ -232,6 +232,7 @@ export default function Analytics() {
                         allDatasets: loadedDatasets = [], 
                         activeDatasetIds = [], 
                         chartType: loadedChartType = "line",
+                        aiStorage: loadedAiStorage = null, // <--- 1. Pull saved aiStorage
                         uiContext 
                     } = res.data.page_state;
 
@@ -243,8 +244,12 @@ export default function Analytics() {
                             ? loadedDatasets.filter(d => activeDatasetIds.includes(d.id))
                             : [loadedDatasets[0]];
 
+                        // 2. Attach the loaded aiStorage to the active dataset if missing
+                        if (loadedAiStorage && active[0] && !active[0].aiStorage) {
+                            active[0].aiStorage = loadedAiStorage;
+                        }
+
                         setActiveDatasets(active);
-                        // Updated check: renders as long as dataset contains rows or aiStorage
                         setReadyToVisualize(active.filter(d => (d.data && d.data.length > 0) || d.aiStorage));
                     }
 
