@@ -18,6 +18,9 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
     const [pastSessions, setPastSessions] = useState([]);
     const [isExpanded, setIsExpanded] = useState(false);
 
+    // Ref to handle playing/stopping ElevenLabs audio cleanly
+    const audioRef = useRef(null);
+
     useEffect(() => {
         if (!activeDataset) {
             setIsVisible(false);
@@ -65,38 +68,42 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
         }
     };
 
-    // Free Browser-Native Neural Voice Generator
-    const playHumanVoice = (text) => {
+    // ElevenLabs Text-to-Speech Integration
+    const playHumanVoice = async (text) => {
         if (!voiceEnabled) return;
-        if (!('speechSynthesis' in window)) return;
 
-        window.speechSynthesis.cancel();
+        try {
+            // Stop any ongoing speech
+            stopVoice();
 
-        const cleanText = text.replace(/[*#_`]/g, '');
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v => 
-            (v.name.includes('Neural') || v.name.includes('Natural') || v.name.includes('Online')) && v.lang.startsWith('en')
-        ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+            const cleanText = text.replace(/[*#_`]/g, '');
+            setIsSpeaking(true);
 
-        if (preferredVoice) {
-            utterance.voice = preferredVoice;
+            const res = await axios.post(`${API_BASE_URL}/ai/speak`, {
+                text: cleanText
+            }, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+
+            const audioBase64 = res.data.audio_base64;
+            const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
+            audioRef.current = audio;
+
+            audio.onended = () => setIsSpeaking(false);
+            audio.onerror = () => setIsSpeaking(false);
+
+            await audio.play();
+        } catch (err) {
+            console.error("Failed to play ElevenLabs audio:", err);
+            setIsSpeaking(false);
         }
-
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
-        window.speechSynthesis.speak(utterance);
     };
 
     const stopVoice = () => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            audioRef.current = null;
         }
         setIsSpeaking(false);
     };
