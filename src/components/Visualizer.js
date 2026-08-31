@@ -76,7 +76,7 @@ const chartOptions = {
     }
 };
 
-export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, onAIUpdate }) => {
+export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, onUpdateAI }) => {
   const [readyStates, setReadyStates] = useState({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -99,18 +99,17 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     setReadyStates(updatedReady);
   }, [activeDatasets]);
 
-const handleAIComplete = (id, aiData) => {
+  const handleAIComplete = (id, aiData) => {
     setReadyStates(prev => ({ ...prev, [id]: true }));
     if (id === 'multi-stream-workspace') {
       setMultiStreamAiStorage(aiData);
     } else {
-      // Find the dataset and ensure its parsed representation or state gets the aiStorage payload
       const targetDataset = activeDatasets.find(d => d.id === id);
       if (targetDataset) {
         targetDataset.aiStorage = aiData;
       }
     }
-    if (onAIUpdate) onAIUpdate(id, aiData);
+    if (onUpdateAI) onUpdateAI(id, aiData);
   };
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
@@ -133,7 +132,6 @@ const handleAIComplete = (id, aiData) => {
     pdf.save(`Strategic_Report_${name}.pdf`);
   };
 
-  // Helper function to parse raw dataset objects into structured analytical rows & metrics
   const parseDatasetObject = (dsName, rawData, customId) => {
     const columns = Array.isArray(rawData?.[0]) ? rawData[0] : Object.keys(rawData?.[0] || {});
     const rows = Array.isArray(rawData?.[0]) 
@@ -188,12 +186,10 @@ const handleAIComplete = (id, aiData) => {
     };
   };
 
-  // Parse individual datasets
   const parsed = useMemo(() => {
     return activeDatasets.map(ds => parseDatasetObject(ds.name, ds.data, ds.id));
   }, [activeDatasets, refreshKey]);
 
-  // Combined Multi-Stream Dataset for Cross Analysis View
   const multiStreamCombined = useMemo(() => {
     if (!isMultiStream) return null;
     const combinedRows = [];
@@ -223,12 +219,10 @@ const handleAIComplete = (id, aiData) => {
 
   if (activeDatasets.length === 0) return null;
 
-  // Reusable renderer for dataset metrics, breakdown cards, and charts
   const renderDatasetAnalytics = (ds) => {
     const targetId = isMultiStream ? 'multi-stream-workspace' : ds.id;
     const isAnalyzed = !!readyStates[targetId] || !!ds.aiStorage;
 
-    // IF NOT ANALYZED YET, RETURN NOTHING (HIDES THE TITLE, TABLES, AND CHARTS ENTIRELY)
     if (!isAnalyzed) return null;
 
     return (
@@ -267,7 +261,6 @@ const handleAIComplete = (id, aiData) => {
             </div>
         </div>
 
-        {/* UNIFIED / DATASET TABLE */}
         <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
             <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                 <div className="flex items-center gap-3">
@@ -302,7 +295,6 @@ const handleAIComplete = (id, aiData) => {
             </div>
         </div>
 
-        {/* CHARTS & COLUMN ANALYTICS SECTION */}
         <div className="space-y-12">
           <div className="flex items-center gap-4">
               <div className="h-[1px] flex-1 bg-white/10" />
@@ -413,7 +405,6 @@ const handleAIComplete = (id, aiData) => {
     <div key={refreshKey} className="mt-10 md:mt-16 space-y-16 pb-32 max-w-[1600px] mx-auto px-4 md:px-10">
       {flash && <div className="fixed inset-0 z-[9999] bg-white pointer-events-none" />}
       
-      {/* 1. TOP AI ANALYSIS RUN (ALWAYS AVAILABLE) */}
       <section className="scroll-mt-28">
           <div className="mb-6 flex items-center gap-4">
              <div className="h-[1px] flex-1 bg-white/10" />
@@ -428,7 +419,6 @@ const handleAIComplete = (id, aiData) => {
           <AIAnalysisPanel datasets={isMultiStream ? [multiStreamCombined] : parsed} onUpdateAI={handleAIComplete} />
       </section>
 
-      {/* 2. ENTIRE TITLE, TABLE, AND CHARTS WRAPPER (HIDDEN UNTIL ANALYZED) */}
       {isMultiStream ? renderDatasetAnalytics(multiStreamCombined) : parsed.map(ds => renderDatasetAnalytics(ds))}
 
       {expandedChart && (
