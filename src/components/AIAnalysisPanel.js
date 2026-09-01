@@ -118,8 +118,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         }
     }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights, activeDataset?.analysis]);
 
-    const rawInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights || activeDataset?.analysis;
-    const aiInsights = (rawInsights && (rawInsights.summary || rawInsights.root_cause)) ? rawInsights : null;
+    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights || activeDataset?.analysis;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
