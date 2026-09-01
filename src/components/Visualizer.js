@@ -89,47 +89,23 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // --- ENSURE 100% PERSISTENCE: SYNC READYSTATES & AI STORAGE ON MOUNT & PROPS CHANGE ---
   useEffect(() => {
     const updatedReady = {};
-    activeDatasets.forEach(ds => { 
-      if (ds.aiStorage) {
-        updatedReady[ds.id] = true; 
-      }
-    });
-    // Also check multi-stream scenario
-    if (activeDatasets.length > 1 && activeDatasets.some(d => d.aiStorage)) {
-      updatedReady['multi-stream-workspace'] = true;
-    }
-    setReadyStates(prev => ({ ...prev, ...updatedReady }));
+    activeDatasets.forEach(ds => { if (ds.aiStorage) updatedReady[ds.id] = true; });
+    setReadyStates(updatedReady);
   }, [activeDatasets]);
 
   const handleAIComplete = (id, aiData) => {
     setReadyStates(prev => ({ ...prev, [id]: true }));
-    
-    // Normalize incoming AI structure to support both Overview and Analytics formatting keys securely
-    const normalizedAi = aiData ? {
-      ...aiData,
-      summary: aiData.summary || aiData["Main Discovery"],
-      root_cause: aiData.root_cause || aiData["Main Discovery"],
-      risk: aiData.risk || aiData["Risks to Watch"],
-      opportunity: aiData.opportunity || aiData["Next Big Move"],
-      action: aiData.action || aiData["Top Action"],
-      impact: aiData.impact || aiData["Impact (R)"]
-    } : null;
-
     if (id === 'multi-stream-workspace') {
-      setMultiStreamAiStorage(normalizedAi);
-      if (activeDatasets[0]) {
-        activeDatasets[0].aiStorage = normalizedAi;
-      }
+      setMultiStreamAiStorage(aiData);
     } else {
       const targetDataset = activeDatasets.find(d => d.id === id);
       if (targetDataset) {
-        targetDataset.aiStorage = normalizedAi;
+        targetDataset.aiStorage = aiData;
       }
     }
-    if (onUpdateAI) onUpdateAI(id, normalizedAi);
+    if (onUpdateAI) onUpdateAI(id, aiData);
   };
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
@@ -207,14 +183,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
   };
 
   const parsed = useMemo(() => {
-    return activeDatasets.map(ds => {
-      const parsedObj = parseDatasetObject(ds.name, ds.data, ds.id);
-      // Ensure aiStorage carries through from activeDataset props
-      return {
-        ...parsedObj,
-        aiStorage: ds.aiStorage || null
-      };
-    });
+    return activeDatasets.map(ds => parseDatasetObject(ds.name, ds.data, ds.id));
   }, [activeDatasets, refreshKey]);
 
   const multiStreamCombined = useMemo(() => {
@@ -238,11 +207,9 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
       'multi-stream-workspace'
     );
 
-    const resolvedAiStorage = multiStreamAiStorage || activeDatasets.find(d => d.aiStorage)?.aiStorage || null;
-
     return { 
       ...parsedMulti,
-      aiStorage: resolvedAiStorage 
+      aiStorage: multiStreamAiStorage || activeDatasets[0]?.aiStorage || null 
     };
   }, [parsed, isMultiStream, activeDatasets, multiStreamAiStorage]);
 
@@ -250,7 +217,6 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
 
   const renderDatasetAnalytics = (ds) => {
     const targetId = isMultiStream ? 'multi-stream-workspace' : ds.id;
-    // 100% Persistence check: verify both readyStates map and ds.aiStorage prop presence
     const isAnalyzed = !!readyStates[targetId] || !!ds.aiStorage;
 
     if (!isAnalyzed) return null;
