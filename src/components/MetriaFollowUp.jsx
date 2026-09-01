@@ -164,17 +164,29 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             });
 
             const answerText = res.data.answer;
+            const audioBase64 = res.data.audio_base64;
             const finalMessages = res.data.messages || [...newMessages, { sender: "metria", text: answerText }];
-            setMessages(finalMessages);
             
-            // Fired instantly once message state is updated to minimize perceptual gap
-            if (voiceEnabled) playHumanVoice(answerText);
+            // Reveal text message and update state immediately
+            setMessages(finalMessages);
+            setIsAnalyzing(false);
+
+            // Play audio simultaneously if voice is enabled and audio payload exists
+            if (voiceEnabled && audioBase64) {
+                const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
+                audioRef.current = audio;
+
+                audio.onended = () => setIsSpeaking(false);
+                audio.onerror = () => setIsSpeaking(false);
+
+                setIsSpeaking(true);
+                await audio.play();
+            }
         } catch (err) {
+            setIsAnalyzing(false);
             const errorText = "Ah, my connection just dropped for a split second. Let's try sending that query again.";
             setMessages(prev => [...prev, { sender: "metria", text: errorText }]);
             if (voiceEnabled) playHumanVoice(errorText);
-        } finally {
-            setIsAnalyzing(false);
         }
     };
 
