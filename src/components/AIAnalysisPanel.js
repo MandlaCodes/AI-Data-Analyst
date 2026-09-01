@@ -8,7 +8,7 @@ import {
     FaRedo, FaSearch, FaRobot, FaCreditCard, FaVolumeUp, FaCopy
 } from 'react-icons/fa';
 import { 
-    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText
+    FiShield, FiZap, FiCpu, FiX, FiTarget, FiCheckCircle, FiFileText, FiAlertCircle
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
@@ -105,7 +105,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-    const activeDataset = datasets[0];
+    const activeDataset = datasets && datasets.length > 0 ? datasets[0] : null;
 
     // Pull current saved analysis state on initial component mount
     useEffect(() => {
@@ -132,7 +132,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     // Sync local state whenever activeDataset or its backend storage changes
     useEffect(() => {
-        if (!localAiInsights) {
+        if (!localAiInsights && activeDataset) {
             setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
         }
     }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
@@ -209,7 +209,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     // Core execution function supporting both single datasets and multi-stream cross-analyses
     const executeAnalysisCall = async () => {
-        if (!activeDataset) return;
         setLoading(true);
         try {
             let payloadBody = {};
@@ -228,16 +227,18 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
                 payloadBody = { 
                     mode: selectedMultiStreamMode,
-                    contexts: datasetContexts.length > 0 ? datasetContexts : [activeDataset.data || activeDataset.rows || []] 
+                    contexts: datasetContexts.length > 0 ? datasetContexts : (activeDataset ? [activeDataset.data || activeDataset.rows || []] : []) 
                 };
             } else {
                 let payloadContext = [];
-                if (Array.isArray(activeDataset.data)) {
-                    payloadContext = activeDataset.data;
-                } else if (Array.isArray(activeDataset.rows)) {
-                    payloadContext = activeDataset.rows;
-                } else if (Array.isArray(activeDataset)) {
-                    payloadContext = activeDataset;
+                if (activeDataset) {
+                    if (Array.isArray(activeDataset.data)) {
+                        payloadContext = activeDataset.data;
+                    } else if (Array.isArray(activeDataset.rows)) {
+                        payloadContext = activeDataset.rows;
+                    } else if (Array.isArray(activeDataset)) {
+                        payloadContext = activeDataset;
+                    }
                 }
                 payloadBody = { context: payloadContext };
             }
@@ -256,7 +257,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             if (response.data) {
                 const backendInsights = response.data.insights || response.data;
                 setLocalAiInsights(backendInsights);
-                if (typeof onUpdateAI === 'function') {
+                if (activeDataset && typeof onUpdateAI === 'function') {
                     onUpdateAI(activeDataset.id, backendInsights);
                 }
 
@@ -290,8 +291,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     };
 
     const runAnalysis = async () => {
-        if (datasets.length === 0 || !userToken) {
-            console.warn("Analysis aborted: No datasets or missing token.");
+        if (!userToken) {
+            console.warn("Analysis aborted: Missing token.");
             return;
         }
 
@@ -442,9 +443,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                         </div>
                     </motion.div>
                 ) : (
-                    <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
-                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10 animate-bounce" />
-                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_30px_rgba(129,140,248,0.3)]">
+                    <div className="py-44 text-center border border-dashed border-white/10 rounded-[4rem] p-8 flex flex-col items-center"> 
+                        <FiAlertCircle className="text-indigo-400/60 w-16 h-16 mx-auto mb-6" />
+                        <h3 className="text-white text-lg font-bold mb-2">No Active Dataset Loaded</h3>
+                        <p className="text-white/50 text-sm max-w-md mb-8">Upload or select a dataset to feed into the neural intelligence engine and generate your strategy brief.</p>
+                        <button onClick={runAnalysis} className="px-12 py-5 bg-indigo-500 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-[0_0_30px_rgba(129,140,248,0.3)]">
                             {datasets.length > 1 && !selectedMultiStreamMode ? "Select Cross-Stream Mode" : "Generate Strategic Brief"}
                         </button>
                     </div>
@@ -571,5 +574,4 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         </div>
     );
 };
-
 export default AIAnalysisPanel;
