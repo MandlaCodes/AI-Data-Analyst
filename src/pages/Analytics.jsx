@@ -536,8 +536,6 @@ export default function Analytics() {
     };
 
     const handleDatasetToggle = (datasetToToggle) => {
-        let shouldAnalyze = false;
-
         setActiveDatasets(prevActive => {
             const exists = prevActive.some(d => d.id === datasetToToggle.id);
             let updated;
@@ -548,10 +546,6 @@ export default function Analytics() {
                 const masterRecord = allDatasets.find(d => d.id === datasetToToggle.id);
                 const datasetToAdd = masterRecord || datasetToToggle;
                 updated = [...prevActive, datasetToAdd];
-                
-                if (!datasetToAdd.aiStorage) {
-                    shouldAnalyze = datasetToAdd;
-                }
             }
             
             if (updated.length > 1) {
@@ -561,34 +555,6 @@ export default function Analytics() {
             setReadyToVisualize(updated);
             return updated;
         });
-
-        if (shouldAnalyze) {
-            executeSingleAnalysisFlow(shouldAnalyze);
-        }
-    };
-
-    const executeSingleAnalysisFlow = async (dataset) => {
-        setIsInitializing(true);
-        try {
-            const rawRows = dataset.data || dataset.rows || [];
-            const formattedContext = rawRows.map(row => {
-                if (Array.isArray(row)) {
-                    return row.reduce((acc, val, i) => ({ ...acc, [`col_${i}`]: val }), {});
-                }
-                return row;
-            });
-
-            const payload = { contexts: [formattedContext] };
-            const res = await axios.post(`${API_BASE_URL}/ai/analyze`, payload, {
-                headers: { Authorization: `Bearer ${userToken}` }
-            });
-
-            handleAIUpdate(dataset.id, res.data);
-        } catch (err) {
-            console.error("Single analysis flow failed:", err);
-        } finally {
-            setIsInitializing(false);
-        }
     };
 
     const handleCrossAnalysisSubmit = async () => {

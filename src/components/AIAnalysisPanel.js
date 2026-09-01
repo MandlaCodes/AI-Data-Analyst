@@ -135,6 +135,8 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI, activeDatasetIds }) => {
         const freshStorage = activeDataset?.aiStorage || activeDataset?.analysis;
         if (freshStorage) {
             setLocalAiInsights(freshStorage);
+        } else {
+            setLocalAiInsights(null);
         }
     }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.analysis]);
 
