@@ -14,6 +14,7 @@ import {
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y"; 
 
+
 // Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
     <div className="flex items-center gap-1 h-4">
@@ -106,9 +107,34 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     const activeDataset = datasets[0];
 
+    // Pull current saved analysis state on initial component mount
+    useEffect(() => {
+        const fetchCurrentAnalysis = async () => {
+            if (!userToken) return;
+            try {
+                const response = await axios.get(`${API_BASE_URL}/analysis/current`, {
+                    headers: { 'Authorization': `Bearer ${userToken}` }
+                });
+                
+                if (response.data && response.data.page_state) {
+                    const savedState = response.data.page_state;
+                    if (savedState.insights) {
+                        setLocalAiInsights(savedState.insights);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load current analysis session:", err);
+            }
+        };
+
+        fetchCurrentAnalysis();
+    }, [userToken]);
+
     // Sync local state whenever activeDataset or its backend storage changes
     useEffect(() => {
-        setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
+        if (!localAiInsights) {
+            setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
+        }
     }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
 
     const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights;
@@ -232,6 +258,28 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 setLocalAiInsights(backendInsights);
                 if (typeof onUpdateAI === 'function') {
                     onUpdateAI(activeDataset.id, backendInsights);
+                }
+
+                // Automatically persist the state to the backend
+                try {
+                    await axios.post(
+                        `${API_BASE_URL}/analysis/save`,
+                        {
+                            name: activeDataset?.name || "Latest Dashboard",
+                            page_state: {
+                                insights: backendInsights,
+                                datasetId: activeDataset?.id
+                            }
+                        },
+                        {
+                            headers: { 
+                                'Authorization': `Bearer ${userToken}`,
+                                'Content-Type': 'application/json'
+                            }
+                        }
+                    );
+                } catch (saveErr) {
+                    console.error("Auto-save failed:", saveErr);
                 }
             }
         } catch (error) { 
