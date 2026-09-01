@@ -20,7 +20,6 @@ import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
 import { MetriaFollowUp } from '../components/MetriaFollowUp';
-import { AIAnalysisPanel } from '../components/AIAnalysisPanel';
 
 ChartJS.register(
     CategoryScale, 

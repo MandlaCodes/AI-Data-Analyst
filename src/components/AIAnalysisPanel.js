@@ -82,7 +82,7 @@ const TypewriterText = ({ text, delay = 5 }) => {
     return <span>{displayedText}</span>;
 };
 
-const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
+const AIAnalysisPanel = ({ datasets = [], onUpdateAI, activeDatasetIds }) => {
     const [loading, setLoading] = useState(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
     const [expandedCard, setExpandedCard] = useState(null); 
@@ -105,7 +105,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-    const activeDataset = datasets[0];
+    const activeDataset = datasets?.find(d => d.id === activeDatasetIds?.[0]) || datasets?.[0];
 
     // Pull current saved analysis state on initial component mount to ensure persistence across reloads
     useEffect(() => {
@@ -132,13 +132,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     // Sync local state whenever activeDataset or its backend storage changes
     useEffect(() => {
-        const freshStorage = activeDataset?.aiStorage || activeDataset?.ai_insights;
+        const freshStorage = activeDataset?.aiStorage || activeDataset?.analysis;
         if (freshStorage) {
             setLocalAiInsights(freshStorage);
         }
-    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
+    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.analysis]);
 
-    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights;
+    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.analysis;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [

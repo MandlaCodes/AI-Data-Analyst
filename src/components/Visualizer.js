@@ -89,10 +89,17 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Hydration sync check: Ensures that when dashboard state loads or re-renders with
+  // persisted dataset objects from the backend, readyStates immediately recognizes
+  // existing aiStorage payloads so the analytics views and AI panel don't reset.
   useEffect(() => {
     const updatedReady = {};
-    activeDatasets.forEach(ds => { if (ds.aiStorage) updatedReady[ds.id] = true; });
-    setReadyStates(updatedReady);
+    activeDatasets.forEach(ds => { 
+      if (ds?.aiStorage || ds?.analysis?.aiStorage) {
+        updatedReady[ds.id] = true; 
+      }
+    });
+    setReadyStates(prev => ({ ...prev, ...updatedReady }));
   }, [activeDatasets]);
 
   const handleAIComplete = (id, aiData) => {
@@ -128,7 +135,7 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     pdf.save(`Strategic_Report_${name}.pdf`);
   };
 
-  const parseDatasetObject = (dsName, rawData, customId) => {
+  const parseDatasetObject = (dsName, rawData, customId, rawDatasetObject = {}) => {
     const columns = Array.isArray(rawData?.[0]) ? rawData[0] : Object.keys(rawData?.[0] || {});
     const rows = Array.isArray(rawData?.[0]) 
       ? rawData.slice(1).map(r => Object.fromEntries(columns.map((c, i) => [c, r[i]])))
@@ -178,12 +185,14 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
       analysis, 
       labelCol,
       isDateLabel,
-      labels: rows.map(r => r[labelCol] || "N/A") 
+      labels: rows.map(r => r[labelCol] || "N/A"),
+      // Explicitly preserve and bind incoming backend aiStorage during parsing:
+      aiStorage: rawDatasetObject?.aiStorage || null
     };
   };
 
   const parsed = useMemo(() => {
-    return activeDatasets.map(ds => parseDatasetObject(ds.name, ds.data, ds.id));
+    return activeDatasets.map(ds => parseDatasetObject(ds.name, ds.data, ds.id, ds));
   }, [activeDatasets, refreshKey]);
 
   const multiStreamCombined = useMemo(() => {
@@ -204,7 +213,8 @@ export const Visualizer = ({ activeDatasets = [], chartType = "bar", authToken, 
     const parsedMulti = parseDatasetObject(
       `Cross-Stream Workspace (${activeDatasets.length} Sources)`, 
       rawCombinedData, 
-      'multi-stream-workspace'
+      'multi-stream-workspace',
+      { aiStorage: multiStreamAiStorage || activeDatasets[0]?.aiStorage }
     );
 
     return { 
