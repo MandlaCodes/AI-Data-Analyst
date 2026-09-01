@@ -1,7 +1,3 @@
-/**
- * components/Visualizer.js - PRODUCTION EXECUTIVE VERSION (MULTI-STREAM ENABLED)
- * Flow: Multi-AI Insights -> Stream Selector -> Unified Table -> Cross-Stream Analytics
- */
 import React, { useMemo, useState, useEffect } from "react";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import {
