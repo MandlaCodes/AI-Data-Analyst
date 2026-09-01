@@ -166,6 +166,8 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             const answerText = res.data.answer;
             const finalMessages = res.data.messages || [...newMessages, { sender: "metria", text: answerText }];
             setMessages(finalMessages);
+            
+            // Fired instantly once message state is updated to minimize perceptual gap
             if (voiceEnabled) playHumanVoice(answerText);
         } catch (err) {
             const errorText = "Ah, my connection just dropped for a split second. Let's try sending that query again.";
