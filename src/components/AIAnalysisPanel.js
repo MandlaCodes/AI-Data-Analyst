@@ -88,17 +88,11 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [localAiInsights, setLocalAiInsights] = useState(null);
     
     // Multi-stream configuration state
     const [selectedMultiStreamMode, setSelectedMultiStreamMode] = useState(null);
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-
-    const activeDataset = datasets[0];
-
-    // Initialize local state matching all backend database property variants
-    const [localAiInsights, setLocalAiInsights] = useState(() => {
-        return activeDataset?.aiStorage || activeDataset?.ai_insights || activeDataset?.analysis || null;
-    });
 
     const panelRef = useRef(null);
     
@@ -110,15 +104,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-    // Keep local insights cleanly synced whenever the database-backed activeDataset prop updates
-    useEffect(() => {
-        const freshInsights = activeDataset?.aiStorage || activeDataset?.ai_insights || activeDataset?.analysis || null;
-        if (freshInsights) {
-            setLocalAiInsights(freshInsights);
-        }
-    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights, activeDataset?.analysis]);
+    const activeDataset = datasets[0];
 
-    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights || activeDataset?.analysis;
+    // Sync local state whenever activeDataset or its backend storage changes
+    useEffect(() => {
+        setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
+    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
+
+    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
@@ -220,7 +213,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 } else if (Array.isArray(activeDataset)) {
                     payloadContext = activeDataset;
                 }
-                payloadBody = { contexts: [payloadContext] };
+                payloadBody = { context: payloadContext };
             }
 
             const response = await axios.post(
