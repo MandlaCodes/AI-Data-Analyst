@@ -219,7 +219,7 @@ export default function Analytics() {
         return metrics;
     };
 
-useEffect(() => {
+    useEffect(() => {
         const loadSession = async () => {
             if (!userToken) { setIsInitializing(false); return; }
             try {
@@ -236,10 +236,10 @@ useEffect(() => {
                         uiContext 
                     } = res.data.page_state;
 
-                    // Bind global aiStorage into the individual datasets if missing
+                    // Robustly bind global aiStorage into datasets if individual datasets lack it
                     const sanitizedDatasets = loadedDatasets.map(d => ({
                         ...d,
-                        aiStorage: d.aiStorage || globalAiStorage
+                        aiStorage: d.aiStorage || globalAiStorage || null
                     }));
 
                     setAllDatasets(sanitizedDatasets);
@@ -250,10 +250,9 @@ useEffect(() => {
                             ? sanitizedDatasets.filter(d => activeDatasetIds.includes(d.id))
                             : [sanitizedDatasets[0]];
 
-                        // Ensure active datasets explicitly have the aiStorage attached
                         const finalizedActive = active.map(act => ({
                             ...act,
-                            aiStorage: act.aiStorage || globalAiStorage
+                            aiStorage: act.aiStorage || globalAiStorage || null
                         }));
 
                         setActiveDatasets(finalizedActive);
@@ -276,21 +275,28 @@ useEffect(() => {
         };
         loadSession();
     }, [userToken]);
+
     useEffect(() => {
         if (isFirstMount.current) {
             isFirstMount.current = false;
             return;
         }
-const autosave = async () => {
+
+        const autosave = async () => {
             if (!userToken || isInitializing || !hasLoadedSession.current) return;
             setIsSaving(true);
             try {
-                const currentAiStorage = activeDatasets[0]?.aiStorage || allDatasets.find(d => d.aiStorage)?.aiStorage || null;
+                // Safely search active or master datasets for existing aiStorage content
+                const currentAiStorage = activeDatasets.find(d => d.aiStorage)?.aiStorage || 
+                                           allDatasets.find(d => d.aiStorage)?.aiStorage || null;
                 
-                // Ensure the dataset itself carries the aiStorage property
-                const updatedDatasets = allDatasets.map((ds, idx) => 
-                    idx === 0 && currentAiStorage ? { ...ds, aiStorage: currentAiStorage } : ds
-                );
+                const updatedDatasets = allDatasets.map((ds) => {
+                    const activeMatch = activeDatasets.find(a => a.id === ds.id);
+                    return {
+                        ...ds,
+                        aiStorage: activeMatch?.aiStorage || ds.aiStorage || currentAiStorage
+                    };
+                });
 
                 const pageState = {
                     allDatasets: updatedDatasets,
@@ -312,14 +318,14 @@ const autosave = async () => {
                 setIsSaving(false);
             }
         };
+
         const timer = setTimeout(autosave, 1500); 
         return () => clearTimeout(timer);
     }, [allDatasets, activeDatasets, chartType, showModal, selectedApps, selectedSheet, userToken, isInitializing]);
 
     // --- ACTIONS ---
 
-   const handleAIUpdate = async (datasetId, aiData) => {
-        // Update state and immediately include aiStorage inside the dataset objects
+    const handleAIUpdate = async (datasetId, aiData) => {
         const updatedAll = allDatasets.map(ds =>
             ds.id === datasetId
                 ? { ...ds, aiStorage: aiData, analysis: aiData, summary: aiData?.summary, root_cause: aiData?.root_cause, opportunity: aiData?.opportunity, action: aiData?.action }
@@ -336,13 +342,12 @@ const autosave = async () => {
         setActiveDatasets(updatedActive);
         setReadyToVisualize(updatedActive);
 
-        // Force an immediate save to the database with the populated aiStorage
         try {
             const pageState = {
                 allDatasets: updatedAll,
                 activeDatasetIds: updatedActive.map(d => d.id),
                 chartType,
-                aiStorage: aiData, // Save explicitly at root level too
+                aiStorage: aiData, 
                 uiContext: { showModal, selectedApps, selectedSheet }
             };
 
@@ -362,15 +367,17 @@ const autosave = async () => {
             console.error("Failed to persist AI analysis to database:", err.response?.data || err);
         }
     };
-const handleSave = async () => {
+
+    const handleSave = async () => {
         if (!userToken) return;
         setIsSaving(true);
         try {
+            const currentAiStorage = activeDatasets.find(d => d.aiStorage)?.aiStorage || allDatasets.find(d => d.aiStorage)?.aiStorage || null;
             const pageState = {
                 allDatasets,
                 activeDatasetIds: activeDatasets.map(d => d.id),
                 chartType,
-                aiStorage: activeDatasets[0]?.aiStorage || null,
+                aiStorage: currentAiStorage,
                 uiContext: { showModal, selectedApps, selectedSheet }
             };
             await axios.post(`${API_BASE_URL}/analysis/save`, {
@@ -732,6 +739,15 @@ const handleSave = async () => {
                                 <span className="text-[11px] font-black uppercase tracking-[0.5em]">Sync Stream</span>
                             </button>
                         </div>
+
+                        {activeDatasets.length > 0 && (
+                            <div className="px-6 lg:px-10">
+                                <AIAnalysisPanel 
+                                    datasets={activeDatasets}
+                                    onUpdateAI={handleAIUpdate}
+                                />
+                            </div>
+                        )}
 
                         {readyToVisualize.length > 0 && (
                             <div className="px-6 lg:px-10 pb-12">

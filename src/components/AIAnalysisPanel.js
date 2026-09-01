@@ -107,7 +107,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     const activeDataset = datasets[0];
 
-    // Pull current saved analysis state on initial component mount
+    // Pull current saved analysis state on initial component mount to ensure persistence across reloads
     useEffect(() => {
         const fetchCurrentAnalysis = async () => {
             if (!userToken) return;
@@ -132,8 +132,9 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
 
     // Sync local state whenever activeDataset or its backend storage changes
     useEffect(() => {
-        if (!localAiInsights) {
-            setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
+        const freshStorage = activeDataset?.aiStorage || activeDataset?.ai_insights;
+        if (freshStorage) {
+            setLocalAiInsights(freshStorage);
         }
     }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
 
@@ -548,20 +549,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                         </div>
                                     </div>
                                 ) : (
-                                    expandedCard && (
-                                        <div className="space-y-6 max-w-3xl mx-auto">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">Detailed Insight View</span>
-                                                <button 
-                                                    onClick={() => handleCopy(expandedCard.content)}
-                                                    className="flex items-center gap-2 text-xs text-purple-400 hover:text-purple-300 font-bold uppercase tracking-wider"
-                                                >
-                                                    <FaCopy /> Copy Section
-                                                </button>
-                                            </div>
-                                            <p className="text-white text-2xl md:text-3xl leading-relaxed font-medium">{expandedCard.content}</p>
-                                        </div>
-                                    )
+                                    expandedCard && <p className="text-white/95 text-3xl md:text-5xl leading-[1.45] font-light tracking-tight">{expandedCard.content}</p>
                                 )}
                             </div>
                         </motion.div>
