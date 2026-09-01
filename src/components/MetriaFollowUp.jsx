@@ -167,11 +167,10 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
             const audioBase64 = res.data.audio_base64;
             const finalMessages = res.data.messages || [...newMessages, { sender: "metria", text: answerText }];
             
-            // Reveal text message and update state immediately
-            setMessages(finalMessages);
+            // Turn off analysis spinner, reveal text message, and play audio simultaneously
             setIsAnalyzing(false);
+            setMessages(finalMessages);
 
-            // Play audio simultaneously if voice is enabled and audio payload exists
             if (voiceEnabled && audioBase64) {
                 const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
                 audioRef.current = audio;
@@ -355,7 +354,7 @@ export const MetriaFollowUp = ({ activeDataset, authToken }) => {
                             {isAnalyzing && (
                                 <div className="flex justify-start">
                                     <div className="bg-white/[0.04] border border-white/10 text-purple-300 p-4 rounded-2xl text-xs md:text-sm backdrop-blur-md animate-pulse flex items-center gap-2.5">
-                                        <FiCpu className="animate-spin text-purple-400" size={16} /> Metria is scanning the numbers...
+                                        <FiCpu className="animate-spin text-purple-400" size={16} /> Metria is thinking...
                                     </div>
                                 </div>
                             )}
