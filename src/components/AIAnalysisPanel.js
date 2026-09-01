@@ -548,7 +548,20 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                         </div>
                                     </div>
                                 ) : (
-                                    expandedCard && <p className="text-white/95 text-3xl md:text-5xl leading-[1.45] font-light tracking-tight">{expandedCard.content}</p>
+                                    expandedCard && (
+                                        <div className="space-y-6 max-w-3xl mx-auto">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em]">Detailed Insight View</span>
+                                                <button 
+                                                    onClick={() => handleCopy(expandedCard.content)}
+                                                    className="flex items-center gap-2 text-xs text-purple-400 hover:text-purple-300 font-bold uppercase tracking-wider"
+                                                >
+                                                    <FaCopy /> Copy Section
+                                                </button>
+                                            </div>
+                                            <p className="text-white text-2xl md:text-3xl leading-relaxed font-medium">{expandedCard.content}</p>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </motion.div>
