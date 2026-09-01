@@ -20,6 +20,7 @@ import { WorkbenchHeader } from '../components/WorkbenchHeader';
 import { Visualizer } from '../components/Visualizer';
 import { ImportModal } from '../components/ImportModal';
 import { MetriaFollowUp } from '../components/MetriaFollowUp';
+import { AIAnalysisPanel } from '../components/AIAnalysisPanel';
 
 ChartJS.register(
     CategoryScale, 
@@ -740,14 +741,6 @@ export default function Analytics() {
                             </button>
                         </div>
 
-                        {activeDatasets.length > 0 && (
-                            <div className="px-6 lg:px-10">
-                                <AIAnalysisPanel 
-                                    datasets={activeDatasets}
-                                    onUpdateAI={handleAIUpdate}
-                                />
-                            </div>
-                        )}
 
                         {readyToVisualize.length > 0 && (
                             <div className="px-6 lg:px-10 pb-12">
