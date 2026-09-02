@@ -12,8 +12,8 @@ import {
 } from 'react-icons/fi';
 
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+// Replace with your actual Paddle Price ID from your Paddle Dashboard
 const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y"; 
-
 
 // Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
@@ -89,12 +89,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [localAiInsights, setLocalAiInsights] = useState(null);
-    
-    // Multi-stream configuration state
-    const [selectedMultiStreamMode, setSelectedMultiStreamMode] = useState(null);
-    const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-
     const panelRef = useRef(null);
     
     const userToken = localStorage.getItem("adt_token");
@@ -105,14 +99,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         } catch (e) { return {}; }
     }, []);
 
-    const activeDataset = datasets[0];
-
-    // Sync local state whenever activeDataset or its backend storage changes
-    useEffect(() => {
-        setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
-    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
-
-    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights;
+    const aiInsights = datasets[0]?.aiStorage;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
@@ -123,13 +110,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         "Simulating strategic scenarios and financial impact...",
         "Assembling executive synthesis report..."
     ], []);
-
-    // Reset multi-stream mode if dataset selection drops back to 1 or 0
-    useEffect(() => {
-        if (datasets.length <= 1) {
-            setSelectedMultiStreamMode(null);
-        }
-    }, [datasets.length]);
 
     useEffect(() => {
         window.speechSynthesis.getVoices();
@@ -182,44 +162,17 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
         window.speechSynthesis.speak(utterance);
     };
 
-    // Core execution function supporting both single datasets and multi-stream cross-analyses
+    // Core execution function
     const executeAnalysisCall = async () => {
-        if (!activeDataset) return;
         setLoading(true);
         try {
-            let payloadBody = {};
-            const isMultiStream = Array.isArray(datasets) && datasets.length > 1;
-
-            if (isMultiStream) {
-                const datasetContexts = datasets.map(d => {
-                    const rawRows = d.data || d.rows || d.values || d.content || [];
-                    return Array.isArray(rawRows) ? rawRows.map(row => {
-                        if (Array.isArray(row)) {
-                            return row.reduce((acc, val, i) => ({ ...acc, [`col_${i}`]: val }), {});
-                        }
-                        return row;
-                    }) : [];
-                }).filter(stream => stream.length > 0);
-
-                payloadBody = { 
-                    mode: selectedMultiStreamMode,
-                    contexts: datasetContexts.length > 0 ? datasetContexts : [activeDataset.data || activeDataset.rows || []] 
-                };
-            } else {
-                let payloadContext = [];
-                if (Array.isArray(activeDataset.data)) {
-                    payloadContext = activeDataset.data;
-                } else if (Array.isArray(activeDataset.rows)) {
-                    payloadContext = activeDataset.rows;
-                } else if (Array.isArray(activeDataset)) {
-                    payloadContext = activeDataset;
-                }
-                payloadBody = { context: payloadContext };
-            }
+            const activeDataset = datasets[0];
+            const rawRows = activeDataset.rows || activeDataset.data || activeDataset.raw || activeDataset.records || [];
+            const payloadContext = rawRows.length > 0 ? rawRows : activeDataset;
 
             const response = await axios.post(
                 `${API_BASE_URL}/ai/analyze`, 
-                payloadBody, 
+                { context: payloadContext }, 
                 { 
                     headers: { 
                         'Authorization': `Bearer ${userToken}`,
@@ -229,11 +182,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             );
 
             if (response.data) {
-                const backendInsights = response.data.insights || response.data;
-                setLocalAiInsights(backendInsights);
-                if (typeof onUpdateAI === 'function') {
-                    onUpdateAI(activeDataset.id, backendInsights);
-                }
+                onUpdateAI(activeDataset.id, response.data);
             }
         } catch (error) { 
             console.error("AI Analysis failed:", error.response?.data || error.message); 
@@ -248,11 +197,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             return;
         }
 
-        if (datasets.length > 1 && !selectedMultiStreamMode) {
-            setIsSelectionModalOpen(true);
-            return;
-        }
-
+        // Check subscription status from user profile
         const isSubscribed = userProfile?.isPro || userProfile?.is_pro || userProfile?.isSubscribed;
 
         if (!isSubscribed) {
@@ -266,9 +211,12 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             if (window.Paddle) {
                 const checkoutOptions = {
                     items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-                    customData: { user_id: String(userId) }
+                    customData: {
+                        user_id: String(userId)
+                    }
                 };
 
+                // Only attach customer object if email exists
                 if (userProfile?.email) {
                     checkoutOptions.customer = { email: userProfile.email };
                 }
@@ -277,31 +225,33 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
             } else {
                 alert("Payment gateway is initializing, please try again in a moment.");
             }
-            return; 
+            return; // Pause until payment succeeds
         }
 
+        // IF SUBSCRIBED -> Execute analysis directly
         await executeAnalysisCall();
     };
 
-    const handleSelectOption = (mode) => {
-        setSelectedMultiStreamMode(mode);
-        setIsSelectionModalOpen(false);
-    };
-
+    // Auto-close checkout overlay and resume analysis when Paddle payment succeeds
     useEffect(() => {
         if (window.Paddle) {
             window.Paddle.Update({
                 eventCallback: (event) => {
                     if (event.name === "checkout.completed") {
+                        console.log("[Paddle] Payment completed successfully!");
+
+                        // 1. Explicitly close the Paddle modal overlay
                         if (window.Paddle.Checkout) {
                             window.Paddle.Checkout.close();
                         }
 
+                        // 2. Update local storage profile representation
                         const currentProfile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
                         currentProfile.isPro = true;
                         currentProfile.is_pro = true;
                         localStorage.setItem("adt_profile", JSON.stringify(currentProfile));
 
+                        // 3. Wait 500ms for overlay closing animation before starting analysis
                         setTimeout(() => {
                             executeAnalysisCall();
                         }, 500);
@@ -309,7 +259,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                 }
             });
         }
-    }, [datasets, userToken, selectedMultiStreamMode]);
+    }, [datasets, userToken]);
 
     return (
         <div ref={panelRef} className="relative overflow-hidden p-8 md:p-16 transition-all duration-700 min-h-[600px]">
@@ -364,6 +314,7 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                                 <button 
                                     onClick={() => handleCopy(aiInsights.summary)}
                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 hover:text-white hover:bg-white/10 transition-all font-bold uppercase tracking-wider"
+                                    title="Copy executive message"
                                 >
                                     <FaCopy size={12} /> {copied ? "Copied!" : "Copy Brief"}
                                 </button>
@@ -396,51 +347,13 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
                     </motion.div>
                 ) : (
                     <div className="py-56 text-center border border-dashed border-white/10 rounded-[4rem]"> 
-                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10 animate-bounce" />
-                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-[0_0_30px_rgba(129,140,248,0.3)]">
-                            {datasets.length > 1 && !selectedMultiStreamMode ? "Select Cross-Stream Mode" : "Generate Strategic Brief"}
-                        </button>
+                        <FaRobot className="text-white/20 w-16 h-16 mx-auto mb-10" />
+                        <button onClick={runAnalysis} className="px-16 py-6 bg-indigo-400 text-black rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white transition-all">Generate Strategic Brief</button>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* Multi-Stream Option Selection Modal */}
-            <AnimatePresence>
-                {isSelectionModalOpen && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSelectionModalOpen(false)} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
-                        <motion.div 
-                            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-                            className="relative w-full max-w-2xl bg-[#0a0a0f] border border-white/10 rounded-[3rem] p-10 flex flex-col gap-6 shadow-2xl"
-                        >
-                            <div className="flex justify-between items-center border-b border-white/5 pb-6">
-                                <h3 className="text-white text-xl font-bold uppercase tracking-wider">Select Cross-Stream Analysis Mode</h3>
-                                <button onClick={() => setIsSelectionModalOpen(false)} className="p-3 bg-white/5 rounded-full text-white border border-white/10 hover:bg-red-500/20 transition-all"><FiX size={20} /></button>
-                            </div>
-                            <p className="text-white/60 text-sm">Multiple datasets detected. Choose how you want the intelligence engine to process them before generating your brief:</p>
-                            
-                            <div className="grid grid-cols-1 gap-4">
-                                <button 
-                                    onClick={() => handleSelectOption('compare')}
-                                    className="p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-400 text-left transition-all group"
-                                >
-                                    <div className="text-white font-bold text-base mb-1 group-hover:text-indigo-400">Comparative Analysis</div>
-                                    <div className="text-white/40 text-xs">Evaluate variances, performance gaps, and side-by-side metric deviations across streams.</div>
-                                </button>
-                                <button 
-                                    onClick={() => handleSelectOption('merge')}
-                                    className="p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-400 text-left transition-all group"
-                                >
-                                    <div className="text-white font-bold text-base mb-1 group-hover:text-indigo-400">Unified Synthesis</div>
-                                    <div className="text-white/40 text-xs">Combine metrics into a singular unified model to locate global bottlenecks and macro trends.</div>
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Modal for Reports / Insights */}
+            {/* Modal */}
             <AnimatePresence>
                 {(expandedCard || isFullReportOpen) && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 md:p-12">
