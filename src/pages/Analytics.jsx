@@ -740,7 +740,6 @@ export default function Analytics() {
                             </button>
                         </div>
 
-
                         {readyToVisualize.length > 0 && (
                             <div className="px-6 lg:px-10 pb-12">
                                 <Visualizer 
