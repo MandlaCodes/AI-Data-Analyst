@@ -82,7 +82,7 @@ const TypewriterText = ({ text, delay = 5 }) => {
     return <span>{displayedText}</span>;
 };
 
-const AIAnalysisPanel = ({ datasets = [], onUpdateAI, activeDatasetIds }) => {
+const AIAnalysisPanel = ({ datasets = [], onUpdateAI }) => {
     const [loading, setLoading] = useState(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
     const [expandedCard, setExpandedCard] = useState(null); 
@@ -105,42 +105,14 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI, activeDatasetIds }) => {
         } catch (e) { return {}; }
     }, []);
 
-    const activeDataset = datasets?.find(d => d.id === activeDatasetIds?.[0]) || datasets?.[0];
-
-    // Pull current saved analysis state on initial component mount to ensure persistence across reloads
-    useEffect(() => {
-        const fetchCurrentAnalysis = async () => {
-            if (!userToken) return;
-            try {
-                const response = await axios.get(`${API_BASE_URL}/analysis/current`, {
-                    headers: { 'Authorization': `Bearer ${userToken}` }
-                });
-                
-                if (response.data && response.data.page_state) {
-                    const savedState = response.data.page_state;
-                    if (savedState.insights) {
-                        setLocalAiInsights(savedState.insights);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to load current analysis session:", err);
-            }
-        };
-
-        fetchCurrentAnalysis();
-    }, [userToken]);
+    const activeDataset = datasets[0];
 
     // Sync local state whenever activeDataset or its backend storage changes
     useEffect(() => {
-        const freshStorage = activeDataset?.aiStorage || activeDataset?.analysis;
-        if (freshStorage) {
-            setLocalAiInsights(freshStorage);
-        } else {
-            setLocalAiInsights(null);
-        }
-    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.analysis]);
+        setLocalAiInsights(activeDataset?.aiStorage || activeDataset?.ai_insights || null);
+    }, [activeDataset?.id, activeDataset?.aiStorage, activeDataset?.ai_insights]);
 
-    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.analysis;
+    const aiInsights = localAiInsights || activeDataset?.aiStorage || activeDataset?.ai_insights;
 
     // Loading phase step descriptions
     const phases = useMemo(() => [
@@ -261,28 +233,6 @@ const AIAnalysisPanel = ({ datasets = [], onUpdateAI, activeDatasetIds }) => {
                 setLocalAiInsights(backendInsights);
                 if (typeof onUpdateAI === 'function') {
                     onUpdateAI(activeDataset.id, backendInsights);
-                }
-
-                // Automatically persist the state to the backend
-                try {
-                    await axios.post(
-                        `${API_BASE_URL}/analysis/save`,
-                        {
-                            name: activeDataset?.name || "Latest Dashboard",
-                            page_state: {
-                                insights: backendInsights,
-                                datasetId: activeDataset?.id
-                            }
-                        },
-                        {
-                            headers: { 
-                                'Authorization': `Bearer ${userToken}`,
-                                'Content-Type': 'application/json'
-                            }
-                        }
-                    );
-                } catch (saveErr) {
-                    console.error("Auto-save failed:", saveErr);
                 }
             }
         } catch (error) { 
