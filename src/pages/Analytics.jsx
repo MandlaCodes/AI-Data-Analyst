@@ -50,7 +50,9 @@ export default function Analytics() {
     const [allDatasets, setAllDatasets] = useState([]);
     const [activeDatasets, setActiveDatasets] = useState([]);
     const [chartType, setChartType] = useState("line");
-    
+    const [analysisMode, setAnalysisMode] = useState("single");
+    const [activeDatasetIndex, setActiveDatasetIndex] = useState(0);
+    const [crossAnalysis, setCrossAnalysis] = useState(null);
     // UI Logic State
     const [showModal, setShowModal] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
@@ -293,6 +295,26 @@ export default function Analytics() {
         }
     };
 
+    // --- AI ANALYSIS MODE HANDLERS ---
+
+    const handleAnalysisModeChange = (mode) => {
+        setAnalysisMode(mode);
+
+        // Reset cross-analysis result whenever the mode changes.
+        if (mode !== "cross") {
+            setCrossAnalysis(null);
+        }
+
+        // Individual analysis starts from the first active dataset.
+        if (mode === "individual") {
+            setActiveDatasetIndex(0);
+        }
+    };
+
+    const handleActiveDatasetChange = (index) => {
+        setActiveDatasetIndex(index);
+    };
+
    const importSelected = async (manualIds = [], manualNames = []) => {
         setIsImporting(true);
         try {
@@ -505,7 +527,19 @@ export default function Analytics() {
                                 chartType={chartType} 
                                 chartTypeSet={setChartType} 
                                 authToken={userToken}
-                                onAIUpdate={handleAIUpdate} 
+                                onAIUpdate={handleAIUpdate}
+
+                                // AI analysis mode
+                                analysisMode={analysisMode}
+                                setAnalysisMode={handleAnalysisModeChange}
+
+                                // Used by individual analysis
+                                activeDatasetIndex={activeDatasetIndex}
+                                setActiveDatasetIndex={handleActiveDatasetChange}
+
+                                // Used by cross analysis
+                                crossAnalysis={crossAnalysis}
+                                setCrossAnalysis={setCrossAnalysis}
                             />
                         </div>
                         {/* Drop the follow-up analyst right here at the bottom */}
