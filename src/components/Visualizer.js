@@ -98,17 +98,14 @@ const chartOptions = {
       cornerRadius: 12,
       borderColor: "#27272a",
       borderWidth: 1,
-
       titleFont: {
         size: 11,
         weight: "bold"
       },
-
       bodyFont: {
         size: 10,
         family: "monospace"
       },
-
       displayColors: true,
       boxPadding: 6
     }
@@ -123,13 +120,11 @@ const chartOptions = {
 
       ticks: {
         color: "#71717a",
-
         font: {
           size: 9,
           weight: "bold",
           family: "monospace"
         },
-
         padding: 8
       }
     },
@@ -141,13 +136,11 @@ const chartOptions = {
 
       ticks: {
         color: "#a1a1aa",
-
         font: {
           size: 9,
           weight: "600",
           family: "sans-serif"
         },
-
         autoSkip: false,
         maxRotation: 45,
         minRotation: 25,
@@ -159,9 +152,19 @@ const chartOptions = {
 
 export const Visualizer = ({
   activeDatasets = [],
+  readyDatasets = [],
   chartType = "bar",
+  chartTypeSet,
   authToken,
-  onAIUpdate
+  onAIUpdate,
+
+  // Shared analysis state from Analytics.jsx
+  analysisMode = "individual",
+  setAnalysisMode,
+  activeDatasetIndex = 0,
+  setActiveDatasetIndex,
+  crossAnalysis = null,
+  setCrossAnalysis
 }) => {
   const [readyStates, setReadyStates] = useState({});
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -171,19 +174,13 @@ export const Visualizer = ({
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ------------------------------------------------------------
-  // ANALYSIS MODE
-  // ------------------------------------------------------------
-  const [analysisMode, setAnalysisMode] =
-    useState("individual");
-
-  const [crossAnalysis, setCrossAnalysis] =
-    useState(null);
-
-  // ------------------------------------------------------------
   // INDIVIDUAL ANALYSIS TARGET
   // ------------------------------------------------------------
-  const [selectedDatasetId, setSelectedDatasetId] =
-    useState(activeDatasets[0]?.id || null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState(
+    activeDatasets[activeDatasetIndex]?.id ||
+      activeDatasets[0]?.id ||
+      null
+  );
 
   const effectiveAuthToken =
     authToken || localStorage.getItem("adt_token");
@@ -219,30 +216,66 @@ export const Visualizer = ({
   }, [activeDatasets]);
 
   // ------------------------------------------------------------
-  // KEEP SELECTED DATASET VALID
+  // KEEP SELECTED DATASET SYNCED WITH PARENT
   // ------------------------------------------------------------
   useEffect(() => {
-    if (
-      activeDatasets.length > 0 &&
-      !activeDatasets.some(
-        (ds) => ds.id === selectedDatasetId
-      )
-    ) {
-      setSelectedDatasetId(
-        activeDatasets[0].id
-      );
+    if (activeDatasets.length === 0) {
+      setSelectedDatasetId(null);
+      return;
     }
-  }, [activeDatasets, selectedDatasetId]);
+
+    const parentSelectedDataset =
+      activeDatasets[activeDatasetIndex] ||
+      activeDatasets[0];
+
+    if (
+      parentSelectedDataset &&
+      parentSelectedDataset.id !== selectedDatasetId
+    ) {
+      setSelectedDatasetId(parentSelectedDataset.id);
+    }
+  }, [
+    activeDatasets,
+    activeDatasetIndex,
+    selectedDatasetId
+  ]);
+
+  // ------------------------------------------------------------
+  // HANDLE INDIVIDUAL DATASET SELECTION
+  // ------------------------------------------------------------
+  const handleSelectedDatasetChange = (datasetId) => {
+    setSelectedDatasetId(datasetId);
+
+    const index = activeDatasets.findIndex(
+      (dataset) => dataset.id === datasetId
+    );
+
+    if (
+      index !== -1 &&
+      typeof setActiveDatasetIndex === "function"
+    ) {
+      setActiveDatasetIndex(index);
+    }
+  };
 
   // ------------------------------------------------------------
   // FALL BACK TO INDIVIDUAL MODE WHEN ONLY ONE SOURCE REMAINS
   // ------------------------------------------------------------
   useEffect(() => {
     if (activeDatasets.length < 2) {
-      setAnalysisMode("individual");
-      setCrossAnalysis(null);
+      if (typeof setAnalysisMode === "function") {
+        setAnalysisMode("individual");
+      }
+
+      if (typeof setCrossAnalysis === "function") {
+        setCrossAnalysis(null);
+      }
     }
-  }, [activeDatasets.length]);
+  }, [
+    activeDatasets.length,
+    setAnalysisMode,
+    setCrossAnalysis
+  ]);
 
   // ------------------------------------------------------------
   // INVALIDATE OLD CROSS ANALYSIS IF SOURCE COMBINATION CHANGES
@@ -256,8 +289,13 @@ export const Visualizer = ({
   );
 
   useEffect(() => {
-    setCrossAnalysis(null);
-  }, [activeDatasetSignature]);
+    if (typeof setCrossAnalysis === "function") {
+      setCrossAnalysis(null);
+    }
+  }, [
+    activeDatasetSignature,
+    setCrossAnalysis
+  ]);
 
   // ------------------------------------------------------------
   // AI UPDATE HANDLER
@@ -631,19 +669,10 @@ export const Visualizer = ({
 
     try {
       /*
-       * CRITICAL FIX:
+       * CRITICAL:
        *
        * Use activeDatasets as the authoritative raw source.
-       * Do NOT use Visualizer's parsed `rows` objects for backend
-       * validation.
-       *
-       * We send the original 2D imported matrix as BOTH:
-       *
-       * data
-       * rows
-       *
-       * This keeps compatibility whether the deployed backend
-       * checks `rows` first or `data` first.
+       * Do NOT use Visualizer's parsed rows for backend validation.
        */
       const contexts =
         datasetsForCross.map(
@@ -677,17 +706,6 @@ export const Visualizer = ({
                 crossDs.name ||
                 "Dataset",
 
-              /*
-               * Both intentionally point to the same original table.
-               *
-               * Example:
-               *
-               * [
-               *   ["Campaign", "Spend", "Revenue"],
-               *   ["Google", 5000, 12000],
-               *   ...
-               * ]
-               */
               data: rawData,
               rows: rawData
             };
@@ -762,9 +780,14 @@ export const Visualizer = ({
           response.data
         );
 
-        setCrossAnalysis(
-          response.data
-        );
+        if (
+          typeof setCrossAnalysis ===
+          "function"
+        ) {
+          setCrossAnalysis(
+            response.data
+          );
+        }
 
         return response.data;
       }
@@ -832,11 +855,23 @@ export const Visualizer = ({
 
               {/* INDIVIDUAL MODE */}
               <button
-                onClick={() =>
-                  setAnalysisMode(
-                    "individual"
-                  )
-                }
+                onClick={() => {
+                  if (
+                    typeof setAnalysisMode ===
+                    "function"
+                  ) {
+                    setAnalysisMode(
+                      "individual"
+                    );
+                  }
+
+                  if (
+                    typeof setCrossAnalysis ===
+                    "function"
+                  ) {
+                    setCrossAnalysis(null);
+                  }
+                }}
                 className={`text-left p-5 md:p-6 rounded-2xl border transition-all ${
                   analysisMode ===
                   "individual"
@@ -881,11 +916,23 @@ export const Visualizer = ({
 
               {/* CROSS MODE */}
               <button
-                onClick={() =>
-                  setAnalysisMode(
-                    "cross"
-                  )
-                }
+                onClick={() => {
+                  if (
+                    typeof setAnalysisMode ===
+                    "function"
+                  ) {
+                    setAnalysisMode(
+                      "cross"
+                    );
+                  }
+
+                  if (
+                    typeof setCrossAnalysis ===
+                    "function"
+                  ) {
+                    setCrossAnalysis(null);
+                  }
+                }}
                 className={`text-left p-5 md:p-6 rounded-2xl border transition-all ${
                   analysisMode ===
                   "cross"
@@ -963,7 +1010,7 @@ export const Visualizer = ({
                     <button
                       key={ds.id}
                       onClick={() =>
-                        setSelectedDatasetId(
+                        handleSelectedDatasetChange(
                           ds.id
                         )
                       }
@@ -1086,7 +1133,9 @@ export const Visualizer = ({
           analysisMode={
             analysisMode
           }
-          activeDatasetIndex={0}
+          activeDatasetIndex={
+            activeDatasetIndex
+          }
           crossAnalysis={
             crossAnalysis
           }
