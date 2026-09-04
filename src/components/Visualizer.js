@@ -3,6 +3,7 @@
  * Flow: AI Insights -> Dataset Identity -> Live Table -> Analytics
  */
 import React, { useMemo, useState, useEffect } from "react";
+import axios from "axios";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -19,11 +20,14 @@ import {
 import { 
   FiDownload, FiArrowUp, FiDatabase, FiPieChart, 
   FiBarChart2, FiTrendingUp, FiTrendingDown, 
-  FiMaximize2, FiX, FiRefreshCw, FiTable, FiCpu
+  FiMaximize2, FiX, FiRefreshCw, FiTable, FiCpu,
+  FiLayers, FiActivity
 } from "react-icons/fi";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import AIAnalysisPanel from "./AIAnalysisPanel";
+
+const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 ChartJS.register(
   CategoryScale,
@@ -145,10 +149,19 @@ export const Visualizer = ({
   const [expandedChart, setExpandedChart] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Currently selected dataset for AI analysis
+  // ------------------------------------------------------------
+  // ANALYSIS MODE
+  // ------------------------------------------------------------
+  const [analysisMode, setAnalysisMode] = useState("individual");
+  const [crossAnalysis, setCrossAnalysis] = useState(null);
+
+  // Currently selected dataset for normal/individual AI analysis
   const [selectedDatasetId, setSelectedDatasetId] = useState(
     activeDatasets[0]?.id || null
   );
+
+  const effectiveAuthToken =
+    authToken || localStorage.getItem("adt_token");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -182,6 +195,26 @@ export const Visualizer = ({
       setSelectedDatasetId(activeDatasets[0].id);
     }
   }, [activeDatasets, selectedDatasetId]);
+
+  // If the user removes datasets and only one remains,
+  // safely fall back to the existing individual analysis mode.
+  useEffect(() => {
+    if (activeDatasets.length < 2) {
+      setAnalysisMode("individual");
+      setCrossAnalysis(null);
+    }
+  }, [activeDatasets.length]);
+
+  // Any change in the active dataset combination invalidates
+  // the previous cross-analysis result.
+  const activeDatasetSignature = useMemo(
+    () => activeDatasets.map((ds) => String(ds.id)).join("|"),
+    [activeDatasets]
+  );
+
+  useEffect(() => {
+    setCrossAnalysis(null);
+  }, [activeDatasetSignature]);
 
   const handleAIComplete = (id, aiData) => {
     setReadyStates((prev) => ({
@@ -258,8 +291,7 @@ export const Visualizer = ({
             )
         : ds.data || [];
 
-      // Smart Label Selection:
-      // Exclude numeric monetary columns from being chosen as labels.
+      // Smart Label Selection
       const labelCol =
         columns.find((col) => {
           const cLower = String(col).toLowerCase();
@@ -304,20 +336,6 @@ export const Visualizer = ({
         labelColName.toLowerCase().includes("time");
 
       const analysis = columns.map((col) => {
-        /*
-         * IMPORTANT:
-         *
-         * chartValues preserves row positions:
-         *
-         * [100, null, 300, 400]
-         *
-         * numeric is still filtered for statistics:
-         *
-         * [100, 300, 400]
-         *
-         * This prevents chart labels from becoming misaligned
-         * when a numeric cell is blank.
-         */
         const chartValues = rows.map((r) => toNumber(r[col]));
 
         const numeric = chartValues.filter(
@@ -414,6 +432,90 @@ export const Visualizer = ({
       (ds) => ds.id === selectedDatasetId
     ) || parsed[0];
 
+  /*
+   * IMPORTANT:
+   * AIAnalysisPanel currently falls back to a dataset's aiStorage
+   * while crossAnalysis is empty.
+   *
+   * We strip aiStorage ONLY from the copies sent into cross mode,
+   * so a previous individual brief never appears as a fake
+   * cross-analysis result.
+   *
+   * Original datasets remain completely unchanged.
+   */
+  const crossDatasets = useMemo(
+    () =>
+      parsed.map((ds) => ({
+        ...ds,
+        aiStorage: null
+      })),
+    [parsed]
+  );
+
+  // ------------------------------------------------------------
+  // CROSS-DATASET AI REQUEST
+  // ------------------------------------------------------------
+  const handleRunCrossAnalysis = async (datasetsForCross = crossDatasets) => {
+    if (!effectiveAuthToken) {
+      console.warn("Cross analysis aborted: Missing auth token.");
+      return null;
+    }
+
+    if (!datasetsForCross || datasetsForCross.length < 2) {
+      console.warn(
+        "Cross analysis requires at least two active datasets."
+      );
+      return null;
+    }
+
+    try {
+      /*
+       * Send each original dataset separately.
+       *
+       * `contexts` is intentionally different from the normal
+       * single-analysis `{ context: ... }` payload.
+       */
+      const contexts = datasetsForCross.map((ds) => ({
+        id: ds.id,
+        name: ds.name,
+
+        // Prefer the original imported matrix because it includes
+        // the header row expected by the validator.
+        data:
+          Array.isArray(ds.data) && ds.data.length > 0
+            ? ds.data
+            : ds.rows || []
+      }));
+
+      const response = await axios.post(
+        `${API_BASE_URL}/ai/analyze`,
+        {
+          contexts
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${effectiveAuthToken}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      if (response.data) {
+        setCrossAnalysis(response.data);
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(
+        "Cross analysis failed:",
+        error.response?.data || error.message
+      );
+
+      throw error;
+    }
+  };
+
   if (activeDatasets.length === 0) {
     return null;
   }
@@ -427,11 +529,123 @@ export const Visualizer = ({
         <div className="fixed inset-0 z-[9999] bg-white pointer-events-none" />
       )}
 
-      {/* 1. TOP AI ANALYSIS RUN */}
+      {/* ======================================================== */}
+      {/* 1. TOP AI ANALYSIS RUN                                  */}
+      {/* ======================================================== */}
       <section className="scroll-mt-28">
 
-        {/* DATASET ANALYSIS SELECTOR */}
+        {/* ANALYSIS MODE SELECTOR */}
         {parsed.length > 1 && (
+          <div className="mb-10 p-6 md:p-8 rounded-[2rem] bg-white/[0.02] border border-white/10">
+
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <FiActivity className="text-indigo-400" />
+
+                  <p className="text-[10px] font-black uppercase tracking-[0.45em] text-white/50">
+                    Analysis Mode
+                  </p>
+                </div>
+
+                <p className="text-sm text-white/50 max-w-2xl">
+                  Analyze one source independently or connect all active
+                  datasets to uncover relationships between them.
+                </p>
+              </div>
+
+              <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">
+                {parsed.length} Sources Active
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* INDIVIDUAL MODE */}
+              <button
+                onClick={() => setAnalysisMode("individual")}
+                className={`text-left p-5 md:p-6 rounded-2xl border transition-all ${
+                  analysisMode === "individual"
+                    ? "bg-indigo-500/10 border-indigo-400/60 shadow-[0_0_30px_rgba(99,102,241,0.08)]"
+                    : "bg-black/20 border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`p-3 rounded-xl border ${
+                      analysisMode === "individual"
+                        ? "bg-indigo-500/10 border-indigo-400/30 text-indigo-300"
+                        : "bg-white/5 border-white/10 text-zinc-600"
+                    }`}
+                  >
+                    <FiDatabase size={20} />
+                  </div>
+
+                  <div>
+                    <p
+                      className={`text-[11px] font-black uppercase tracking-[0.25em] ${
+                        analysisMode === "individual"
+                          ? "text-white"
+                          : "text-white/50"
+                      }`}
+                    >
+                      Individual Analysis
+                    </p>
+
+                    <p className="text-[10px] text-white/40 mt-2 leading-relaxed">
+                      Analyze each dataset independently with its own
+                      executive brief, risks and actions.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* CROSS MODE */}
+              <button
+                onClick={() => setAnalysisMode("cross")}
+                className={`text-left p-5 md:p-6 rounded-2xl border transition-all ${
+                  analysisMode === "cross"
+                    ? "bg-purple-500/10 border-purple-400/60 shadow-[0_0_30px_rgba(188,19,254,0.08)]"
+                    : "bg-black/20 border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`p-3 rounded-xl border ${
+                      analysisMode === "cross"
+                        ? "bg-purple-500/10 border-purple-400/30 text-purple-300"
+                        : "bg-white/5 border-white/10 text-zinc-600"
+                    }`}
+                  >
+                    <FiLayers size={20} />
+                  </div>
+
+                  <div>
+                    <p
+                      className={`text-[11px] font-black uppercase tracking-[0.25em] ${
+                        analysisMode === "cross"
+                          ? "text-white"
+                          : "text-white/50"
+                      }`}
+                    >
+                      Cross Analysis
+                    </p>
+
+                    <p className="text-[10px] text-white/40 mt-2 leading-relaxed">
+                      Connect all active sources to identify shared
+                      drivers, relationships, risks and opportunities.
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ====================================================== */}
+        {/* INDIVIDUAL ANALYSIS TARGET                             */}
+        {/* ====================================================== */}
+        {analysisMode === "individual" && parsed.length > 1 && (
           <div className="mb-10">
             <div className="flex items-center justify-between gap-4 mb-4">
               <div>
@@ -440,12 +654,12 @@ export const Visualizer = ({
                 </p>
 
                 <p className="text-xs text-white/50 mt-1">
-                  Select the dataset for neural analysis
+                  Select the dataset for individual neural analysis
                 </p>
               </div>
 
               <span className="text-[9px] font-mono text-zinc-600 uppercase">
-                {parsed.length} Sources Loaded
+                Individual Mode
               </span>
             </div>
 
@@ -471,33 +685,97 @@ export const Visualizer = ({
           </div>
         )}
 
+        {/* ====================================================== */}
+        {/* CROSS ANALYSIS SOURCES                                 */}
+        {/* ====================================================== */}
+        {analysisMode === "cross" && parsed.length > 1 && (
+          <div className="mb-10">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-purple-300/60">
+                  Cross_Analysis_Sources
+                </p>
+
+                <p className="text-xs text-white/50 mt-1">
+                  Metria will analyze relationships across all active sources
+                </p>
+              </div>
+
+              <span className="text-[9px] font-mono text-purple-400/60 uppercase">
+                {parsed.length} Sources Linked
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {parsed.map((ds, index) => (
+                <React.Fragment key={ds.id}>
+                  <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <FiDatabase className="text-purple-300" />
+
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">
+                      {ds.name}
+                    </span>
+                  </div>
+
+                  {index < parsed.length - 1 && (
+                    <span className="text-purple-400 font-black">
+                      +
+                    </span>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ACTIVE ANALYSIS DIVIDER */}
         <div className="mb-6 flex items-center gap-4">
           <div className="h-[1px] flex-1 bg-white/10" />
 
           <div className="flex items-center gap-2">
-            <FiCpu className="text-[#a5b4fc] animate-pulse" />
+            <FiCpu
+              className={`animate-pulse ${
+                analysisMode === "cross"
+                  ? "text-purple-400"
+                  : "text-[#a5b4fc]"
+              }`}
+            />
 
             <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40">
-              Live Analysis:{" "}
-              {selectedDataset?.name ||
-                "Active Session"}
+              {analysisMode === "cross"
+                ? `Cross Analysis: ${parsed.length} Linked Sources`
+                : `Live Analysis: ${
+                    selectedDataset?.name || "Active Session"
+                  }`
+              }
             </span>
           </div>
 
           <div className="h-[1px] flex-1 bg-white/10" />
         </div>
 
+        {/* ====================================================== */}
+        {/* AI PANEL                                               */}
+        {/* ====================================================== */}
         <AIAnalysisPanel
           datasets={
-            selectedDataset
-              ? [selectedDataset]
-              : []
+            analysisMode === "cross"
+              ? crossDatasets
+              : selectedDataset
+                ? [selectedDataset]
+                : []
           }
+          analysisMode={analysisMode}
+          activeDatasetIndex={0}
+          crossAnalysis={crossAnalysis}
+          onRunCrossAnalysis={handleRunCrossAnalysis}
           onUpdateAI={handleAIComplete}
         />
       </section>
 
+      {/* ======================================================== */}
+      {/* DATASET VISUALIZATIONS                                  */}
+      {/* ======================================================== */}
       {parsed.map((ds) => {
         const numericCols =
           ds.analysis.filter(
@@ -512,7 +790,16 @@ export const Visualizer = ({
               Object.keys(c.freq).length < 15
           );
 
-        if (!readyStates[ds.id]) {
+        /*
+         * Existing individual behavior remains intact.
+         *
+         * In cross mode the underlying datasets are also shown,
+         * even if they haven't each received an individual AI brief.
+         */
+        if (
+          analysisMode !== "cross" &&
+          !readyStates[ds.id]
+        ) {
           return null;
         }
 
@@ -723,13 +1010,8 @@ export const Visualizer = ({
                           </p>
 
                           <p className="text-[12px] font-bold text-[#7000FF] truncate">
-                            {col.stats?.sum >
-                            1e6
-                              ? (
-                                  col.stats.sum /
-                                  1e6
-                                ).toFixed(1) +
-                                "M"
+                            {col.stats?.sum > 1e6
+                              ? (col.stats.sum / 1e6).toFixed(1) + "M"
                               : col.stats?.sum.toLocaleString()}
                           </p>
                         </div>
@@ -741,173 +1023,154 @@ export const Visualizer = ({
               {/* GRAPHS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
 
-                {numericCols.map(
-                  (col, idx) => {
-                    const defaultChartType =
-                      ds.isDateLabel
-                        ? "line"
-                        : "bar";
+                {numericCols.map((col, idx) => {
+                  const defaultChartType =
+                    ds.isDateLabel
+                      ? "line"
+                      : "bar";
 
-                    const currentChartType =
-                      localChartTypes[
-                        `${ds.id}-${col.col}`
-                      ] ||
-                      defaultChartType;
+                  const currentChartType =
+                    localChartTypes[
+                      `${ds.id}-${col.col}`
+                    ] ||
+                    defaultChartType;
 
-                    const activeColor =
-                      COLORS[
-                        idx %
-                          COLORS.length
-                      ];
+                  const activeColor =
+                    COLORS[
+                      idx %
+                        COLORS.length
+                    ];
 
-                    const chartData = {
-                      labels: ds.labels,
+                  const chartData = {
+                    labels: ds.labels,
 
-                      datasets: [
-                        {
-                          label: col.col,
+                    datasets: [
+                      {
+                        label: col.col,
 
-                          // Preserve row alignment with labels.
-                          data: col.chartValues,
+                        data: col.chartValues,
 
-                          borderColor:
-                            activeColor,
+                        borderColor:
+                          activeColor,
 
-                          backgroundColor:
-                            currentChartType ===
-                            "bar"
-                              ? `${activeColor}CC`
-                              : `${activeColor}15`,
+                        backgroundColor:
+                          currentChartType ===
+                          "bar"
+                            ? `${activeColor}CC`
+                            : `${activeColor}15`,
 
-                          borderWidth:
-                            currentChartType ===
-                            "bar"
-                              ? 1
-                              : 3,
+                        borderWidth:
+                          currentChartType ===
+                          "bar"
+                            ? 1
+                            : 3,
 
-                          borderRadius:
-                            currentChartType ===
-                            "bar"
-                              ? 6
-                              : 0,
+                        borderRadius:
+                          currentChartType ===
+                          "bar"
+                            ? 6
+                            : 0,
 
-                          minBarLength: 4,
+                        minBarLength: 4,
 
-                          tension: 0.3,
+                        tension: 0.3,
 
-                          fill:
-                            currentChartType ===
-                            "line",
+                        fill:
+                          currentChartType ===
+                          "line",
 
-                          pointRadius:
-                            ds.isDateLabel
-                              ? 3
-                              : 0
-                        }
-                      ]
-                    };
+                        pointRadius:
+                          ds.isDateLabel
+                            ? 3
+                            : 0
+                      }
+                    ]
+                  };
 
-                    return (
-                      <div
-                        key={`${col.col}-${refreshKey}`}
-                        className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20"
-                      >
-                        <div className="flex justify-between items-start mb-10">
+                  return (
+                    <div
+                      key={`${col.col}-${refreshKey}`}
+                      className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20"
+                    >
+                      <div className="flex justify-between items-start mb-10">
 
-                          <div className="min-w-0 pr-4">
+                        <div className="min-w-0 pr-4">
 
-                            <div className="flex items-center gap-3 mb-3">
+                          <div className="flex items-center gap-3 mb-3">
 
-                              <div
-                                className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]"
-                                style={{
-                                  backgroundColor:
-                                    activeColor
-                                }}
-                              />
+                            <div
+                              className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]"
+                              style={{
+                                backgroundColor:
+                                  activeColor
+                              }}
+                            />
 
-                              <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">
-                                {col.col}
-                              </h4>
-                            </div>
-
-                            <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
-                              Mapped_By_
-                              {ds.labelCol}
-                            </p>
+                            <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">
+                              {col.col}
+                            </h4>
                           </div>
 
-                          <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
-
-                            <button
-                              onClick={() =>
-                                setExpandedChart(
-                                  {
-                                    title:
-                                      col.col,
-                                    data:
-                                      chartData,
-                                    type:
-                                      currentChartType
-                                  }
-                                )
-                              }
-                              className="p-2 text-zinc-500 hover:text-white transition-colors"
-                            >
-                              <FiMaximize2 className="w-5 h-5" />
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                toggleLocalChartType(
-                                  ds.id,
-                                  col.col
-                                )
-                              }
-                              className="p-2 text-zinc-500 hover:text-white transition-colors"
-                            >
-                              {currentChartType ===
-                              "line" ? (
-                                <FiBarChart2 className="w-5 h-5" />
-                              ) : (
-                                <FiTrendingUp className="w-5 h-5" />
-                              )}
-                            </button>
-                          </div>
+                          <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
+                            Mapped_By_{ds.labelCol}
+                          </p>
                         </div>
 
-                        <div className="w-full aspect-[4/3] sm:aspect-[16/9] relative">
+                        <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
 
-                          {currentChartType ===
-                          "bar" ? (
-                            <Bar
-                              data={
-                                chartData
-                              }
-                              options={
-                                chartOptions
-                              }
-                            />
-                          ) : (
-                            <Line
-                              data={
-                                chartData
-                              }
-                              options={
-                                chartOptions
-                              }
-                            />
-                          )}
+                          <button
+                            onClick={() =>
+                              setExpandedChart({
+                                title: col.col,
+                                data: chartData,
+                                type: currentChartType
+                              })
+                            }
+                            className="p-2 text-zinc-500 hover:text-white transition-colors"
+                          >
+                            <FiMaximize2 className="w-5 h-5" />
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              toggleLocalChartType(
+                                ds.id,
+                                col.col
+                              )
+                            }
+                            className="p-2 text-zinc-500 hover:text-white transition-colors"
+                          >
+                            {currentChartType ===
+                            "line" ? (
+                              <FiBarChart2 className="w-5 h-5" />
+                            ) : (
+                              <FiTrendingUp className="w-5 h-5" />
+                            )}
+                          </button>
                         </div>
                       </div>
-                    );
-                  }
-                )}
+
+                      <div className="w-full aspect-[4/3] sm:aspect-[16/9] relative">
+
+                        {currentChartType === "bar" ? (
+                          <Bar
+                            data={chartData}
+                            options={chartOptions}
+                          />
+                        ) : (
+                          <Line
+                            data={chartData}
+                            options={chartOptions}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* PIE CHARTS */}
-              {categoricalCols.length >
-                0 && (
+              {categoricalCols.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 mt-16">
 
                   {categoricalCols
@@ -1022,19 +1285,14 @@ export const Visualizer = ({
 
             <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-[4rem] p-10">
 
-              {expandedChart.type ===
-              "bar" ? (
+              {expandedChart.type === "bar" ? (
                 <Bar
-                  data={
-                    expandedChart.data
-                  }
+                  data={expandedChart.data}
                   options={chartOptions}
                 />
               ) : (
                 <Line
-                  data={
-                    expandedChart.data
-                  }
+                  data={expandedChart.data}
                   options={chartOptions}
                 />
               )}
