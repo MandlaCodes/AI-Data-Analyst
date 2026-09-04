@@ -1653,25 +1653,20 @@ export default function Analytics() {
                          * component from mounting whatsoever before
                          * AI analysis is complete.
                          */}
-                        {metriaAnalystReady && (
-                            <MetriaFollowUp
-                                activeDatasets={
-                                    activeDatasets
-                                }
-                                activeDataset={
-                                    activeDatasets[
-                                        activeDatasets.length -
-                                            1
-                                    ]
-                                }
-                                authToken={
-                                    userToken
-                                }
-                                aiAnalysisReady={
-                                    metriaAnalystReady
-                                }
-                            />
-                        )}
+                            {metriaAnalystReady && (
+                                <MetriaFollowUp
+                                    activeDatasets={activeDatasets}
+                                    activeDataset={
+                                        analysisMode === "cross"
+                                            ? null
+                                            : activeDatasets[activeDatasetIndex]
+                                    }
+                                    analysisMode={analysisMode}
+                                    crossAnalysis={crossAnalysis}
+                                    authToken={userToken}
+                                    aiAnalysisReady={metriaAnalystReady}
+                                />
+                            )}
 
                     </div>
                 ) : (
