@@ -543,10 +543,11 @@ export default function Analytics() {
                             />
                         </div>
                         {/* Drop the follow-up analyst right here at the bottom */}
-                        <MetriaFollowUp 
-                            activeDataset={activeDatasets[activeDatasets.length - 1]} 
-                            authToken={userToken} 
-                        />
+                            <MetriaFollowUp
+                                activeDatasets={activeDatasets}
+                                activeDataset={activeDatasets[activeDatasets.length - 1]}
+                                authToken={userToken}
+                            />
                     </div>
                 ) : (
                     <div className="px-6 lg:px-10 pb-12 mt-12">
