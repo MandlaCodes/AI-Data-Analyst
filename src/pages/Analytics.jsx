@@ -1250,56 +1250,50 @@ export default function Analytics() {
     // ANALYSIS READINESS
     // ============================================================
 
-    const readyToVisualize =
-        activeDatasets.filter(
-            (ds) =>
-                ds.aiStorage !== null
-        );
+  const readyToVisualize =
+    activeDatasets.filter(
+        (ds) =>
+            Boolean(ds.aiStorage)
+    );
 
-    /*
-     * Determines whether the interactive Metria analyst
-     * is allowed to render.
-     *
-     * SINGLE DATASET:
-     * Wait for that dataset's strategic brief.
-     *
-     * MULTI DATASET / INDIVIDUAL:
-     * Wait until every currently active dataset has been analyzed.
-     *
-     * MULTI DATASET / CROSS:
-     * Wait until the cross-analysis result exists.
-     */
+/*
+ * Determines whether the interactive Metria analyst
+ * is allowed to render.
+ *
+ * SINGLE DATASET:
+ * Wait for that dataset's strategic brief.
+ *
+ * MULTI DATASET / INDIVIDUAL:
+ * Wait until every currently active dataset has been analyzed.
+ *
+ * MULTI DATASET / CROSS:
+ * Wait until the cross-analysis result exists.
+ */
 
-    const allActiveDatasetsAnalyzed =
-        activeDatasets.length > 0 &&
-        activeDatasets.every(
-            (ds) =>
-                Boolean(
-                    ds.aiStorage
-                )
-        );
+const allActiveDatasetsAnalyzed =
+    activeDatasets.length > 0 &&
+    activeDatasets.every(
+        (ds) =>
+            Boolean(ds.aiStorage)
+    );
 
-    const singleDatasetAnalyzed =
-        activeDatasets.length ===
-            1 &&
-        Boolean(
-            activeDatasets[0]
-                ?.aiStorage
-        );
+const singleDatasetAnalyzed =
+    activeDatasets.length === 1 &&
+    Boolean(
+        activeDatasets[0]?.aiStorage
+    );
 
-    const crossAnalysisReady =
-        activeDatasets.length >
-            1 &&
-        Boolean(crossAnalysis);
+const crossAnalysisReady =
+    activeDatasets.length > 1 &&
+    analysisMode === "cross" &&
+    Boolean(crossAnalysis);
 
-    const metriaAnalystReady =
-        activeDatasets.length === 1
-            ? singleDatasetAnalyzed
-            : analysisMode ===
-                "cross"
-              ? crossAnalysisReady
-              : allActiveDatasetsAnalyzed;
-
+const metriaAnalystReady =
+    activeDatasets.length === 1
+        ? singleDatasetAnalyzed
+        : analysisMode === "cross"
+          ? crossAnalysisReady
+          : allActiveDatasetsAnalyzed;
     // ============================================================
     // RENDER
     // ============================================================
