@@ -1167,13 +1167,19 @@ export const Visualizer = ({
                 .length < 15
           );
 
-        if (
-          analysisMode !==
-            "cross" &&
-          !readyStates[ds.id]
-        ) {
-          return null;
-        }
+          if (
+            analysisMode === "cross" &&
+            !crossAnalysis
+          ) {
+            return null;
+          }
+
+          if (
+            analysisMode !== "cross" &&
+            !readyStates[ds.id]
+          ) {
+            return null;
+          }
 
         return (
           <div
