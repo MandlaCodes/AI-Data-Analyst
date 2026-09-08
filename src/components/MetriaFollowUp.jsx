@@ -99,67 +99,6 @@ export const MetriaFollowUp = ({
         setIsSpeaking(false);
     };
 
-    // ElevenLabs Text-to-Speech Integration
-    const playHumanVoice = async (text) => {
-        if (!voiceEnabled) return;
-
-        try {
-            // Stop any ongoing speech
-            stopVoice();
-
-            const cleanText = String(text || "").replace(
-                /[*#_`]/g,
-                ""
-            );
-
-            setIsSpeaking(true);
-
-            const res = await axios.post(
-                `${API_BASE_URL}/ai/speak`,
-                {
-                    text: cleanText
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${authToken}`
-                    }
-                }
-            );
-
-            const audioBase64 = res.data.audio_base64;
-
-            if (!audioBase64) {
-                setIsSpeaking(false);
-                return;
-            }
-
-            const audio = new Audio(
-                `data:audio/mpeg;base64,${audioBase64}`
-            );
-
-            audioRef.current = audio;
-
-            audio.onended = () => {
-                setIsSpeaking(false);
-                audioRef.current = null;
-            };
-
-            audio.onerror = () => {
-                setIsSpeaking(false);
-                audioRef.current = null;
-            };
-
-            await audio.play();
-        } catch (err) {
-            console.error(
-                "Failed to play ElevenLabs audio:",
-                err
-            );
-
-            setIsSpeaking(false);
-        }
-    };
-
     // ============================================================
     // DATASET WELCOME / CONTEXT RESET
     // ============================================================
@@ -199,10 +138,6 @@ export const MetriaFollowUp = ({
                     text: welcomeText
                 }
             ]);
-
-            if (voiceEnabled) {
-                playHumanVoice(welcomeText);
-            }
         }, 400);
 
         return () => {
@@ -489,9 +424,6 @@ export const MetriaFollowUp = ({
                 }
             ]);
 
-            if (voiceEnabled) {
-                playHumanVoice(errorText);
-            }
         }
     };
 
