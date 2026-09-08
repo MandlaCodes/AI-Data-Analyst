@@ -4,6 +4,7 @@
  * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
  * FIX: Removed SDK dependency; Updated Scopes Logic; Logical Gate for aiStorage.
  * UPDATE: Metria interactive analyst now waits for completed AI analysis.
+ * UPDATE: Cross-analysis state persists safely without replacing React setter.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -24,6 +25,7 @@ import {
 } from "chart.js";
 
 import { FaSpinner } from "react-icons/fa";
+
 import {
     MdOutlineAnalytics,
     MdOutlineTableChart
@@ -141,7 +143,12 @@ export default function Analytics() {
         "#EAB308"
     ];
 
-    const hasHydratedSession = useRef(false);
+    /**
+     * Prevent autosave from firing until the existing
+     * server-side session has completely hydrated.
+     */
+    const hasHydratedSession =
+        useRef(false);
 
     // ============================================================
     // DATA UTILITIES
@@ -156,11 +163,13 @@ export default function Analytics() {
             return "";
         }
 
-        const str = String(value).trim();
+        const str =
+            String(value).trim();
 
-        const numericValue = Number(
-            str.replace(/,/g, "")
-        );
+        const numericValue =
+            Number(
+                str.replace(/,/g, "")
+            );
 
         return (
             !isNaN(numericValue) &&
@@ -170,7 +179,9 @@ export default function Analytics() {
             : str;
     };
 
-    const calculateHealthScore = (dataset) => {
+    const calculateHealthScore = (
+        dataset
+    ) => {
         if (
             !dataset.data ||
             dataset.data.length < 2
@@ -182,7 +193,8 @@ export default function Analytics() {
             dataset.data.slice(1);
 
         const numericIdx =
-            dataset.numericCols[0] || 0;
+            dataset.numericCols?.[0] ??
+            0;
 
         let issues = 0;
 
@@ -194,15 +206,18 @@ export default function Analytics() {
             )
             .filter(
                 (v) =>
-                    typeof v === "number"
+                    typeof v ===
+                    "number"
             );
 
         const avg =
             vals.length > 0
                 ? vals.reduce(
-                      (a, b) => a + b,
+                      (a, b) =>
+                          a + b,
                       0
-                  ) / vals.length
+                  ) /
+                  vals.length
                 : 0;
 
         rows.forEach((row) => {
@@ -220,7 +235,8 @@ export default function Analytics() {
             }
 
             if (
-                typeof val === "number" &&
+                typeof val ===
+                    "number" &&
                 val > avg * 5 &&
                 avg !== 0
             ) {
@@ -228,20 +244,26 @@ export default function Analytics() {
             }
         });
 
-        const score = Math.max(
-            0,
-            100 -
-                (
-                    issues /
-                    (rows.length || 1)
-                ) *
-                    100
-        );
+        const score =
+            Math.max(
+                0,
+                100 -
+                    (
+                        issues /
+                        (
+                            rows.length ||
+                            1
+                        )
+                    ) *
+                        100
+            );
 
         return Math.round(score);
     };
 
-    const parseCSVFile = async (file) => {
+    const parseCSVFile = async (
+        file
+    ) => {
         const text =
             await file.text();
 
@@ -257,8 +279,14 @@ export default function Analytics() {
                 .map((c) =>
                     c
                         .trim()
-                        .replace(/^"|"$/g, "")
-                        .replace(/""/g, '"')
+                        .replace(
+                            /^"|"$/g,
+                            ""
+                        )
+                        .replace(
+                            /""/g,
+                            '"'
+                        )
                 )
         );
     };
@@ -274,25 +302,40 @@ export default function Analytics() {
         }
 
         return values[0]
-            .map((_, colIndex) => {
-                const sample = values
-                    .slice(1, 6)
-                    .map((r) =>
-                        sanitizeCellValue(
-                            r[colIndex]
-                        )
-                    );
+            .map(
+                (
+                    _,
+                    colIndex
+                ) => {
+                    const sample =
+                        values
+                            .slice(
+                                1,
+                                6
+                            )
+                            .map(
+                                (
+                                    r
+                                ) =>
+                                    sanitizeCellValue(
+                                        r[
+                                            colIndex
+                                        ]
+                                    )
+                            );
 
-                return sample.some(
-                    (v) =>
-                        typeof v ===
-                        "number"
-                )
-                    ? colIndex
-                    : null;
-            })
+                    return sample.some(
+                        (v) =>
+                            typeof v ===
+                            "number"
+                    )
+                        ? colIndex
+                        : null;
+                }
+            )
             .filter(
-                (i) => i !== null
+                (i) =>
+                    i !== null
             );
     };
 
@@ -300,13 +343,23 @@ export default function Analytics() {
         values,
         numericIndexes
     ) => {
+        if (
+            !values ||
+            !values[0]
+        ) {
+            return null;
+        }
+
         for (
             let i = 0;
-            i < values[0].length;
+            i <
+            values[0].length;
             i++
         ) {
             if (
-                !numericIndexes.includes(i)
+                !numericIndexes.includes(
+                    i
+                )
             ) {
                 return {
                     colIndex: i,
@@ -324,6 +377,13 @@ export default function Analytics() {
         numericIndexes
     ) => {
         const metrics = {};
+
+        if (
+            !values ||
+            !values[0]
+        ) {
+            return metrics;
+        }
 
         numericIndexes.forEach(
             (idx) => {
@@ -355,7 +415,10 @@ export default function Analytics() {
 
                     avg:
                         total /
-                        (arr.length || 1),
+                        (
+                            arr.length ||
+                            1
+                        ),
 
                     max:
                         arr.length > 0
@@ -371,7 +434,8 @@ export default function Analytics() {
                               )
                             : 0,
 
-                    count: arr.length
+                    count:
+                        arr.length
                 };
             }
         );
@@ -380,13 +444,52 @@ export default function Analytics() {
     };
 
     // ============================================================
+    // PAGE STATE FACTORY
+    // ============================================================
+
+    /**
+     * Creates the exact state object persisted by both
+     * manual save and autosave.
+     *
+     * Cross analysis is included here so refresh/navigation
+     * restores the completed cross brief.
+     */
+    const buildPageState = (
+        crossOverride =
+            crossAnalysis
+    ) => ({
+        allDatasets,
+
+        activeDatasetIds:
+            activeDatasets.map(
+                (d) => d.id
+            ),
+
+        chartType,
+
+        analysisMode,
+
+        activeDatasetIndex,
+
+        crossAnalysis:
+            crossOverride,
+
+        uiContext: {
+            showModal,
+            selectedApps,
+            selectedSheet
+        }
+    });
+
+    // ============================================================
     // LIVE SYNC
     // ============================================================
 
     const handleLiveSync = async () => {
         if (
             !userToken ||
-            activeDatasets.length === 0
+            activeDatasets.length ===
+                0
         ) {
             return;
         }
@@ -396,20 +499,25 @@ export default function Analytics() {
                 await Promise.all(
                     activeDatasets.map(
                         async (ds) => {
-                            // Existing production behavior retained.
+                            /**
+                             * Existing cloud-sync behavior retained.
+                             */
                             if (
-                                (ds.id &&
+                                (
+                                    ds.id &&
                                     typeof ds.id ===
-                                        "string") ||
+                                        "string"
+                                ) ||
                                 ds.id > 1000
                             ) {
                                 const endpoint =
-                                    ds.name.includes(
+                                    ds.name?.includes(
                                         "Excel"
                                     ) ||
-                                    ds.id
-                                        .toString()
-                                        .length > 10
+                                    String(
+                                        ds.id
+                                    ).length >
+                                        10
                                         ? `${API_BASE_URL}/excel/sheets/${ds.id}`
                                         : `${API_BASE_URL}/google/sheets/${ds.id}`;
 
@@ -497,19 +605,24 @@ export default function Analytics() {
                 updatedDatasets
             );
 
-            setAllDatasets((prev) =>
-                prev.map((d) => {
-                    const match =
-                        updatedDatasets.find(
-                            (u) =>
-                                u.id ===
-                                d.id
-                        );
+            setAllDatasets(
+                (prev) =>
+                    prev.map(
+                        (d) => {
+                            const match =
+                                updatedDatasets.find(
+                                    (
+                                        u
+                                    ) =>
+                                        u.id ===
+                                        d.id
+                                );
 
-                    return match
-                        ? match
-                        : d;
-                })
+                            return match
+                                ? match
+                                : d;
+                        }
+                    )
             );
         } catch (e) {
             console.error(
@@ -521,16 +634,18 @@ export default function Analytics() {
 
     useEffect(() => {
         const pollInterval =
-            setInterval(() => {
-                handleLiveSync();
-            }, 60000);
+            setInterval(
+                () => {
+                    handleLiveSync();
+                },
+                60000
+            );
 
         return () =>
             clearInterval(
                 pollInterval
             );
 
-        // Existing live-sync behavior retained.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         activeDatasets,
@@ -538,13 +653,16 @@ export default function Analytics() {
     ]);
 
     // ============================================================
-    // SESSION & PERSISTENCE
+    // SESSION LOAD / HYDRATION
     // ============================================================
 
     useEffect(() => {
         const loadSession =
             async () => {
                 if (!userToken) {
+                    hasHydratedSession.current =
+                        true;
+
                     setIsInitializing(
                         false
                     );
@@ -568,7 +686,7 @@ export default function Analytics() {
                         res.data
                             ?.page_state
                     ) {
-                     const {
+                        const {
                             allDatasets:
                                 loadedDatasets,
 
@@ -601,23 +719,36 @@ export default function Analytics() {
                                 "line"
                         );
 
-                                setAnalysisMode(
-                           loadedAnalysisMode || "single"
+                        setAnalysisMode(
+                            loadedAnalysisMode ||
+                                "single"
                         );
 
                         setActiveDatasetIndex(
-                            typeof loadedActiveDatasetIndex === "number"
+                            typeof loadedActiveDatasetIndex ===
+                                "number"
                                 ? loadedActiveDatasetIndex
                                 : 0
                         );
 
+                        /**
+                         * IMPORTANT:
+                         *
+                         * This restores the cross-analysis brief itself.
+                         * We do NOT clear it during session hydration.
+                         */
                         setCrossAnalysis(
-                            loadedCrossAnalysis || null
+                            loadedCrossAnalysis ||
+                                null
                         );
 
                         if (
-                            activeDatasetIds &&
-                            loadedDatasets
+                            Array.isArray(
+                                activeDatasetIds
+                            ) &&
+                            Array.isArray(
+                                loadedDatasets
+                            )
                         ) {
                             const active =
                                 loadedDatasets.filter(
@@ -632,7 +763,9 @@ export default function Analytics() {
                             );
                         }
 
-                        if (uiContext) {
+                        if (
+                            uiContext
+                        ) {
                             setShowModal(
                                 !!uiContext.showModal
                             );
@@ -653,95 +786,168 @@ export default function Analytics() {
                         "Session load failed:",
                         e
                     );
-                                } finally {
-                    hasHydratedSession.current = true;
-                    setIsInitializing(false);
+                } finally {
+                    /**
+                     * This MUST happen after the server load attempt,
+                     * otherwise blank initial React state could
+                     * overwrite the persisted dashboard.
+                     */
+                    hasHydratedSession.current =
+                        true;
+
+                    setIsInitializing(
+                        false
+                    );
                 }
             };
 
         loadSession();
     }, [userToken]);
 
-useEffect(() => {
-    if (
-        !hasHydratedSession.current ||
-        !userToken ||
-        isInitializing
-    ) {
-        return;
-    }
+    // ============================================================
+    // GENERAL AUTOSAVE
+    // ============================================================
 
-    const autosave = async () => {
-        setIsSaving(true);
+    useEffect(() => {
+        if (
+            !hasHydratedSession.current ||
+            !userToken ||
+            isInitializing
+        ) {
+            return;
+        }
 
-        try {
-            const pageState = {
-                allDatasets,
+        const autosave =
+            async () => {
+                setIsSaving(true);
 
-                activeDatasetIds:
-                    activeDatasets.map(
-                        (d) => d.id
-                    ),
+                try {
+                    const pageState =
+                        buildPageState();
 
-                chartType,
+                    await axios.post(
+                        `${API_BASE_URL}/analysis/save`,
+                        {
+                            name:
+                                "Autosave Dashboard",
 
-                analysisMode,
-
-                activeDatasetIndex,
-
-                crossAnalysis,
-
-                uiContext: {
-                    showModal,
-                    selectedApps,
-                    selectedSheet
+                            page_state:
+                                pageState
+                        },
+                        {
+                            headers:
+                                {
+                                    Authorization:
+                                        `Bearer ${userToken}`
+                                }
+                        }
+                    );
+                } catch (e) {
+                    console.warn(
+                        "Autosave failed",
+                        e
+                    );
+                } finally {
+                    setIsSaving(
+                        false
+                    );
                 }
             };
 
-            await axios.post(
-                `${API_BASE_URL}/analysis/save`,
-                {
-                    name: "Autosave Dashboard",
-                    page_state: pageState
-                },
-                {
-                    headers: {
-                        Authorization:
-                            `Bearer ${userToken}`
-                    }
-                }
+        const timer =
+            setTimeout(
+                autosave,
+                1500
             );
-        } catch (e) {
-            console.warn(
-                "Autosave failed",
-                e
-            );
-        } finally {
-            setIsSaving(false);
+
+        return () =>
+            clearTimeout(timer);
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        allDatasets,
+        activeDatasets,
+        chartType,
+        analysisMode,
+        activeDatasetIndex,
+        crossAnalysis,
+        showModal,
+        selectedApps,
+        selectedSheet,
+        userToken,
+        isInitializing
+    ]);
+
+    // ============================================================
+    // IMMEDIATE CROSS ANALYSIS SAVE
+    // ============================================================
+
+    /**
+     * IMPORTANT FIX:
+     *
+     * Visualizer receives the REAL React setCrossAnalysis setter.
+     *
+     * We do persistence separately here.
+     *
+     * This prevents the successful cross-analysis result from
+     * disappearing because the setter contract was replaced by
+     * an async callback.
+     */
+    useEffect(() => {
+        if (
+            !hasHydratedSession.current ||
+            isInitializing ||
+            !userToken ||
+            !crossAnalysis ||
+            analysisMode !==
+                "cross"
+        ) {
+            return;
         }
-    };
 
-    const timer = setTimeout(
-        autosave,
-        1500
-    );
+        const saveCrossAnalysis =
+            async () => {
+                try {
+                    const pageState =
+                        buildPageState(
+                            crossAnalysis
+                        );
 
-    return () =>
-        clearTimeout(timer);
+                    await axios.post(
+                        `${API_BASE_URL}/analysis/save`,
+                        {
+                            name:
+                                "Cross Analysis Autosave",
 
-}, [
-    allDatasets,
-    activeDatasets,
-    chartType,
-    analysisMode,
-    activeDatasetIndex,
-    crossAnalysis,
-    showModal,
-    selectedApps,
-    selectedSheet,
-    userToken,
-    isInitializing
-]);
+                            page_state:
+                                pageState
+                        },
+                        {
+                            headers:
+                                {
+                                    Authorization:
+                                        `Bearer ${userToken}`
+                                }
+                        }
+                    );
+
+                    console.log(
+                        "[Cross Analysis] Saved successfully"
+                    );
+                } catch (e) {
+                    console.error(
+                        "[Cross Analysis] Immediate save failed:",
+                        e
+                    );
+                }
+            };
+
+        saveCrossAnalysis();
+
+        // Intentionally triggered by completed cross analysis.
+        // General autosave handles all other state changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [crossAnalysis]);
 
     // ============================================================
     // AI ACTIONS
@@ -751,96 +957,62 @@ useEffect(() => {
         datasetId,
         aiData
     ) => {
-        const applyUpdate = (
-            list
-        ) =>
-            list.map((ds) =>
-                ds.id === datasetId
-                    ? {
-                          ...ds,
-                          aiStorage:
-                              aiData
-                      }
-                    : ds
-            );
+        const applyUpdate =
+            (list) =>
+                list.map(
+                    (ds) =>
+                        ds.id ===
+                        datasetId
+                            ? {
+                                  ...ds,
 
-        setAllDatasets((prev) =>
-            applyUpdate(prev)
+                                  aiStorage:
+                                      aiData
+                              }
+                            : ds
+                );
+
+        setAllDatasets(
+            (prev) =>
+                applyUpdate(
+                    prev
+                )
         );
 
         setActiveDatasets(
             (prev) =>
-                applyUpdate(prev)
+                applyUpdate(
+                    prev
+                )
         );
     };
-    const handleCrossAnalysisUpdate = async (analysis) => {
-    setCrossAnalysis(analysis);
-
-    if (!userToken || !analysis) {
-        return;
-    }
-
-    try {
-        const pageState = {
-            allDatasets,
-
-            activeDatasetIds:
-                activeDatasets.map(
-                    (d) => d.id
-                ),
-
-            chartType,
-
-            analysisMode: "cross",
-
-            activeDatasetIndex,
-
-            crossAnalysis: analysis,
-
-            uiContext: {
-                showModal,
-                selectedApps,
-                selectedSheet
-            }
-        };
-
-        await axios.post(
-            `${API_BASE_URL}/analysis/save`,
-            {
-                name: "Cross Analysis Autosave",
-                page_state: pageState
-            },
-            {
-                headers: {
-                    Authorization:
-                        `Bearer ${userToken}`
-                }
-            }
-        );
-
-        console.log(
-            "[Cross Analysis] Saved successfully"
-        );
-
-    } catch (e) {
-        console.error(
-            "[Cross Analysis] Immediate save failed:",
-            e
-        );
-    }
-};
 
     const handleAnalysisModeChange = (
         mode
     ) => {
-        setAnalysisMode(mode);
+        setAnalysisMode(
+            mode
+        );
 
-        if (mode !== "cross") {
-            setCrossAnalysis(null);
+        /**
+         * Only clear cross analysis if the user deliberately
+         * switches AWAY from cross mode.
+         *
+         * Refresh hydration does not call this handler,
+         * so persisted cross analysis survives refresh.
+         */
+        if (
+            mode !==
+            "cross"
+        ) {
+            setCrossAnalysis(
+                null
+            );
         }
 
         if (
-            mode === "individual"
+            mode ===
+            "individual"
         ) {
             setActiveDatasetIndex(
                 0
@@ -857,37 +1029,60 @@ useEffect(() => {
     };
 
     // ============================================================
+    // DATASET ACTIVE / STANDBY TOGGLE
+    // ============================================================
+
+    /**
+     * Changing which datasets participate changes the cross-analysis
+     * context. Therefore an old cross result must be invalidated.
+     */
+    const handleToggleDataset = (
+        dataset
+    ) => {
+        const isActive =
+            activeDatasets.some(
+                (item) =>
+                    item.id ===
+                    dataset.id
+            );
+
+        setActiveDatasets(
+            (prev) =>
+                isActive
+                    ? prev.filter(
+                          (item) =>
+                              item.id !==
+                              dataset.id
+                      )
+                    : [
+                          ...prev,
+                          dataset
+                      ]
+        );
+
+        setCrossAnalysis(
+            null
+        );
+
+        setActiveDatasetIndex(
+            0
+        );
+    };
+
+    // ============================================================
     // SAVE
     // ============================================================
 
     const handleSave = async () => {
-        if (!userToken) return;
+        if (!userToken) {
+            return;
+        }
 
         setIsSaving(true);
 
         try {
-            const pageState = {
-                        allDatasets,
-
-                        activeDatasetIds:
-                            activeDatasets.map(
-                                (d) => d.id
-                            ),
-
-                        chartType,
-
-                        analysisMode,
-
-                        activeDatasetIndex,
-
-                        crossAnalysis,
-
-                        uiContext: {
-                            showModal,
-                            selectedApps,
-                            selectedSheet
-                        }
-                    };
+            const pageState =
+                buildPageState();
 
             await axios.post(
                 `${API_BASE_URL}/analysis/save`,
@@ -910,9 +1105,18 @@ useEffect(() => {
                 "Workspace snapshot saved!"
             );
         } catch (e) {
-            alert("Save failed.");
+            console.error(
+                "Manual save failed:",
+                e
+            );
+
+            alert(
+                "Save failed."
+            );
         } finally {
-            setIsSaving(false);
+            setIsSaving(
+                false
+            );
         }
     };
 
@@ -924,14 +1128,22 @@ useEffect(() => {
         manualIds = [],
         manualNames = []
     ) => {
-        setIsImporting(true);
+        setIsImporting(
+            true
+        );
 
         try {
+            // ====================================================
+            // GOOGLE SHEETS
+            // ====================================================
+
             if (
                 selectedApps.includes(
                     "google_sheets"
                 ) &&
-                Array.isArray(manualIds)
+                Array.isArray(
+                    manualIds
+                )
             ) {
                 const importPromises =
                     manualIds.map(
@@ -1065,11 +1277,19 @@ useEffect(() => {
                         ...newDatasets
                     ]
                 );
-            } else if (
+            }
+
+            // ====================================================
+            // EXCEL
+            // ====================================================
+
+            else if (
                 selectedApps.includes(
                     "excel"
                 ) &&
-                Array.isArray(manualIds)
+                Array.isArray(
+                    manualIds
+                )
             ) {
                 const importPromises =
                     manualIds.map(
@@ -1201,7 +1421,13 @@ useEffect(() => {
                         ...newDatasets
                     ]
                 );
-            } else if (
+            }
+
+            // ====================================================
+            // CSV / OTHER
+            // ====================================================
+
+            else if (
                 selectedApps.includes(
                     "other"
                 ) &&
@@ -1247,9 +1473,11 @@ useEffect(() => {
                         );
 
                     const newDataset = {
-                        id: Date.now(),
+                        id:
+                            Date.now(),
 
-                        name: sourceName,
+                        name:
+                            sourceName,
 
                         color:
                             datasetColors[
@@ -1266,7 +1494,8 @@ useEffect(() => {
                                 ?.length ||
                             0,
 
-                        data: cleaned,
+                        data:
+                            cleaned,
 
                         numericCols:
                             numeric,
@@ -1280,7 +1509,8 @@ useEffect(() => {
                         categoryCol:
                             category,
 
-                        aiStorage: null
+                        aiStorage:
+                            null
                     };
 
                     setAllDatasets(
@@ -1299,16 +1529,22 @@ useEffect(() => {
                 }
             }
 
-            /*
-             * IMPORTANT:
+            /**
+             * New imported data changes the business context.
              *
-             * A new dataset changes the business context,
-             * therefore an old cross-analysis must not make
-             * Metria appear before the new analysis runs.
+             * The old cross-analysis must therefore be invalidated.
              */
-            setCrossAnalysis(null);
+            setCrossAnalysis(
+                null
+            );
 
-            setShowModal(false);
+            setActiveDatasetIndex(
+                0
+            );
+
+            setShowModal(
+                false
+            );
         } catch (e) {
             console.error(
                 "Import error:",
@@ -1319,67 +1555,135 @@ useEffect(() => {
                 "Import failed."
             );
         } finally {
-            setIsImporting(false);
-            setSelectedApps([]);
-            setCsvToImport(null);
-            setSelectedSheet("");
+            setIsImporting(
+                false
+            );
+
+            setSelectedApps(
+                []
+            );
+
+            setCsvToImport(
+                null
+            );
+
+            setSelectedSheet(
+                ""
+            );
         }
+    };
+
+    // ============================================================
+    // DELETE DATASET
+    // ============================================================
+
+    const handleDeleteDataset = (
+        datasetId
+    ) => {
+        setAllDatasets(
+            (prev) =>
+                prev.filter(
+                    (item) =>
+                        item.id !==
+                        datasetId
+                )
+        );
+
+        setActiveDatasets(
+            (prev) =>
+                prev.filter(
+                    (item) =>
+                        item.id !==
+                        datasetId
+                )
+        );
+
+        /**
+         * Dataset combination changed.
+         * Existing cross-analysis is no longer valid.
+         */
+        setCrossAnalysis(
+            null
+        );
+
+        setActiveDatasetIndex(
+            0
+        );
     };
 
     // ============================================================
     // ANALYSIS READINESS
     // ============================================================
 
-  const readyToVisualize =
-    activeDatasets.filter(
-        (ds) =>
-            Boolean(ds.aiStorage)
-    );
+    const readyToVisualize =
+        activeDatasets.filter(
+            (ds) =>
+                Boolean(
+                    ds.aiStorage
+                )
+        );
 
-/*
- * Determines whether the interactive Metria analyst
- * is allowed to render.
- *
- * SINGLE DATASET:
- * Wait for that dataset's strategic brief.
- *
- * MULTI DATASET / INDIVIDUAL:
- * Wait until every currently active dataset has been analyzed.
- *
- * MULTI DATASET / CROSS:
- * Wait until the cross-analysis result exists.
- */
+    /**
+     * MULTI / INDIVIDUAL:
+     * every active dataset must have its own brief.
+     */
+    const allActiveDatasetsAnalyzed =
+        activeDatasets.length >
+            0 &&
+        activeDatasets.every(
+            (ds) =>
+                Boolean(
+                    ds.aiStorage
+                )
+        );
 
-const allActiveDatasetsAnalyzed =
-    activeDatasets.length > 0 &&
-    activeDatasets.every(
-        (ds) =>
-            Boolean(ds.aiStorage)
-    );
+    /**
+     * SINGLE:
+     * one dataset must have completed its brief.
+     */
+    const singleDatasetAnalyzed =
+        activeDatasets.length ===
+            1 &&
+        Boolean(
+            activeDatasets[0]
+                ?.aiStorage
+        );
 
-const singleDatasetAnalyzed =
-    activeDatasets.length === 1 &&
-    Boolean(
-        activeDatasets[0]?.aiStorage
-    );
+    /**
+     * CROSS:
+     * only unlock once a real cross-analysis response exists.
+     */
+    const crossAnalysisReady =
+        activeDatasets.length >
+            1 &&
+        analysisMode ===
+            "cross" &&
+        Boolean(
+            crossAnalysis
+        );
 
-const crossAnalysisReady =
-    activeDatasets.length > 1 &&
-    analysisMode === "cross" &&
-    Boolean(crossAnalysis);
+    /**
+     * Controls MetriaFollowUp rendering.
+     */
+    const metriaAnalystReady =
+        activeDatasets.length ===
+        1
+            ? singleDatasetAnalyzed
+            : analysisMode ===
+                "cross"
+              ? crossAnalysisReady
+              : allActiveDatasetsAnalyzed;
 
-const metriaAnalystReady =
-    activeDatasets.length === 1
-        ? singleDatasetAnalyzed
-        : analysisMode === "cross"
-          ? crossAnalysisReady
-          : allActiveDatasetsAnalyzed;
     // ============================================================
     // RENDER
     // ============================================================
 
     return (
         <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
+
+            {/* ==================================================== */}
+            {/* INITIALIZATION / IMPORT OVERLAY                       */}
+            {/* ==================================================== */}
 
             {(isInitializing ||
                 isImporting) && (
@@ -1397,16 +1701,22 @@ const metriaAnalystReady =
                     </div>
 
                     <p className="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">
+
                         {isImporting
                             ? "Processing Stream..."
                             : "MetriaAI Initializing..."
                         }
+
                     </p>
 
                 </div>
             )}
 
             <div className="w-full">
+
+                {/* ================================================= */}
+                {/* HEADER                                            */}
+                {/* ================================================= */}
 
                 <div className="pt-8 px-6 lg:px-10">
 
@@ -1429,6 +1739,7 @@ const metriaAnalystReady =
 
                 {allDatasets.length >
                 0 ? (
+
                     <div className="mt-12 space-y-12">
 
                         {/* ========================================= */}
@@ -1455,9 +1766,7 @@ const metriaAnalystReady =
                                 (ds) => {
                                     const isActive =
                                         activeDatasets.some(
-                                            (
-                                                a
-                                            ) =>
+                                            (a) =>
                                                 a.id ===
                                                 ds.id
                                         );
@@ -1473,22 +1782,8 @@ const metriaAnalystReady =
                                                 ds.id
                                             }
                                             onClick={() =>
-                                                setActiveDatasets(
-                                                    (
-                                                        prev
-                                                    ) =>
-                                                        isActive
-                                                            ? prev.filter(
-                                                                  (
-                                                                      d
-                                                                  ) =>
-                                                                      d.id !==
-                                                                      ds.id
-                                                              )
-                                                            : [
-                                                                  ...prev,
-                                                                  ds
-                                                              ]
+                                                handleToggleDataset(
+                                                    ds
                                                 )
                                             }
                                             className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
@@ -1538,6 +1833,7 @@ const metriaAnalystReady =
                                                             health
                                                         }
                                                         %
+                                                        {" "}
                                                         Integrity
                                                     </span>
 
@@ -1554,9 +1850,9 @@ const metriaAnalystReady =
                                                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">
                                                         {
                                                             ds.rows
-                                                        }{" "}
-                                                        Active
-                                                        Nodes
+                                                        }
+                                                        {" "}
+                                                        Active Nodes
                                                     </div>
 
                                                 </div>
@@ -1588,39 +1884,8 @@ const metriaAnalystReady =
                                                     ) => {
                                                         e.stopPropagation();
 
-                                                        setAllDatasets(
-                                                            (
-                                                                d
-                                                            ) =>
-                                                                d.filter(
-                                                                    (
-                                                                        x
-                                                                    ) =>
-                                                                        x.id !==
-                                                                        ds.id
-                                                                )
-                                                        );
-
-                                                        setActiveDatasets(
-                                                            (
-                                                                d
-                                                            ) =>
-                                                                d.filter(
-                                                                    (
-                                                                        x
-                                                                    ) =>
-                                                                        x.id !==
-                                                                        ds.id
-                                                                )
-                                                        );
-
-                                                        /*
-                                                         * Dataset context changed.
-                                                         * Prevent stale cross-analysis
-                                                         * from unlocking Metria.
-                                                         */
-                                                        setCrossAnalysis(
-                                                            null
+                                                        handleDeleteDataset(
+                                                            ds.id
                                                         );
                                                     }}
                                                     className="text-slate-600 hover:text-red-400 transition-colors"
@@ -1637,6 +1902,7 @@ const metriaAnalystReady =
                             )}
 
                             {/* ADD STREAM */}
+
                             <button
                                 onClick={() =>
                                     setShowModal(
@@ -1672,65 +1938,123 @@ const metriaAnalystReady =
                                 activeDatasets={
                                     activeDatasets
                                 }
+
                                 readyDatasets={
                                     readyToVisualize
                                 }
+
                                 chartType={
                                     chartType
                                 }
+
                                 chartTypeSet={
                                     setChartType
                                 }
+
                                 authToken={
                                     userToken
                                 }
+
                                 onAIUpdate={
                                     handleAIUpdate
                                 }
 
-                                // AI analysis mode
+                                // ---------------------------------
+                                // AI ANALYSIS MODE
+                                // ---------------------------------
+
                                 analysisMode={
                                     analysisMode
                                 }
+
                                 setAnalysisMode={
                                     handleAnalysisModeChange
                                 }
 
-                                // Individual analysis
+                                // ---------------------------------
+                                // INDIVIDUAL ANALYSIS
+                                // ---------------------------------
+
                                 activeDatasetIndex={
                                     activeDatasetIndex
                                 }
+
                                 setActiveDatasetIndex={
                                     handleActiveDatasetChange
                                 }
 
-                                // Cross analysis
+                                // ---------------------------------
+                                // CROSS ANALYSIS
+                                // ---------------------------------
+
                                 crossAnalysis={
                                     crossAnalysis
                                 }
+
+                                /**
+                                 * CRITICAL:
+                                 *
+                                 * KEEP THIS AS THE REAL REACT SETTER.
+                                 *
+                                 * Do not replace this with an async
+                                 * persistence function.
+                                 */
                                 setCrossAnalysis={
-                                    handleCrossAnalysisUpdate
+                                    setCrossAnalysis
                                 }
                             />
 
                         </div>
-                            {metriaAnalystReady && (
-                                <MetriaFollowUp
-                                    activeDatasets={activeDatasets}
-                                    activeDataset={
-                                        analysisMode === "cross"
-                                            ? null
-                                            : activeDatasets[activeDatasetIndex]
-                                    }
-                                    analysisMode={analysisMode}
-                                    crossAnalysis={crossAnalysis}
-                                    authToken={userToken}
-                                    aiAnalysisReady={metriaAnalystReady}
-                                />
-                            )}
+
+                        {/* ========================================= */}
+                        {/* INTERACTIVE METRIA ANALYST                */}
+                        {/* ========================================= */}
+
+                        {metriaAnalystReady && (
+                            <MetriaFollowUp
+                                activeDatasets={
+                                    activeDatasets
+                                }
+
+                                activeDataset={
+                                    analysisMode ===
+                                    "cross"
+                                        ? null
+                                        : activeDatasets[
+                                              activeDatasetIndex
+                                          ] ||
+                                          activeDatasets[
+                                              activeDatasets.length -
+                                                  1
+                                          ]
+                                }
+
+                                analysisMode={
+                                    analysisMode
+                                }
+
+                                crossAnalysis={
+                                    crossAnalysis
+                                }
+
+                                authToken={
+                                    userToken
+                                }
+
+                                aiAnalysisReady={
+                                    metriaAnalystReady
+                                }
+                            />
+                        )}
 
                     </div>
+
                 ) : (
+
+                    // =============================================
+                    // EMPTY STATE
+                    // =============================================
+
                     <div className="px-6 lg:px-10 pb-12 mt-12">
 
                         <div className="text-center py-52 bg-white/[0.01] border-y border-white/5 relative overflow-hidden rounded-[3rem]">
@@ -1743,8 +2067,7 @@ const metriaAnalystReady =
                             />
 
                             <h3 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">
-                                Neural Link
-                                Disconnected
+                                Neural Link Disconnected
                             </h3>
 
                             <button
@@ -1755,8 +2078,7 @@ const metriaAnalystReady =
                                 }
                                 className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
                             >
-                                Initialize
-                                Stream
+                                Initialize Stream
                             </button>
 
                         </div>
@@ -1793,30 +2115,39 @@ const metriaAnalystReady =
                             ""
                         );
                     }}
+
                     selectedApps={
                         selectedApps
                     }
+
                     setSelectedApps={
                         setSelectedApps
                     }
+
                     sheetsList={
                         sheetsList
                     }
+
                     setSheetsList={
                         setSheetsList
                     }
+
                     selectedSheet={
                         selectedSheet
                     }
+
                     setSelectedSheet={
                         setSelectedSheet
                     }
+
                     setCsvToImport={
                         setCsvToImport
                     }
+
                     csvToImport={
                         csvToImport
                     }
+
                     onImport={(
                         ids,
                         names
