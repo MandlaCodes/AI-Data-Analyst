@@ -261,21 +261,20 @@ export const Visualizer = ({
   // ------------------------------------------------------------
   // FALL BACK TO INDIVIDUAL MODE WHEN ONLY ONE SOURCE REMAINS
   // ------------------------------------------------------------
-  useEffect(() => {
-    if (activeDatasets.length < 2) {
-      if (typeof setAnalysisMode === "function") {
-        setAnalysisMode("individual");
-      }
-
-      if (typeof setCrossAnalysis === "function") {
-        setCrossAnalysis(null);
-      }
+useEffect(() => {
+  if (activeDatasets.length < 2) {
+    if (typeof setAnalysisMode === "function") {
+      setAnalysisMode("individual");
     }
-  }, [
-    activeDatasets.length,
-    setAnalysisMode,
-    setCrossAnalysis
-  ]);
+
+    // Keep the existing cross analysis cached.
+    // If the same dataset is selected again,
+    // the previous cross analysis can be reused.
+  }
+}, [
+  activeDatasets.length,
+  setAnalysisMode
+]);
 
   // ------------------------------------------------------------
   // AI UPDATE HANDLER
