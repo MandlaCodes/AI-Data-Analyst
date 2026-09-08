@@ -568,7 +568,7 @@ export default function Analytics() {
                         res.data
                             ?.page_state
                     ) {
-                        const {
+                     const {
                             allDatasets:
                                 loadedDatasets,
 
@@ -576,6 +576,15 @@ export default function Analytics() {
 
                             chartType:
                                 loadedChartType,
+
+                            analysisMode:
+                                loadedAnalysisMode,
+
+                            activeDatasetIndex:
+                                loadedActiveDatasetIndex,
+
+                            crossAnalysis:
+                                loadedCrossAnalysis,
 
                             uiContext
                         } =
@@ -590,6 +599,20 @@ export default function Analytics() {
                         setChartType(
                             loadedChartType ||
                                 "line"
+                        );
+
+                                setAnalysisMode(
+                           loadedAnalysisMode || "single"
+                        );
+
+                        setActiveDatasetIndex(
+                            typeof loadedActiveDatasetIndex === "number"
+                                ? loadedActiveDatasetIndex
+                                : 0
+                        );
+
+                        setCrossAnalysis(
+                            loadedCrossAnalysis || null
                         );
 
                         if (
@@ -663,22 +686,28 @@ export default function Analytics() {
 
                 try {
                     const pageState = {
-                        allDatasets,
+                                    allDatasets,
 
-                        activeDatasetIds:
-                            activeDatasets.map(
-                                (d) =>
-                                    d.id
-                            ),
+                                    activeDatasetIds:
+                                        activeDatasets.map(
+                                            (d) =>
+                                                d.id
+                                        ),
 
-                        chartType,
+                                    chartType,
 
-                        uiContext: {
-                            showModal,
-                            selectedApps,
-                            selectedSheet
-                        }
-                    };
+                                    analysisMode,
+
+                                    activeDatasetIndex,
+
+                                    crossAnalysis,
+
+                                    uiContext: {
+                                        showModal,
+                                        selectedApps,
+                                        selectedSheet
+                                    }
+                                };
 
                     await axios.post(
                         `${API_BASE_URL}/analysis/save`,
@@ -715,15 +744,18 @@ export default function Analytics() {
         return () =>
             clearTimeout(timer);
     }, [
-        allDatasets,
-        activeDatasets,
-        chartType,
-        showModal,
-        selectedApps,
-        selectedSheet,
-        userToken,
-        isInitializing
-    ]);
+    allDatasets,
+    activeDatasets,
+    chartType,
+    analysisMode,
+    activeDatasetIndex,
+    crossAnalysis,
+    showModal,
+    selectedApps,
+    selectedSheet,
+    userToken,
+    isInitializing
+]);
 
     // ============================================================
     // AI ACTIONS
@@ -793,21 +825,27 @@ export default function Analytics() {
 
         try {
             const pageState = {
-                allDatasets,
+                        allDatasets,
 
-                activeDatasetIds:
-                    activeDatasets.map(
-                        (d) => d.id
-                    ),
+                        activeDatasetIds:
+                            activeDatasets.map(
+                                (d) => d.id
+                            ),
 
-                chartType,
+                        chartType,
 
-                uiContext: {
-                    showModal,
-                    selectedApps,
-                    selectedSheet
-                }
-            };
+                        analysisMode,
+
+                        activeDatasetIndex,
+
+                        crossAnalysis,
+
+                        uiContext: {
+                            showModal,
+                            selectedApps,
+                            selectedSheet
+                        }
+                    };
 
             await axios.post(
                 `${API_BASE_URL}/analysis/save`,
