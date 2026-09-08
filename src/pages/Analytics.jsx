@@ -950,6 +950,24 @@ export default function Analytics() {
     }, [crossAnalysis]);
 
     // ============================================================
+// RESTORE CROSS MODE WHEN DATASETS RETURN
+// ============================================================
+
+useEffect(() => {
+    if (
+        activeDatasets.length > 1 &&
+        crossAnalysis &&
+        analysisMode !== "cross"
+    ) {
+        setAnalysisMode("cross");
+    }
+}, [
+    activeDatasets,
+    crossAnalysis,
+    analysisMode
+]);
+
+    // ============================================================
     // AI ACTIONS
     // ============================================================
 
@@ -1036,38 +1054,33 @@ export default function Analytics() {
      * Changing which datasets participate changes the cross-analysis
      * context. Therefore an old cross result must be invalidated.
      */
-    const handleToggleDataset = (
-        dataset
-    ) => {
-        const isActive =
-            activeDatasets.some(
-                (item) =>
-                    item.id ===
-                    dataset.id
-            );
-
-        setActiveDatasets(
-            (prev) =>
-                isActive
-                    ? prev.filter(
-                          (item) =>
-                              item.id !==
-                              dataset.id
-                      )
-                    : [
-                          ...prev,
-                          dataset
-                      ]
+const handleToggleDataset = (
+    dataset
+) => {
+    const isActive =
+        activeDatasets.some(
+            (item) =>
+                item.id ===
+                dataset.id
         );
 
-        setCrossAnalysis(
-            null
-        );
-
-        setActiveDatasetIndex(
-            0
-        );
-    };
+    setActiveDatasets(
+        (prev) =>
+            isActive
+                ? prev.filter(
+                      (item) =>
+                          item.id !==
+                          dataset.id
+                  )
+                : [
+                      ...prev,
+                      dataset
+                  ]
+    );
+    setActiveDatasetIndex(
+        0
+    );
+};
 
     // ============================================================
     // SAVE
