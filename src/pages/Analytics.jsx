@@ -141,7 +141,7 @@ export default function Analytics() {
         "#EAB308"
     ];
 
-    const isFirstMount = useRef(true);
+    const hasHydratedSession = useRef(false);
 
     // ============================================================
     // DATA UTILITIES
@@ -653,97 +653,83 @@ export default function Analytics() {
                         "Session load failed:",
                         e
                     );
-                } finally {
-                    setIsInitializing(
-                        false
-                    );
+                                } finally {
+                    hasHydratedSession.current = true;
+                    setIsInitializing(false);
                 }
             };
 
         loadSession();
     }, [userToken]);
 
-    useEffect(() => {
-        if (
-            isFirstMount.current
-        ) {
-            isFirstMount.current =
-                false;
+useEffect(() => {
+    if (
+        !hasHydratedSession.current ||
+        !userToken ||
+        isInitializing
+    ) {
+        return;
+    }
 
-            return;
-        }
+    const autosave = async () => {
+        setIsSaving(true);
 
-        const autosave =
-            async () => {
-                if (
-                    !userToken ||
-                    isInitializing
-                ) {
-                    return;
-                }
+        try {
+            const pageState = {
+                allDatasets,
 
-                setIsSaving(true);
+                activeDatasetIds:
+                    activeDatasets.map(
+                        (d) => d.id
+                    ),
 
-                try {
-                    const pageState = {
-                                    allDatasets,
+                chartType,
 
-                                    activeDatasetIds:
-                                        activeDatasets.map(
-                                            (d) =>
-                                                d.id
-                                        ),
+                analysisMode,
 
-                                    chartType,
+                activeDatasetIndex,
 
-                                    analysisMode,
+                crossAnalysis,
 
-                                    activeDatasetIndex,
-
-                                    crossAnalysis,
-
-                                    uiContext: {
-                                        showModal,
-                                        selectedApps,
-                                        selectedSheet
-                                    }
-                                };
-
-                    await axios.post(
-                        `${API_BASE_URL}/analysis/save`,
-                        {
-                            name:
-                                "Autosave Dashboard",
-
-                            page_state:
-                                pageState
-                        },
-                        {
-                            headers: {
-                                Authorization:
-                                    `Bearer ${userToken}`
-                            }
-                        }
-                    );
-                } catch (e) {
-                    console.warn(
-                        "Autosave failed",
-                        e
-                    );
-                } finally {
-                    setIsSaving(false);
+                uiContext: {
+                    showModal,
+                    selectedApps,
+                    selectedSheet
                 }
             };
 
-        const timer =
-            setTimeout(
-                autosave,
-                1500
+            await axios.post(
+                `${API_BASE_URL}/analysis/save`,
+                {
+                    name: "Autosave Dashboard",
+                    page_state: pageState
+                },
+                {
+                    headers: {
+                        Authorization:
+                            `Bearer ${userToken}`
+                    }
+                }
             );
+        } catch (e) {
+            console.warn(
+                "Autosave failed",
+                e
+            );
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-        return () =>
-            clearTimeout(timer);
-    }, [
+    const timer = setTimeout(
+        autosave,
+        1500
+    );
+
+    return () =>
+        clearTimeout(timer);
+
+}, [
     allDatasets,
     activeDatasets,
     chartType,
@@ -787,6 +773,62 @@ export default function Analytics() {
                 applyUpdate(prev)
         );
     };
+    const handleCrossAnalysisUpdate = async (analysis) => {
+    setCrossAnalysis(analysis);
+
+    if (!userToken || !analysis) {
+        return;
+    }
+
+    try {
+        const pageState = {
+            allDatasets,
+
+            activeDatasetIds:
+                activeDatasets.map(
+                    (d) => d.id
+                ),
+
+            chartType,
+
+            analysisMode: "cross",
+
+            activeDatasetIndex,
+
+            crossAnalysis: analysis,
+
+            uiContext: {
+                showModal,
+                selectedApps,
+                selectedSheet
+            }
+        };
+
+        await axios.post(
+            `${API_BASE_URL}/analysis/save`,
+            {
+                name: "Cross Analysis Autosave",
+                page_state: pageState
+            },
+            {
+                headers: {
+                    Authorization:
+                        `Bearer ${userToken}`
+                }
+            }
+        );
+
+        console.log(
+            "[Cross Analysis] Saved successfully"
+        );
+
+    } catch (e) {
+        console.error(
+            "[Cross Analysis] Immediate save failed:",
+            e
+        );
+    }
+};
 
     const handleAnalysisModeChange = (
         mode
@@ -1667,24 +1709,11 @@ const metriaAnalystReady =
                                     crossAnalysis
                                 }
                                 setCrossAnalysis={
-                                    setCrossAnalysis
+                                    handleCrossAnalysisUpdate
                                 }
                             />
 
                         </div>
-
-                        {/* ========================================= */}
-                        {/* INTERACTIVE METRIA ANALYST                */}
-                        {/* ========================================= */}
-
-                        {/*
-                         * MetriaFollowUp itself also checks
-                         * aiAnalysisReady.
-                         *
-                         * This outer conditional prevents the
-                         * component from mounting whatsoever before
-                         * AI analysis is complete.
-                         */}
                             {metriaAnalystReady && (
                                 <MetriaFollowUp
                                     activeDatasets={activeDatasets}
