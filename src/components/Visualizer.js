@@ -278,26 +278,6 @@ export const Visualizer = ({
   ]);
 
   // ------------------------------------------------------------
-  // INVALIDATE OLD CROSS ANALYSIS IF SOURCE COMBINATION CHANGES
-  // ------------------------------------------------------------
-  const activeDatasetSignature = useMemo(
-    () =>
-      activeDatasets
-        .map((ds) => String(ds.id))
-        .join("|"),
-    [activeDatasets]
-  );
-
-  useEffect(() => {
-    if (typeof setCrossAnalysis === "function") {
-      setCrossAnalysis(null);
-    }
-  }, [
-    activeDatasetSignature,
-    setCrossAnalysis
-  ]);
-
-  // ------------------------------------------------------------
   // AI UPDATE HANDLER
   // ------------------------------------------------------------
   const handleAIComplete = (id, aiData) => {
