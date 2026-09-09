@@ -1,10 +1,13 @@
 /**
- * pages/Analytics.js - VERSION: METRIA AI HIGH-ENERGY
+ * pages/Analytics.jsx - VERSION: METRIA AI HIGH-ENERGY
  * Full production file with Session Persistence and Neural Stream processing.
  * UPDATED: Edge-to-edge layout with synchronized vertical alignment anchors.
  * FIX: Removed SDK dependency; Updated Scopes Logic; Logical Gate for aiStorage.
  * UPDATE: Metria interactive analyst now waits for completed AI analysis.
  * UPDATE: Cross-analysis state persists safely without replacing React setter.
+ * FIX: Dataset standby/broadcast toggles no longer wipe completed analysis.
+ * FIX: Reactivation restores the canonical dataset from allDatasets.
+ * FIX: Cross-analysis survives temporary dataset deselection/reselection.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -149,6 +152,21 @@ export default function Analytics() {
      */
     const hasHydratedSession =
         useRef(false);
+
+    /**
+     * Dataset activation/deactivation is a UI participation change.
+     *
+     * It must never destroy completed AI analysis.
+     *
+     * This ref prevents the temporary activeDatasets transition
+     * from causing the general autosave to race against React state
+     * while a dataset is being toggled.
+     */
+    const isTogglingDataset =
+        useRef(false);
+
+    const toggleSaveTimerRef =
+        useRef(null);
 
     // ============================================================
     // DATA UTILITIES
@@ -447,21 +465,22 @@ export default function Analytics() {
     // PAGE STATE FACTORY
     // ============================================================
 
-    /**
-     * Creates the exact state object persisted by both
-     * manual save and autosave.
-     *
-     * Cross analysis is included here so refresh/navigation
-     * restores the completed cross brief.
-     */
     const buildPageState = (
         crossOverride =
-            crossAnalysis
+            crossAnalysis,
+        activeOverride =
+            activeDatasets
     ) => ({
+        /**
+         * allDatasets is the canonical store.
+         *
+         * AI results remain attached here even while a dataset
+         * is temporarily placed in standby.
+         */
         allDatasets,
 
         activeDatasetIds:
-            activeDatasets.map(
+            activeOverride.map(
                 (d) => d.id
             ),
 
@@ -499,9 +518,6 @@ export default function Analytics() {
                 await Promise.all(
                     activeDatasets.map(
                         async (ds) => {
-                            /**
-                             * Existing cloud-sync behavior retained.
-                             */
                             if (
                                 (
                                     ds.id &&
@@ -618,9 +634,22 @@ export default function Analytics() {
                                         d.id
                                 );
 
-                            return match
-                                ? match
-                                : d;
+                            if (!match) {
+                                return d;
+                            }
+
+                            /**
+                             * Preserve AI storage from the canonical
+                             * dataset if a sync response ever lacks it.
+                             */
+                            return {
+                                ...d,
+                                ...match,
+                                aiStorage:
+                                    match.aiStorage ??
+                                    d.aiStorage ??
+                                    null
+                            };
                         }
                     )
             );
@@ -709,9 +738,15 @@ export default function Analytics() {
                             res.data
                                 .page_state;
 
+                        const safeLoadedDatasets =
+                            Array.isArray(
+                                loadedDatasets
+                            )
+                                ? loadedDatasets
+                                : [];
+
                         setAllDatasets(
-                            loadedDatasets ||
-                                []
+                            safeLoadedDatasets
                         );
 
                         setChartType(
@@ -731,12 +766,6 @@ export default function Analytics() {
                                 : 0
                         );
 
-                        /**
-                         * IMPORTANT:
-                         *
-                         * This restores the cross-analysis brief itself.
-                         * We do NOT clear it during session hydration.
-                         */
                         setCrossAnalysis(
                             loadedCrossAnalysis ||
                                 null
@@ -745,13 +774,10 @@ export default function Analytics() {
                         if (
                             Array.isArray(
                                 activeDatasetIds
-                            ) &&
-                            Array.isArray(
-                                loadedDatasets
                             )
                         ) {
                             const active =
-                                loadedDatasets.filter(
+                                safeLoadedDatasets.filter(
                                     (d) =>
                                         activeDatasetIds.includes(
                                             d.id
@@ -760,6 +786,10 @@ export default function Analytics() {
 
                             setActiveDatasets(
                                 active
+                            );
+                        } else {
+                            setActiveDatasets(
+                                safeLoadedDatasets
                             );
                         }
 
@@ -787,11 +817,6 @@ export default function Analytics() {
                         e
                     );
                 } finally {
-                    /**
-                     * This MUST happen after the server load attempt,
-                     * otherwise blank initial React state could
-                     * overwrite the persisted dashboard.
-                     */
                     hasHydratedSession.current =
                         true;
 
@@ -812,7 +837,8 @@ export default function Analytics() {
         if (
             !hasHydratedSession.current ||
             !userToken ||
-            isInitializing
+            isInitializing ||
+            isTogglingDataset.current
         ) {
             return;
         }
@@ -882,17 +908,6 @@ export default function Analytics() {
     // IMMEDIATE CROSS ANALYSIS SAVE
     // ============================================================
 
-    /**
-     * IMPORTANT FIX:
-     *
-     * Visualizer receives the REAL React setCrossAnalysis setter.
-     *
-     * We do persistence separately here.
-     *
-     * This prevents the successful cross-analysis result from
-     * disappearing because the setter contract was replaced by
-     * an async callback.
-     */
     useEffect(() => {
         if (
             !hasHydratedSession.current ||
@@ -944,28 +959,29 @@ export default function Analytics() {
 
         saveCrossAnalysis();
 
-        // Intentionally triggered by completed cross analysis.
-        // General autosave handles all other state changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crossAnalysis]);
 
     // ============================================================
-// RESTORE CROSS MODE WHEN DATASETS RETURN
-// ============================================================
+    // RESTORE CROSS MODE WHEN DATASETS RETURN
+    // ============================================================
 
-useEffect(() => {
-    if (
-        activeDatasets.length > 1 &&
-        crossAnalysis &&
-        analysisMode !== "cross"
-    ) {
-        setAnalysisMode("cross");
-    }
-}, [
-    activeDatasets,
-    crossAnalysis,
-    analysisMode
-]);
+    useEffect(() => {
+        if (
+            activeDatasets.length > 1 &&
+            crossAnalysis &&
+            analysisMode !==
+                "cross"
+        ) {
+            setAnalysisMode(
+                "cross"
+            );
+        }
+    }, [
+        activeDatasets,
+        crossAnalysis,
+        analysisMode
+    ]);
 
     // ============================================================
     // AI ACTIONS
@@ -990,6 +1006,11 @@ useEffect(() => {
                             : ds
                 );
 
+        /**
+         * Always write AI output into allDatasets.
+         *
+         * allDatasets is the permanent/canonical copy.
+         */
         setAllDatasets(
             (prev) =>
                 applyUpdate(
@@ -997,6 +1018,9 @@ useEffect(() => {
                 )
         );
 
+        /**
+         * Mirror it into the active copy for immediate rendering.
+         */
         setActiveDatasets(
             (prev) =>
                 applyUpdate(
@@ -1013,21 +1037,15 @@ useEffect(() => {
         );
 
         /**
-         * Only clear cross analysis if the user deliberately
-         * switches AWAY from cross mode.
+         * IMPORTANT:
          *
-         * Refresh hydration does not call this handler,
-         * so persisted cross analysis survives refresh.
+         * Do NOT destroy crossAnalysis simply because the user
+         * switches viewing modes.
+         *
+         * Cross analysis is only invalidated when the underlying
+         * business data itself changes (import/delete/new analysis),
+         * not when the user changes what they are viewing.
          */
-        if (
-            mode !==
-            "cross"
-        ) {
-            setCrossAnalysis(
-                null
-            );
-        }
-
         if (
             mode ===
             "individual"
@@ -1050,37 +1068,166 @@ useEffect(() => {
     // DATASET ACTIVE / STANDBY TOGGLE
     // ============================================================
 
-    /**
-     * Changing which datasets participate changes the cross-analysis
-     * context. Therefore an old cross result must be invalidated.
-     */
-const handleToggleDataset = (
-    dataset
-) => {
-    const isActive =
-        activeDatasets.some(
-            (item) =>
-                item.id ===
-                dataset.id
+    const handleToggleDataset = (
+        dataset
+    ) => {
+        const isActive =
+            activeDatasets.some(
+                (item) =>
+                    item.id ===
+                    dataset.id
+            );
+
+        /**
+         * A toggle means:
+         *
+         * "include/exclude this dataset from the current view"
+         *
+         * It does NOT mean:
+         *
+         * "delete this dataset's analysis".
+         *
+         * Therefore:
+         * - aiStorage remains in allDatasets
+         * - crossAnalysis remains untouched
+         * - analysisMode remains untouched
+         */
+
+        isTogglingDataset.current =
+            true;
+
+        if (
+            toggleSaveTimerRef.current
+        ) {
+            clearTimeout(
+                toggleSaveTimerRef.current
+            );
+        }
+
+        let nextActiveDatasets;
+
+        if (isActive) {
+            nextActiveDatasets =
+                activeDatasets.filter(
+                    (item) =>
+                        item.id !==
+                        dataset.id
+                );
+        } else {
+            /**
+             * IMPORTANT:
+             *
+             * Restore from allDatasets rather than blindly using
+             * the card's object.
+             *
+             * allDatasets owns the permanent aiStorage result.
+             */
+            const storedDataset =
+                allDatasets.find(
+                    (item) =>
+                        item.id ===
+                        dataset.id
+                ) ||
+                dataset;
+
+            nextActiveDatasets = [
+                ...activeDatasets,
+                storedDataset
+            ];
+        }
+
+        setActiveDatasets(
+            nextActiveDatasets
         );
 
-    setActiveDatasets(
-        (prev) =>
-            isActive
-                ? prev.filter(
-                      (item) =>
-                          item.id !==
-                          dataset.id
-                  )
-                : [
-                      ...prev,
-                      dataset
-                  ]
-    );
-    setActiveDatasetIndex(
-        0
-    );
-};
+        /**
+         * Keep the index valid without wiping analysis.
+         */
+        if (
+            nextActiveDatasets.length ===
+            0
+        ) {
+            setActiveDatasetIndex(
+                0
+            );
+        } else {
+            setActiveDatasetIndex(
+                (prevIndex) =>
+                    Math.min(
+                        prevIndex,
+                        nextActiveDatasets.length -
+                            1
+                    )
+            );
+        }
+
+        /**
+         * Persist the final participation state directly.
+         *
+         * Crucially, the saved page still contains allDatasets,
+         * including every dataset's aiStorage, plus crossAnalysis.
+         */
+        toggleSaveTimerRef.current =
+            setTimeout(
+                async () => {
+                    try {
+                        if (
+                            userToken &&
+                            hasHydratedSession.current
+                        ) {
+                            const pageState =
+                                buildPageState(
+                                    crossAnalysis,
+                                    nextActiveDatasets
+                                );
+
+                            await axios.post(
+                                `${API_BASE_URL}/analysis/save`,
+                                {
+                                    name:
+                                        "Dataset Selection Autosave",
+
+                                    page_state:
+                                        pageState
+                                },
+                                {
+                                    headers:
+                                        {
+                                            Authorization:
+                                                `Bearer ${userToken}`
+                                        }
+                                }
+                            );
+                        }
+                    } catch (e) {
+                        console.warn(
+                            "Dataset selection save failed:",
+                            e
+                        );
+                    } finally {
+                        isTogglingDataset.current =
+                            false;
+                    }
+                },
+                250
+            );
+    };
+
+    // ============================================================
+    // CLEAN UP TOGGLE TIMER
+    // ============================================================
+
+    useEffect(() => {
+        return () => {
+            if (
+                toggleSaveTimerRef.current
+            ) {
+                clearTimeout(
+                    toggleSaveTimerRef.current
+                );
+            }
+        };
+    }, []);
 
     // ============================================================
     // SAVE
@@ -1543,9 +1690,9 @@ const handleToggleDataset = (
             }
 
             /**
-             * New imported data changes the business context.
-             *
-             * The old cross-analysis must therefore be invalidated.
+             * Importing genuinely introduces new business data,
+             * so an existing cross-analysis is no longer guaranteed
+             * to describe the current dataset collection.
              */
             setCrossAnalysis(
                 null
@@ -1612,8 +1759,10 @@ const handleToggleDataset = (
         );
 
         /**
-         * Dataset combination changed.
-         * Existing cross-analysis is no longer valid.
+         * DELETE is intentionally different from standby.
+         *
+         * The underlying dataset has genuinely been removed,
+         * so the old cross-analysis is no longer valid.
          */
         setCrossAnalysis(
             null
@@ -1636,10 +1785,6 @@ const handleToggleDataset = (
                 )
         );
 
-    /**
-     * MULTI / INDIVIDUAL:
-     * every active dataset must have its own brief.
-     */
     const allActiveDatasetsAnalyzed =
         activeDatasets.length >
             0 &&
@@ -1650,10 +1795,6 @@ const handleToggleDataset = (
                 )
         );
 
-    /**
-     * SINGLE:
-     * one dataset must have completed its brief.
-     */
     const singleDatasetAnalyzed =
         activeDatasets.length ===
             1 &&
@@ -1662,10 +1803,6 @@ const handleToggleDataset = (
                 ?.aiStorage
         );
 
-    /**
-     * CROSS:
-     * only unlock once a real cross-analysis response exists.
-     */
     const crossAnalysisReady =
         activeDatasets.length >
             1 &&
@@ -1675,9 +1812,6 @@ const handleToggleDataset = (
             crossAnalysis
         );
 
-    /**
-     * Controls MetriaFollowUp rendering.
-     */
     const metriaAnalystReady =
         activeDatasets.length ===
         1
@@ -2005,12 +2139,7 @@ const handleToggleDataset = (
                                 }
 
                                 /**
-                                 * CRITICAL:
-                                 *
-                                 * KEEP THIS AS THE REAL REACT SETTER.
-                                 *
-                                 * Do not replace this with an async
-                                 * persistence function.
+                                 * Keep this as the real React setter.
                                  */
                                 setCrossAnalysis={
                                     setCrossAnalysis
