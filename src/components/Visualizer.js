@@ -31,7 +31,10 @@ import {
   FiTable,
   FiCpu,
   FiLayers,
-  FiActivity
+  FiActivity,
+  FiMessageCircle,
+  FiArrowRight,
+  FiZap
 } from "react-icons/fi";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -261,20 +264,20 @@ export const Visualizer = ({
   // ------------------------------------------------------------
   // FALL BACK TO INDIVIDUAL MODE WHEN ONLY ONE SOURCE REMAINS
   // ------------------------------------------------------------
-useEffect(() => {
-  if (activeDatasets.length < 2) {
-    if (typeof setAnalysisMode === "function") {
-      setAnalysisMode("individual");
-    }
+  useEffect(() => {
+    if (activeDatasets.length < 2) {
+      if (typeof setAnalysisMode === "function") {
+        setAnalysisMode("individual");
+      }
 
-    // Keep the existing cross analysis cached.
-    // If the same dataset is selected again,
-    // the previous cross analysis can be reused.
-  }
-}, [
-  activeDatasets.length,
-  setAnalysisMode
-]);
+      // Keep the existing cross analysis cached.
+      // If the same dataset is selected again,
+      // the previous cross analysis can be reused.
+    }
+  }, [
+    activeDatasets.length,
+    setAnalysisMode
+  ]);
 
   // ------------------------------------------------------------
   // AI UPDATE HANDLER
@@ -606,6 +609,57 @@ useEffect(() => {
     ) || parsed[0];
 
   // ------------------------------------------------------------
+  // INTERACTIVE METRIA ANALYST READINESS
+  // ------------------------------------------------------------
+  const allActiveDatasetsAnalyzed =
+    activeDatasets.length > 0 &&
+    activeDatasets.every(
+      (ds) => Boolean(ds.aiStorage)
+    );
+
+  const singleDatasetAnalyzed =
+    activeDatasets.length === 1 &&
+    Boolean(
+      activeDatasets[0]?.aiStorage
+    );
+
+  const interactiveAnalystReady =
+    activeDatasets.length === 1
+      ? singleDatasetAnalyzed
+      : analysisMode === "cross"
+        ? Boolean(crossAnalysis)
+        : allActiveDatasetsAnalyzed;
+
+  // ------------------------------------------------------------
+  // FOCUS INTERACTIVE METRIA ANALYST
+  // ------------------------------------------------------------
+  const handleOpenMetriaAnalyst = () => {
+    const analystTarget =
+      document.getElementById(
+        "metria-analyst"
+      ) ||
+      document.querySelector(
+        '[data-metria-analyst="true"]'
+      );
+
+    if (analystTarget) {
+      analystTarget.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
+      return;
+    }
+
+    window.scrollTo({
+      top:
+        document.documentElement
+          .scrollHeight,
+      behavior: "smooth"
+    });
+  };
+
+  // ------------------------------------------------------------
   // CROSS DATASETS
   //
   // IMPORTANT:
@@ -843,13 +897,6 @@ useEffect(() => {
                       "individual"
                     );
                   }
-
-                  if (
-                    typeof setCrossAnalysis ===
-                    "function"
-                  ) {
-                    setCrossAnalysis(null);
-                  }
                 }}
                 className={`text-left p-5 md:p-6 rounded-2xl border transition-all ${
                   analysisMode ===
@@ -903,13 +950,6 @@ useEffect(() => {
                     setAnalysisMode(
                       "cross"
                     );
-                  }
-
-                  if (
-                    typeof setCrossAnalysis ===
-                    "function"
-                  ) {
-                    setCrossAnalysis(null);
                   }
                 }}
                 className={`text-left p-5 md:p-6 rounded-2xl border transition-all ${
@@ -1125,6 +1165,120 @@ useEffect(() => {
             handleAIComplete
           }
         />
+
+        {/* ====================================================== */}
+        {/* METRIA ANALYST SPOTLIGHT                               */}
+        {/* Strategic Brief -> Ask Metria -> Evidence              */}
+        {/* ====================================================== */}
+        {interactiveAnalystReady && (
+          <div className="mt-8 md:mt-10 relative overflow-hidden rounded-[2.5rem] border border-purple-500/30 bg-gradient-to-r from-[#160b26] via-[#0b0912] to-[#0b1022] p-6 md:p-8 shadow-[0_24px_90px_rgba(112,0,255,0.12)]">
+
+            <div className="absolute -top-24 -right-20 w-72 h-72 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+
+            <div className="absolute -bottom-28 left-1/3 w-80 h-80 rounded-full bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-7">
+
+              <div className="flex items-start gap-4 md:gap-5 max-w-4xl">
+
+                <div className="shrink-0 p-3.5 md:p-4 rounded-2xl bg-purple-500/10 border border-purple-400/20 text-purple-300 shadow-[0_0_35px_rgba(168,85,247,0.12)]">
+
+                  <FiMessageCircle
+                    size={22}
+                  />
+
+                </div>
+
+                <div className="min-w-0">
+
+                  <div className="flex flex-wrap items-center gap-2 mb-2.5">
+
+                    <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400">
+
+                      <FiZap
+                        size={11}
+                      />
+
+                      Analysis Complete
+
+                    </span>
+
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+
+                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-purple-300/70">
+                      Interactive Analyst Ready
+                    </span>
+
+                  </div>
+
+                  <h3 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                    Don&apos;t stop at the brief. Ask Metria why.
+                  </h3>
+
+                  <p className="mt-2.5 text-xs md:text-sm leading-relaxed text-white/45 max-w-3xl">
+
+                    {analysisMode ===
+                    "cross"
+                      ? `Metria now has the completed cross-analysis and context from all ${activeDatasets.length} linked sources. Challenge the findings, trace the drivers, test risks, or ask what to do next.`
+
+                      : activeDatasets.length >
+                        1
+
+                        ? `Metria has completed analysis context across all ${activeDatasets.length} active sources. Ask follow-up questions and turn the findings into decisions.`
+
+                        : `Metria has this dataset and its completed strategic brief in context. Ask follow-up questions, challenge conclusions, or turn the findings into an action plan.`
+                    }
+
+                  </p>
+
+                  <div className="flex flex-wrap gap-2 mt-4">
+
+                    <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
+                      Why is this happening?
+                    </span>
+
+                    <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
+                      What should we fix first?
+                    </span>
+
+                    {analysisMode ===
+                    "cross" ? (
+                      <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
+                        How do these datasets connect?
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
+                        What is the biggest opportunity?
+                      </span>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  handleOpenMetriaAnalyst
+                }
+                className="group shrink-0 inline-flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-white text-black text-[10px] font-black uppercase tracking-[0.22em] hover:bg-purple-100 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_16px_40px_rgba(255,255,255,0.08)]"
+              >
+
+                Ask Metria
+
+                <FiArrowRight
+                  size={16}
+                  className="transition-transform group-hover:translate-x-1"
+                />
+
+              </button>
+
+            </div>
+
+          </div>
+        )}
       </section>
 
       {/* ======================================================== */}
@@ -1146,19 +1300,27 @@ useEffect(() => {
                 .length < 15
           );
 
-          if (
-            analysisMode === "cross" &&
-            !crossAnalysis
-          ) {
-            return null;
-          }
+        /*
+         * CROSS MODE:
+         * Do not reveal evidence until cross analysis exists.
+         */
+        if (
+          analysisMode === "cross" &&
+          !crossAnalysis
+        ) {
+          return null;
+        }
 
-          if (
-            analysisMode !== "cross" &&
-            !readyStates[ds.id]
-          ) {
-            return null;
-          }
+        /*
+         * INDIVIDUAL MODE:
+         * Do not reveal a dataset until its brief exists.
+         */
+        if (
+          analysisMode !== "cross" &&
+          !readyStates[ds.id]
+        ) {
+          return null;
+        }
 
         return (
           <div
@@ -1252,6 +1414,7 @@ useEffect(() => {
                           </th>
                         )
                       )}
+
                     </tr>
                   </thead>
 
@@ -1263,6 +1426,7 @@ useEffect(() => {
                           key={i}
                           className="hover:bg-white/[0.02] transition-colors group"
                         >
+
                           {ds.columns.map(
                             (col) => (
                               <td
@@ -1273,9 +1437,11 @@ useEffect(() => {
                               </td>
                             )
                           )}
+
                         </tr>
                       )
                     )}
+
                   </tbody>
                 </table>
               </div>
@@ -1285,6 +1451,7 @@ useEffect(() => {
                 <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center italic">
                   End of Dataset Records
                 </p>
+
               </div>
             </div>
 
@@ -1302,6 +1469,7 @@ useEffect(() => {
                         key={col.col}
                         className="relative overflow-hidden bg-[#0d0d12] border border-white/10 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl group hover:border-[#7000FF]/30 transition-all"
                       >
+
                         <div
                           className={`absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r ${
                             idx % 2 ===
@@ -1329,6 +1497,7 @@ useEffect(() => {
                                   : "bg-rose-500/10 text-rose-500"
                               }`}
                             >
+
                               {col
                                 .stats
                                 .trendDir ===
@@ -1344,24 +1513,29 @@ useEffect(() => {
                                   .trend
                               }
                               %
+
                             </div>
                           )}
+
                         </div>
 
                         <div className="flex items-baseline gap-3 mb-8">
 
                           <span className="text-5xl md:text-6xl font-black tracking-tighter group-hover:text-[#a5b4fc] transition-colors">
+
                             {col.stats?.avg.toLocaleString(
                               undefined,
                               {
                                 maximumFractionDigits: 1
                               }
                             )}
+
                           </span>
 
                           <span className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em]">
                             avg_val
                           </span>
+
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 border-t border-white/5 pt-8">
@@ -1375,6 +1549,7 @@ useEffect(() => {
                             <p className="text-[12px] font-bold text-zinc-300">
                               {col.stats?.min.toLocaleString()}
                             </p>
+
                           </div>
 
                           <div className="border-x border-white/5 px-3 text-center">
@@ -1386,6 +1561,7 @@ useEffect(() => {
                             <p className="text-[12px] font-bold text-zinc-300">
                               {col.stats?.max.toLocaleString()}
                             </p>
+
                           </div>
 
                           <div className="text-right">
@@ -1395,6 +1571,7 @@ useEffect(() => {
                             </p>
 
                             <p className="text-[12px] font-bold text-[#7000FF] truncate">
+
                               {col.stats
                                 ?.sum >
                               1e6
@@ -1408,12 +1585,15 @@ useEffect(() => {
                                   ) +
                                   "M"
                                 : col.stats?.sum.toLocaleString()}
+
                             </p>
+
                           </div>
                         </div>
                       </div>
                     )
                   )}
+
               </div>
 
               {/* GRAPHS */}
@@ -1472,6 +1652,7 @@ useEffect(() => {
                               : 0,
 
                           minBarLength: 4,
+
                           tension: 0.3,
 
                           fill:
@@ -1509,12 +1690,14 @@ useEffect(() => {
                               <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">
                                 {col.col}
                               </h4>
+
                             </div>
 
                             <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
                               Mapped_By_
                               {ds.labelCol}
                             </p>
+
                           </div>
 
                           <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
@@ -1548,13 +1731,16 @@ useEffect(() => {
                               }
                               className="p-2 text-zinc-500 hover:text-white transition-colors"
                             >
+
                               {currentChartType ===
                               "line" ? (
                                 <FiBarChart2 className="w-5 h-5" />
                               ) : (
                                 <FiTrendingUp className="w-5 h-5" />
                               )}
+
                             </button>
+
                           </div>
                         </div>
 
@@ -1580,11 +1766,13 @@ useEffect(() => {
                               }
                             />
                           )}
+
                         </div>
                       </div>
                     );
                   }
                 )}
+
               </div>
 
               {/* PIE CHARTS */}
@@ -1606,6 +1794,7 @@ useEffect(() => {
                             <span className="text-[8px] font-black text-[#7000FF] uppercase tracking-widest italic">
                               Categorical_Split
                             </span>
+
                           </div>
 
                           <div className="flex items-center gap-4 mb-10">
@@ -1613,11 +1802,13 @@ useEffect(() => {
                             <div className="p-3 bg-white/5 rounded-xl border border-white/10">
 
                               <FiPieChart className="text-[#a5b4fc] w-5 h-5" />
+
                             </div>
 
                             <h4 className="text-white/50 text-[11px] font-black uppercase tracking-[0.4em] truncate pr-16">
                               {col.col}
                             </h4>
+
                           </div>
 
                           <div className="aspect-square relative w-full">
@@ -1684,12 +1875,15 @@ useEffect(() => {
                                   }
                               }}
                             />
+
                           </div>
                         </div>
                       )
                     )}
+
                 </div>
               )}
+
             </div>
           </div>
         );
@@ -1738,6 +1932,7 @@ useEffect(() => {
                   }
                 />
               )}
+
             </div>
           </div>
         </div>
@@ -1757,6 +1952,7 @@ useEffect(() => {
           <FiArrowUp className="w-6 h-6" />
         </button>
       )}
+
     </div>
   );
 };
