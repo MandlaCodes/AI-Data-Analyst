@@ -1,8 +1,7 @@
 import React, {
     useState,
     useEffect,
-    useRef,
-    useMemo
+    useRef
 } from "react";
 
 import axios from "axios";
@@ -21,24 +20,23 @@ import {
     FiUserCheck,
     FiX,
     FiZap,
-    FiActivity,
-    FiPlay,
-    FiPause
+    FiActivity
 } from "react-icons/fi";
 
 const API_BASE_URL =
     "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-const VOICE_PREFERENCE_KEY =
-    "metria_voice_enabled";
-
 export const MetriaFollowUp = ({
     activeDataset,
     activeDatasets = [],
-    authToken
+    authToken,
+    analysisMode,
+    crossAnalysis,
+    aiAnalysisReady = true
 }) => {
+
     // ============================================================
-    // CORE CHAT STATE
+    // CORE STATE
     // ============================================================
 
     const [isVisible, setIsVisible] =
@@ -54,32 +52,8 @@ export const MetriaFollowUp = ({
         useState(false);
 
     // ============================================================
-    // VOICE / PRESENCE STATE
+    // EXPERIENCE STATE
     // ============================================================
-
-    /*
-     * Voice defaults ON.
-     *
-     * If the user explicitly switched voice off before,
-     * remember that preference.
-     */
-    const [voiceEnabled, setVoiceEnabled] =
-        useState(() => {
-            try {
-                const saved =
-                    localStorage.getItem(
-                        VOICE_PREFERENCE_KEY
-                    );
-
-                if (saved === null) {
-                    return true;
-                }
-
-                return saved === "true";
-            } catch {
-                return true;
-            }
-        });
 
     const [isListening, setIsListening] =
         useState(false);
@@ -88,29 +62,21 @@ export const MetriaFollowUp = ({
         useState(false);
 
     /*
-     * Browsers can reject autoplay even when voice is enabled.
+     * Voice is ON by default.
      *
-     * If that happens we retain the audio and surface a
-     * "Tap to hear Metria" action instead of silently failing.
+     * If the user manually turns it off, we remember that choice.
      */
     const [
-        pendingAudioBase64,
-        setPendingAudioBase64
-    ] = useState(null);
+        voiceEnabled,
+        setVoiceEnabled
+    ] = useState(() => {
+        const savedPreference =
+            localStorage.getItem(
+                "metria_voice_enabled"
+            );
 
-    const [
-        voiceNeedsInteraction,
-        setVoiceNeedsInteraction
-    ] = useState(false);
-
-    const [
-        hasUserInteracted,
-        setHasUserInteracted
-    ] = useState(false);
-
-    // ============================================================
-    // UI STATE
-    // ============================================================
+        return savedPreference !== "false";
+    });
 
     const [
         showHistoryDropdown,
@@ -134,10 +100,10 @@ export const MetriaFollowUp = ({
     const audioRef =
         useRef(null);
 
-    const conversationEndRef =
+    const recognitionRef =
         useRef(null);
 
-    const recognitionRef =
+    const conversationEndRef =
         useRef(null);
 
     // ============================================================
@@ -148,25 +114,33 @@ export const MetriaFollowUp = ({
         Array.isArray(
             activeDatasets
         ) &&
-        activeDatasets.length > 0
+        activeDatasets.length >
+            0
             ? activeDatasets
             : activeDataset
-                ? [activeDataset]
-                : [];
+              ? [
+                    activeDataset
+                ]
+              : [];
 
     const primaryDataset =
-        datasetsInContext.length > 0
+        datasetsInContext.length >
+        0
             ? datasetsInContext[
-                  datasetsInContext.length - 1
+                  datasetsInContext.length -
+                      1
               ]
             : null;
 
     const isMultiDataset =
-        datasetsInContext.length > 1;
+        datasetsInContext.length >
+        1;
 
     const datasetNames =
         datasetsInContext.map(
-            (dataset) =>
+            (
+                dataset
+            ) =>
                 dataset?.name ||
                 "Unnamed Dataset"
         );
@@ -174,133 +148,71 @@ export const MetriaFollowUp = ({
     const datasetContextKey =
         datasetsInContext
             .map(
-                (dataset) =>
-                    `${
-                        dataset?.id ?? ""
-                    }:${
-                        dataset?.name ?? ""
-                    }`
+                (
+                    dataset
+                ) =>
+                    `${dataset?.id ?? ""}:${dataset?.name ?? ""}`
             )
             .join("|");
 
     // ============================================================
-    // METRIA PRESENCE STATE
-    // ============================================================
-
-    const presenceState =
-        useMemo(() => {
-            if (isListening) {
-                return {
-                    label:
-                        "Listening",
-                    subLabel:
-                        "Voice input active",
-                    tone:
-                        "red"
-                };
-            }
-
-            if (isAnalyzing) {
-                return {
-                    label:
-                        "Thinking",
-                    subLabel:
-                        isMultiDataset
-                            ? `Synthesizing ${datasetsInContext.length} data sources`
-                            : "Analyzing business context",
-                    tone:
-                        "purple"
-                };
-            }
-
-            if (isSpeaking) {
-                return {
-                    label:
-                        "Speaking",
-                    subLabel:
-                        "Delivering analysis",
-                    tone:
-                        "emerald"
-                };
-            }
-
-            return {
-                label:
-                    "Ready",
-                subLabel:
-                    isMultiDataset
-                        ? `${datasetsInContext.length} sources in context`
-                        : "Analyst standing by",
-                tone:
-                    "emerald"
-            };
-        }, [
-            isListening,
-            isAnalyzing,
-            isSpeaking,
-            isMultiDataset,
-            datasetsInContext.length
-        ]);
-
-    // ============================================================
-    // REMEMBER VOICE PREFERENCE
+    // VOICE PREFERENCE
     // ============================================================
 
     useEffect(() => {
-        try {
-            localStorage.setItem(
-                VOICE_PREFERENCE_KEY,
-                String(
-                    voiceEnabled
-                )
-            );
-        } catch {
-            // Local storage failure should never break Metria.
-        }
-    }, [voiceEnabled]);
-
-    // ============================================================
-    // REGISTER FIRST USER INTERACTION
-    // ============================================================
-
-    useEffect(() => {
-        const unlock = () => {
-            setHasUserInteracted(
-                true
-            );
-        };
-
-        window.addEventListener(
-            "pointerdown",
-            unlock,
-            {
-                once: true
-            }
+        localStorage.setItem(
+            "metria_voice_enabled",
+            String(
+                voiceEnabled
+            )
         );
-
-        window.addEventListener(
-            "keydown",
-            unlock,
-            {
-                once: true
-            }
-        );
-
-        return () => {
-            window.removeEventListener(
-                "pointerdown",
-                unlock
-            );
-
-            window.removeEventListener(
-                "keydown",
-                unlock
-            );
-        };
-    }, []);
+    }, [
+        voiceEnabled
+    ]);
 
     // ============================================================
-    // AUTO SCROLL CONVERSATION
+    // CURRENT METRIA STATE
+    // ============================================================
+
+    const metriaState =
+        isListening
+            ? "listening"
+            : isAnalyzing
+              ? "thinking"
+              : isSpeaking
+                ? "speaking"
+                : "ready";
+
+    const stateLabel = {
+        listening:
+            "Listening",
+        thinking:
+            "Analyzing",
+        speaking:
+            "Speaking",
+        ready:
+            "Ready"
+    }[
+        metriaState
+    ];
+
+    const stateSubtext = {
+        listening:
+            "Voice channel open",
+        thinking:
+            "Reasoning across your data",
+        speaking:
+            "Delivering analysis",
+        ready:
+            isMultiDataset
+                ? `${datasetsInContext.length} data sources in context`
+                : "Standing by for your question"
+    }[
+        metriaState
+    ];
+
+    // ============================================================
+    // AUTO SCROLL CHAT
     // ============================================================
 
     useEffect(() => {
@@ -339,114 +251,85 @@ export const MetriaFollowUp = ({
         );
     };
 
-    const playAudioBase64 =
+    const playResponseAudio =
         async (
             audioBase64
         ) => {
             if (
-                !audioBase64 ||
-                !voiceEnabled
+                !voiceEnabled ||
+                !audioBase64
             ) {
                 return;
             }
-
-            stopVoice();
-
-            const audio =
-                new Audio(
-                    `data:audio/mpeg;base64,${audioBase64}`
-                );
-
-            audioRef.current =
-                audio;
-
-            audio.onended =
-                () => {
-                    setIsSpeaking(
-                        false
-                    );
-
-                    setPendingAudioBase64(
-                        null
-                    );
-
-                    setVoiceNeedsInteraction(
-                        false
-                    );
-
-                    audioRef.current =
-                        null;
-                };
-
-            audio.onerror =
-                () => {
-                    setIsSpeaking(
-                        false
-                    );
-
-                    audioRef.current =
-                        null;
-                };
 
             try {
-                setIsSpeaking(
-                    true
-                );
+                stopVoice();
+
+                const audio =
+                    new Audio(
+                        `data:audio/mpeg;base64,${audioBase64}`
+                    );
+
+                audioRef.current =
+                    audio;
+
+                audio.onplay =
+                    () => {
+                        setIsSpeaking(
+                            true
+                        );
+                    };
+
+                audio.onended =
+                    () => {
+                        setIsSpeaking(
+                            false
+                        );
+
+                        audioRef.current =
+                            null;
+                    };
+
+                audio.onerror =
+                    () => {
+                        setIsSpeaking(
+                            false
+                        );
+
+                        audioRef.current =
+                            null;
+                    };
 
                 await audio.play();
-
-                setPendingAudioBase64(
-                    null
-                );
-
-                setVoiceNeedsInteraction(
-                    false
-                );
-            } catch (err) {
+            } catch (
+                error
+            ) {
+                /*
+                 * Browsers can block audio until the page
+                 * receives a user gesture.
+                 *
+                 * We don't treat this as a failed AI response.
+                 */
                 console.warn(
-                    "Browser prevented Metria voice autoplay:",
-                    err
+                    "Browser prevented automatic voice playback:",
+                    error
                 );
 
                 setIsSpeaking(
                     false
                 );
-
-                setPendingAudioBase64(
-                    audioBase64
-                );
-
-                setVoiceNeedsInteraction(
-                    true
-                );
             }
-        };
-
-    const handleManualVoiceStart =
-        async () => {
-            if (
-                !pendingAudioBase64
-            ) {
-                return;
-            }
-
-            setHasUserInteracted(
-                true
-            );
-
-            await playAudioBase64(
-                pendingAudioBase64
-            );
         };
 
     // ============================================================
-    // DATASET WELCOME / CONTEXT RESET
+    // WELCOME / CONTEXT RESET
     // ============================================================
 
     useEffect(() => {
         if (
+            !aiAnalysisReady ||
             datasetsInContext.length ===
-            0
+                0
         ) {
             setIsVisible(
                 false
@@ -475,23 +358,22 @@ export const MetriaFollowUp = ({
                         1
                     ) {
                         welcomeText =
-                            `I've loaded ${datasetsInContext.length} active data sources: ` +
+                            `Analysis complete. I have ${datasetsInContext.length} active sources in context: ` +
                             `${datasetNames.join(", ")}. ` +
-                            `I can analyze each source independently or connect them where ` +
-                            `the evidence supports a relationship. Ask me what's driving performance, ` +
-                            `where the risk is, what you're missing, or what I think you should do next.`;
+                            `I've got the underlying records, metrics and analysis available. ` +
+                            `Ask me what's driving performance, where the biggest risk is, ` +
+                            `how these sources connect, or what I'd recommend doing next.`;
                     } else {
                         welcomeText =
-                            `I've finished reviewing "${datasetsInContext[0]?.name}". ` +
-                            `I've got the data in context now. Ask me about anything that stood out, ` +
-                            `challenge the analysis, or tell me what decision you're trying to make.`;
+                            `Analysis complete. I've got "${datasetsInContext[0]?.name}" in context now. ` +
+                            `You can challenge the brief, ask me why something is happening, ` +
+                            `investigate a specific number, or ask what I think you should do next.`;
                     }
 
                     setMessages([
                         {
                             sender:
                                 "metria",
-
                             text:
                                 welcomeText
                         }
@@ -508,7 +390,8 @@ export const MetriaFollowUp = ({
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
-        datasetContextKey
+        datasetContextKey,
+        aiAnalysisReady
     ]);
 
     // ============================================================
@@ -532,8 +415,11 @@ export const MetriaFollowUp = ({
                 try {
                     recognitionRef.current.stop();
                 } catch {
-                    // Ignore speech recognition cleanup failure.
+                    // no-op
                 }
+
+                recognitionRef.current =
+                    null;
             }
         };
     }, []);
@@ -590,9 +476,9 @@ export const MetriaFollowUp = ({
         async (
             sessionId
         ) => {
-            stopVoice();
-
             try {
+                stopVoice();
+
                 const res =
                     await axios.get(
                         `${API_BASE_URL}/ai/sessions/${sessionId}`,
@@ -638,7 +524,7 @@ export const MetriaFollowUp = ({
                 !SpeechRecognition
             ) {
                 alert(
-                    "Speech recognition is not supported in this browser. Please use Chrome or Safari."
+                    "Speech recognition isn't supported in this browser. Chrome provides the most reliable voice input."
                 );
 
                 return;
@@ -647,10 +533,11 @@ export const MetriaFollowUp = ({
             if (
                 isListening
             ) {
-                if (
+                try {
                     recognitionRef.current
-                ) {
-                    recognitionRef.current.stop();
+                        ?.stop();
+                } catch {
+                    // no-op
                 }
 
                 setIsListening(
@@ -677,6 +564,9 @@ export const MetriaFollowUp = ({
             recognition.maxAlternatives =
                 1;
 
+            recognition.continuous =
+                false;
+
             recognition.onstart =
                 () => {
                     setIsListening(
@@ -690,7 +580,9 @@ export const MetriaFollowUp = ({
                 ) => {
                     const speechText =
                         event
-                            .results[0][0]
+                            .results[
+                            0
+                        ][0]
                             .transcript;
 
                     setInputQuery(
@@ -707,7 +599,15 @@ export const MetriaFollowUp = ({
                 };
 
             recognition.onerror =
-                () => {
+                (
+                    event
+                ) => {
+                    console.warn(
+                        "Speech recognition error:",
+                        event
+                            .error
+                    );
+
                     setIsListening(
                         false
                     );
@@ -750,28 +650,14 @@ export const MetriaFollowUp = ({
                 return;
             }
 
-            setHasUserInteracted(
-                true
-            );
-
             stopVoice();
-
-            setPendingAudioBase64(
-                null
-            );
-
-            setVoiceNeedsInteraction(
-                false
-            );
 
             const newMessages =
                 [
                     ...messages,
-
                     {
                         sender:
                             "user",
-
                         text:
                             textToSend
                     }
@@ -821,29 +707,32 @@ export const MetriaFollowUp = ({
                             query:
                                 textToSend,
 
+                            // MULTI DATASET
                             datasets:
                                 datasetsPayload,
 
-                            // Legacy compatibility
+                            // LEGACY SINGLE DATASET FALLBACK
                             dataset_name:
-                                primaryDataset
-                                    ?.name ||
+                                primaryDataset?.name ||
                                 "Dataset",
 
                             metrics:
-                                primaryDataset
-                                    ?.metrics ||
+                                primaryDataset?.metrics ||
                                 {},
 
                             data_sample:
-                                primaryDataset
-                                    ?.data ||
-                                primaryDataset
-                                    ?.rows ||
+                                primaryDataset?.data ||
+                                primaryDataset?.rows ||
                                 [],
 
                             messages:
-                                newMessages
+                                newMessages,
+
+                            analysis_mode:
+                                analysisMode,
+
+                            cross_analysis:
+                                crossAnalysis
                         },
 
                         {
@@ -869,11 +758,9 @@ export const MetriaFollowUp = ({
                         .messages ||
                     [
                         ...newMessages,
-
                         {
                             sender:
                                 "metria",
-
                             text:
                                 answerText
                         }
@@ -890,14 +777,14 @@ export const MetriaFollowUp = ({
                 /*
                  * Voice is ON by default.
                  *
-                 * If ElevenLabs returned audio, Metria immediately
-                 * attempts to speak the result.
+                 * Every successful Metria response automatically
+                 * plays the ElevenLabs audio supplied by /ai/query.
                  */
                 if (
                     voiceEnabled &&
                     audioBase64
                 ) {
-                    await playAudioBase64(
+                    await playResponseAudio(
                         audioBase64
                     );
                 }
@@ -916,18 +803,16 @@ export const MetriaFollowUp = ({
                 );
 
                 const errorText =
-                    "I lost the connection for a moment. Send that again and I'll pick it straight back up.";
+                    "I lost the connection for a moment. Send that again and I'll pick it up.";
 
                 setMessages(
                     (
                         prev
                     ) => [
                         ...prev,
-
                         {
                             sender:
                                 "metria",
-
                             text:
                                 errorText
                         }
@@ -994,12 +879,13 @@ export const MetriaFollowUp = ({
         };
 
     // ============================================================
-    // NO DATASET
+    // NOTHING TO SHOW
     // ============================================================
 
     if (
+        !aiAnalysisReady ||
         datasetsInContext.length ===
-        0
+            0
     ) {
         return null;
     }
@@ -1011,37 +897,15 @@ export const MetriaFollowUp = ({
     const suggestedPrompts =
         isMultiDataset
             ? [
-                "How do these datasets relate?",
-                "What's the biggest risk here?",
-                "What would you do next?"
-            ]
+                  "What's the most important thing I should know?",
+                  "How do these datasets influence each other?",
+                  "If you were running this business, what would you fix first?"
+              ]
             : [
-                "What's really driving performance?",
-                "What should I fix first?",
-                "What am I missing?"
-            ];
-
-    // ============================================================
-    // PRESENCE VISUAL HELPERS
-    // ============================================================
-
-    const presenceColorClass =
-        isListening
-            ? "text-red-400"
-            : isSpeaking
-                ? "text-emerald-400"
-                : isAnalyzing
-                    ? "text-purple-400"
-                    : "text-indigo-300";
-
-    const presenceGlowClass =
-        isListening
-            ? "shadow-[0_0_55px_rgba(239,68,68,0.30)]"
-            : isSpeaking
-                ? "shadow-[0_0_65px_rgba(16,185,129,0.28)]"
-                : isAnalyzing
-                    ? "shadow-[0_0_65px_rgba(168,85,247,0.32)]"
-                    : "shadow-[0_0_45px_rgba(99,102,241,0.18)]";
+                  "What's the most important thing I should know?",
+                  "What's driving the result we're seeing?",
+                  "If you were running this business, what would you do next?"
+              ];
 
     // ============================================================
     // UI
@@ -1051,8 +915,8 @@ export const MetriaFollowUp = ({
         <div
             className={`transition-all duration-500 ${
                 isExpanded
-                    ? "fixed top-0 right-0 bottom-0 left-64 z-50 bg-[#05030b] p-6 flex flex-col"
-                    : "w-full max-w-[1500px] mx-auto my-6 px-0 md:px-4 flex flex-col"
+                    ? "fixed top-0 right-0 bottom-0 left-64 z-50 bg-[#050409] p-5 md:p-8 flex flex-col"
+                    : "w-full mx-auto my-6 flex flex-col"
             }`}
         >
 
@@ -1065,157 +929,169 @@ export const MetriaFollowUp = ({
             >
 
                 {/* ================================================= */}
-                {/* MAIN METRIA ENVIRONMENT                           */}
+                {/* METRIA CORE PANEL                                 */}
                 {/* ================================================= */}
 
                 <div
-                    className={`relative overflow-hidden w-full flex-1 flex flex-col ${
+                    className={`relative overflow-hidden w-full flex-1 flex flex-col border transition-all duration-700 ${
                         isExpanded
-                            ? "bg-[#05030b]"
-                            : "bg-gradient-to-br from-[#130720] via-[#080610] to-[#050914] border border-purple-500/40 rounded-[3rem] p-5 md:p-8 shadow-[0_30px_100px_rgba(100,0,255,0.16)]"
+                            ? "bg-[#07060c] border-purple-500/25 rounded-[2.5rem]"
+                            : isSpeaking
+                              ? "bg-[#0c0715] border-purple-400/60 rounded-[3rem] shadow-[0_0_100px_rgba(168,85,247,0.18)]"
+                              : isAnalyzing
+                                ? "bg-[#0b0812] border-indigo-400/40 rounded-[3rem] shadow-[0_0_80px_rgba(99,102,241,0.12)]"
+                                : "bg-gradient-to-br from-[#10081c] via-[#090711] to-[#080b16] border-purple-500/35 rounded-[3rem] shadow-[0_30px_100px_rgba(112,0,255,0.12)]"
                     }`}
                 >
 
-                    {/* Ambient living background */}
+                    {/* Ambient background */}
 
-                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div
+                        className={`absolute -top-48 -left-48 w-[500px] h-[500px] rounded-full blur-[120px] transition-all duration-1000 pointer-events-none ${
+                            isSpeaking
+                                ? "bg-purple-500/20 scale-125"
+                                : isAnalyzing
+                                  ? "bg-indigo-500/15 scale-110"
+                                  : "bg-purple-500/[0.08]"
+                        }`}
+                    />
+
+                    <div
+                        className={`absolute -bottom-48 right-0 w-[500px] h-[500px] rounded-full blur-[140px] transition-all duration-1000 pointer-events-none ${
+                            isSpeaking
+                                ? "bg-fuchsia-500/15 scale-125"
+                                : "bg-indigo-500/[0.06]"
+                        }`}
+                    />
+
+                    {/* Moving top energy line */}
+
+                    <div className="absolute top-0 left-0 right-0 h-[1px] overflow-hidden">
 
                         <div
-                            className={`absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-[140px] transition-all duration-1000 ${
-                                isSpeaking
-                                    ? "bg-emerald-500/10 scale-110"
-                                    : isAnalyzing
-                                        ? "bg-purple-500/15 scale-110"
-                                        : "bg-purple-500/[0.07]"
+                            className={`h-full w-1/3 bg-gradient-to-r from-transparent via-purple-400 to-transparent ${
+                                isSpeaking ||
+                                isAnalyzing
+                                    ? "animate-[metriaScan_2s_linear_infinite]"
+                                    : "opacity-40"
                             }`}
                         />
-
-                        <div
-                            className={`absolute -bottom-52 right-0 w-[600px] h-[600px] rounded-full blur-[160px] transition-all duration-1000 ${
-                                isListening
-                                    ? "bg-red-500/10 scale-110"
-                                    : "bg-indigo-500/[0.07]"
-                            }`}
-                        />
-
-                        <div className="absolute inset-0 opacity-[0.025] bg-[linear-gradient(rgba(255,255,255,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
                     </div>
 
-                    <div className="relative z-10 flex-1 flex flex-col">
+                    <div className="relative z-10 flex flex-col flex-1 p-5 md:p-8">
 
-                        {/* ========================================= */}
-                        {/* HEADER / METRIA IDENTITY                  */}
-                        {/* ========================================= */}
+                        {/* ================================================= */}
+                        {/* HEADER                                            */}
+                        {/* ================================================= */}
 
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-6 border-b border-white/[0.08]">
 
+                            {/* METRIA IDENTITY */}
+
                             <div className="flex items-center gap-4">
 
-                                {/* Living Metria Core */}
+                                {/* ALIVE CORE */}
 
-                                <div className="relative">
+                                <div className="relative shrink-0">
 
-                                    {(isSpeaking ||
-                                        isAnalyzing ||
-                                        isListening) && (
-                                        <>
-                                            <div
-                                                className={`absolute -inset-3 rounded-[1.6rem] border animate-ping opacity-30 ${
-                                                    isListening
-                                                        ? "border-red-400"
-                                                        : isSpeaking
-                                                            ? "border-emerald-400"
-                                                            : "border-purple-400"
-                                                }`}
-                                            />
-
-                                            <div
-                                                className={`absolute -inset-6 rounded-[2rem] blur-xl opacity-20 ${
-                                                    isListening
-                                                        ? "bg-red-500"
-                                                        : isSpeaking
-                                                            ? "bg-emerald-500"
-                                                            : "bg-purple-500"
-                                                }`}
-                                            />
-                                        </>
-                                    )}
+                                    {/* Outer pulse */}
 
                                     <div
-                                        className={`relative w-14 h-14 md:w-16 md:h-16 flex items-center justify-center rounded-[1.35rem] border border-white/15 bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-700 text-white transition-all duration-500 ${presenceGlowClass}`}
+                                        className={`absolute inset-0 rounded-2xl blur-xl transition-all duration-500 ${
+                                            isSpeaking
+                                                ? "bg-purple-500/70 animate-pulse scale-150"
+                                                : isAnalyzing
+                                                  ? "bg-indigo-500/50 animate-pulse scale-125"
+                                                  : isListening
+                                                    ? "bg-emerald-500/50 animate-pulse scale-125"
+                                                    : "bg-purple-500/20"
+                                        }`}
+                                    />
+
+                                    {/* Core */}
+
+                                    <div
+                                        className={`relative w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center border transition-all duration-500 ${
+                                            isSpeaking
+                                                ? "bg-gradient-to-br from-purple-500 to-fuchsia-700 border-purple-300 shadow-[0_0_35px_rgba(168,85,247,0.55)]"
+                                                : isAnalyzing
+                                                  ? "bg-gradient-to-br from-indigo-500 to-purple-800 border-indigo-300"
+                                                  : isListening
+                                                    ? "bg-gradient-to-br from-emerald-500 to-cyan-800 border-emerald-300"
+                                                    : "bg-gradient-to-br from-purple-600 to-indigo-800 border-purple-400/50"
+                                        }`}
                                     >
 
                                         {isAnalyzing ? (
                                             <FiCpu
-                                                size={25}
-                                                className="animate-spin"
+                                                size={
+                                                    26
+                                                }
+                                                className="text-white animate-spin"
                                             />
                                         ) : isListening ? (
                                             <FiMic
-                                                size={25}
-                                                className="animate-pulse"
+                                                size={
+                                                    25
+                                                }
+                                                className="text-white animate-pulse"
                                             />
                                         ) : (
                                             <FiUserCheck
-                                                size={26}
+                                                size={
+                                                    27
+                                                }
+                                                className={`text-white ${
+                                                    isSpeaking
+                                                        ? "animate-pulse"
+                                                        : ""
+                                                }`}
                                             />
                                         )}
 
                                     </div>
 
-                                    <span
-                                        className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-[3px] border-[#080610] ${
-                                            isListening
-                                                ? "bg-red-400"
-                                                : isAnalyzing
-                                                    ? "bg-purple-400 animate-pulse"
-                                                    : "bg-emerald-400"
-                                        }`}
-                                    />
+                                    {/* Online dot */}
+
+                                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-[3px] border-[#090711] shadow-[0_0_15px_rgba(52,211,153,0.8)]" />
 
                                 </div>
 
                                 <div>
 
-                                    <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-2.5">
 
-                                        <h3 className="text-white font-black tracking-tight text-lg md:text-xl">
+                                        <h3 className="text-xl md:text-2xl text-white font-black tracking-tight">
                                             Metria
                                         </h3>
 
                                         <span
-                                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] md:text-[10px] font-black uppercase tracking-[0.18em] ${
-                                                isListening
-                                                    ? "bg-red-500/10 text-red-300 border-red-500/25"
-                                                    : isSpeaking
-                                                        ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25"
-                                                        : isAnalyzing
-                                                            ? "bg-purple-500/10 text-purple-300 border-purple-500/25"
-                                                            : "bg-emerald-500/10 text-emerald-300 border-emerald-500/25"
+                                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                                                isSpeaking
+                                                    ? "bg-purple-500/15 border-purple-400/40 text-purple-200"
+                                                    : isAnalyzing
+                                                      ? "bg-indigo-500/15 border-indigo-400/30 text-indigo-300"
+                                                      : isListening
+                                                        ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
+                                                        : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                                             }`}
                                         >
 
                                             <span
                                                 className={`w-1.5 h-1.5 rounded-full ${
-                                                    isAnalyzing ||
-                                                    isSpeaking ||
-                                                    isListening
-                                                        ? "animate-pulse"
-                                                        : ""
-                                                } ${
-                                                    isListening
-                                                        ? "bg-red-400"
-                                                        : isSpeaking
-                                                            ? "bg-emerald-400"
-                                                            : isAnalyzing
-                                                                ? "bg-purple-400"
-                                                                : "bg-emerald-400"
+                                                    isSpeaking
+                                                        ? "bg-purple-300 animate-pulse"
+                                                        : isAnalyzing
+                                                          ? "bg-indigo-300 animate-pulse"
+                                                          : isListening
+                                                            ? "bg-emerald-300 animate-pulse"
+                                                            : "bg-emerald-400"
                                                 }`}
                                             />
 
                                             {
-                                                presenceState.label
+                                                stateLabel
                                             }
 
                                         </span>
@@ -1225,15 +1101,20 @@ export const MetriaFollowUp = ({
                                     <div className="flex items-center gap-2 mt-1.5">
 
                                         <FiActivity
-                                            size={11}
+                                            size={
+                                                11
+                                            }
                                             className={
-                                                presenceColorClass
+                                                isSpeaking ||
+                                                isAnalyzing
+                                                    ? "text-purple-400 animate-pulse"
+                                                    : "text-slate-600"
                                             }
                                         />
 
                                         <p className="text-[11px] md:text-xs text-slate-400">
                                             {
-                                                presenceState.subLabel
+                                                stateSubtext
                                             }
                                         </p>
 
@@ -1243,92 +1124,73 @@ export const MetriaFollowUp = ({
 
                             </div>
 
-                            {/* ===================================== */}
-                            {/* VOICE WAVE / CONTROLS                 */}
-                            {/* ===================================== */}
+                            {/* CONTROLS */}
 
-                            <div className="flex flex-wrap items-center gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2">
 
-                                {/* Large speaking waveform */}
+                                {/* DATA CONTEXT */}
 
-                                {isSpeaking && (
-                                    <div className="hidden md:flex items-center gap-1 h-10 px-4 rounded-2xl bg-emerald-500/[0.07] border border-emerald-500/20">
+                                <div className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.025] border border-white/[0.07]">
 
-                                        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300 mr-2">
-                                            Speaking
-                                        </span>
+                                    <FiZap
+                                        size={
+                                            12
+                                        }
+                                        className="text-purple-400"
+                                    />
 
-                                        {[
-                                            8,
-                                            16,
-                                            24,
-                                            13,
-                                            28,
-                                            18,
-                                            9,
-                                            22,
-                                            14,
-                                            26,
-                                            11,
-                                            19
-                                        ].map(
-                                            (
-                                                height,
-                                                index
-                                            ) => (
-                                                <div
-                                                    key={
-                                                        index
-                                                    }
-                                                    className="w-[3px] rounded-full bg-emerald-400 animate-pulse"
-                                                    style={{
-                                                        height:
-                                                            `${height}px`,
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.14em]">
+                                        {
+                                            datasetsInContext.length
+                                        }{" "}
+                                        Source
+                                        {datasetsInContext.length ===
+                                        1
+                                            ? ""
+                                            : "s"}{" "}
+                                        Connected
+                                    </span>
 
-                                                        animationDelay:
-                                                            `${
-                                                                index *
-                                                                70
-                                                            }ms`
-                                                    }}
-                                                />
-                                            )
-                                        )}
+                                </div>
 
-                                    </div>
-                                )}
-
-                                {/* History */}
+                                {/* HISTORY */}
 
                                 <div className="relative">
 
                                     <button
                                         onClick={() =>
                                             setShowHistoryDropdown(
-                                                !showHistoryDropdown
+                                                (
+                                                    prev
+                                                ) =>
+                                                    !prev
                                             )
                                         }
-                                        className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-purple-600/15 text-slate-400 hover:text-white transition-all flex items-center gap-2 text-xs"
+                                        className="p-2.5 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all flex items-center gap-2 text-xs"
                                     >
+
                                         <FiClock
-                                            size={14}
+                                            size={
+                                                14
+                                            }
                                         />
 
                                         <span className="hidden sm:inline">
                                             History
                                         </span>
+
                                     </button>
 
                                     {showHistoryDropdown && (
-                                        <div className="absolute right-0 top-full mt-3 w-80 bg-[#090712]/95 border border-purple-500/30 rounded-3xl p-4 shadow-2xl z-50 backdrop-blur-2xl">
+                                        <div className="absolute right-0 top-full mt-3 w-80 bg-[#090812]/95 border border-purple-500/30 rounded-2xl p-4 shadow-[0_30px_80px_rgba(0,0,0,0.7)] z-50 backdrop-blur-2xl">
 
-                                            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                                            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] mb-3">
 
                                                 <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
 
                                                     <FiClock className="text-purple-400" />
 
-                                                    Past Sessions
+                                                    Previous Conversations
 
                                                 </div>
 
@@ -1340,14 +1202,18 @@ export const MetriaFollowUp = ({
                                                     }
                                                     className="text-slate-500 hover:text-white"
                                                 >
+
                                                     <FiX
-                                                        size={15}
+                                                        size={
+                                                            15
+                                                        }
                                                     />
+
                                                 </button>
 
                                             </div>
 
-                                            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                                            <div className="space-y-1.5 max-h-64 overflow-y-auto">
 
                                                 {pastSessions.length >
                                                 0 ? (
@@ -1356,6 +1222,7 @@ export const MetriaFollowUp = ({
                                                             session
                                                         ) => (
                                                             <button
+                                                                type="button"
                                                                 key={
                                                                     session.id
                                                                 }
@@ -1364,7 +1231,7 @@ export const MetriaFollowUp = ({
                                                                         session.id
                                                                     )
                                                                 }
-                                                                className="w-full text-left p-3 rounded-xl hover:bg-purple-600/15 border border-transparent hover:border-purple-500/20 transition-all flex items-center gap-3"
+                                                                className="w-full text-left p-3 rounded-xl hover:bg-purple-600/10 border border-transparent hover:border-purple-500/20 transition-all flex items-center gap-3"
                                                             >
 
                                                                 <FiMessageSquare
@@ -1382,7 +1249,7 @@ export const MetriaFollowUp = ({
                                                                         }
                                                                     </p>
 
-                                                                    <p className="text-slate-600 text-[10px] mt-0.5">
+                                                                    <p className="text-slate-600 text-[9px] mt-0.5">
                                                                         {
                                                                             session.date
                                                                         }
@@ -1394,8 +1261,8 @@ export const MetriaFollowUp = ({
                                                         )
                                                     )
                                                 ) : (
-                                                    <div className="text-slate-600 text-xs italic text-center py-5">
-                                                        No conversations yet
+                                                    <div className="text-slate-600 text-xs text-center py-6">
+                                                        No previous conversations
                                                     </div>
                                                 )}
 
@@ -1406,36 +1273,33 @@ export const MetriaFollowUp = ({
 
                                 </div>
 
-                                {/* Voice Toggle */}
+                                {/* VOICE */}
 
                                 <button
                                     onClick={() => {
-                                        const nextState =
+                                        const next =
                                             !voiceEnabled;
 
                                         setVoiceEnabled(
-                                            nextState
+                                            next
                                         );
 
                                         if (
-                                            !nextState
+                                            !next
                                         ) {
                                             stopVoice();
-
-                                            setPendingAudioBase64(
-                                                null
-                                            );
-
-                                            setVoiceNeedsInteraction(
-                                                false
-                                            );
                                         }
                                     }}
-                                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border text-xs font-semibold transition-all ${
+                                    className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 text-xs ${
                                         voiceEnabled
-                                            ? "bg-purple-500/10 border-purple-400/30 text-purple-200 shadow-[0_0_25px_rgba(168,85,247,0.08)]"
-                                            : "bg-white/[0.04] border-white/10 text-slate-500"
+                                            ? "bg-purple-500/10 border-purple-400/30 text-purple-200 shadow-[0_0_20px_rgba(168,85,247,0.08)]"
+                                            : "bg-white/[0.035] border-white/10 text-slate-500"
                                     }`}
+                                    title={
+                                        voiceEnabled
+                                            ? "Metria voice enabled"
+                                            : "Enable Metria voice"
+                                    }
                                 >
 
                                     {voiceEnabled ? (
@@ -1443,7 +1307,11 @@ export const MetriaFollowUp = ({
                                             size={
                                                 14
                                             }
-                                            className="text-purple-300"
+                                            className={
+                                                isSpeaking
+                                                    ? "animate-pulse"
+                                                    : ""
+                                            }
                                         />
                                     ) : (
                                         <FiVolumeX
@@ -1453,22 +1321,26 @@ export const MetriaFollowUp = ({
                                         />
                                     )}
 
-                                    {voiceEnabled
-                                        ? "Voice On"
-                                        : "Voice Off"
-                                    }
+                                    <span className="hidden sm:inline">
+                                        {voiceEnabled
+                                            ? "Voice Active"
+                                            : "Voice Off"}
+                                    </span>
 
                                 </button>
 
-                                {/* Expand */}
+                                {/* EXPAND */}
 
                                 <button
                                     onClick={() =>
                                         setIsExpanded(
-                                            !isExpanded
+                                            (
+                                                prev
+                                            ) =>
+                                                !prev
                                         )
                                     }
-                                    className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] text-slate-400 hover:text-white transition-all"
+                                    className="p-2.5 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all"
                                 >
 
                                     {isExpanded ? (
@@ -1491,41 +1363,92 @@ export const MetriaFollowUp = ({
 
                         </div>
 
-                        {/* ========================================= */}
-                        {/* BROWSER AUTOPLAY FALLBACK                 */}
-                        {/* ========================================= */}
+                        {/* ================================================= */}
+                        {/* SPEAKING VISUALIZER                               */}
+                        {/* ================================================= */}
 
-                        {voiceEnabled &&
-                            voiceNeedsInteraction &&
-                            pendingAudioBase64 && (
-                            <button
-                                type="button"
-                                onClick={
-                                    handleManualVoiceStart
-                                }
-                                className="mt-5 w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[10px] font-black uppercase tracking-[0.22em] hover:bg-emerald-500/15 transition-all"
-                            >
+                        {(isSpeaking ||
+                            isAnalyzing ||
+                            isListening) && (
+                            <div className="flex items-center gap-4 py-4 px-1">
 
-                                <FiPlay
-                                    size={
-                                        14
-                                    }
-                                />
+                                <span className="text-[9px] uppercase tracking-[0.25em] font-black text-slate-600 shrink-0">
+                                    {isSpeaking
+                                        ? "Voice Output"
+                                        : isListening
+                                          ? "Voice Input"
+                                          : "Neural Processing"}
+                                </span>
 
-                                Tap to hear Metria
+                                <div className="flex items-end gap-[3px] h-5 flex-1 overflow-hidden">
 
-                            </button>
+                                    {Array.from(
+                                        {
+                                            length:
+                                                42
+                                        }
+                                    ).map(
+                                        (
+                                            _,
+                                            index
+                                        ) => (
+                                            <span
+                                                key={
+                                                    index
+                                                }
+                                                className={`w-[3px] rounded-full ${
+                                                    isListening
+                                                        ? "bg-emerald-400"
+                                                        : isSpeaking
+                                                          ? "bg-purple-400"
+                                                          : "bg-indigo-400"
+                                                }`}
+                                                style={{
+                                                    height:
+                                                        `${
+                                                            20 +
+                                                            ((index *
+                                                                17) %
+                                                                75)
+                                                        }%`,
+
+                                                    opacity:
+                                                        0.3 +
+                                                        ((index %
+                                                            6) /
+                                                            10),
+
+                                                    animation:
+                                                        `metriaWave ${
+                                                            0.65 +
+                                                            (index %
+                                                                5) *
+                                                                0.08
+                                                        }s ease-in-out infinite alternate`,
+
+                                                    animationDelay:
+                                                        `${(index %
+                                                            9) *
+                                                            0.04}s`
+                                                }}
+                                            />
+                                        )
+                                    )}
+
+                                </div>
+
+                            </div>
                         )}
 
-                        {/* ========================================= */}
-                        {/* CONVERSATION                              */}
-                        {/* ========================================= */}
+                        {/* ================================================= */}
+                        {/* CONVERSATION                                      */}
+                        {/* ================================================= */}
 
                         <div
-                            className={`relative mt-6 space-y-5 overflow-y-auto pr-1 md:pr-2 flex-1 scrollbar-thin scrollbar-thumb-purple-500/20 ${
+                            className={`relative flex-1 overflow-y-auto pr-1 py-5 space-y-5 scrollbar-thin scrollbar-thumb-purple-500/20 ${
                                 isExpanded
-                                    ? "max-h-[calc(100vh-265px)]"
-                                    : "max-h-[620px]"
+                                    ? "min-h-[50vh] max-h-[calc(100vh-285px)]"
+                                    : "min-h-[220px] max-h-[520px]"
                             }`}
                         >
 
@@ -1538,6 +1461,12 @@ export const MetriaFollowUp = ({
                                         msg.sender ===
                                         "user";
 
+                                    const isLastMetria =
+                                        !isUser &&
+                                        idx ===
+                                            messages.length -
+                                                1;
+
                                     return (
                                         <div
                                             key={
@@ -1547,36 +1476,82 @@ export const MetriaFollowUp = ({
                                                 isUser
                                                     ? "justify-end"
                                                     : "justify-start"
-                                            }`}
+                                            } animate-in fade-in slide-in-from-bottom-2 duration-500`}
                                         >
 
                                             <div
-                                                className={`relative max-w-[94%] md:max-w-[82%] ${
+                                                className={`relative max-w-[92%] md:max-w-[82%] ${
                                                     isUser
                                                         ? ""
-                                                        : "pl-0"
+                                                        : "flex gap-3"
                                                 }`}
                                             >
 
                                                 {!isUser && (
-                                                    <div className="flex items-center gap-2 mb-2 ml-1">
+                                                    <div
+                                                        className={`mt-1 shrink-0 w-8 h-8 rounded-xl flex items-center justify-center border transition-all ${
+                                                            isLastMetria &&
+                                                            isSpeaking
+                                                                ? "bg-purple-500/20 border-purple-400/40 shadow-[0_0_20px_rgba(168,85,247,0.25)]"
+                                                                : "bg-purple-500/[0.07] border-purple-500/20"
+                                                        }`}
+                                                    >
 
-                                                        <div className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_12px_rgba(192,132,252,0.8)]" />
-
-                                                        <span className="text-[9px] uppercase font-black tracking-[0.22em] text-purple-300">
-                                                            Metria
-                                                        </span>
+                                                        <FiCpu
+                                                            size={
+                                                                14
+                                                            }
+                                                            className={`text-purple-400 ${
+                                                                isLastMetria &&
+                                                                isSpeaking
+                                                                    ? "animate-pulse"
+                                                                    : ""
+                                                            }`}
+                                                        />
 
                                                     </div>
                                                 )}
 
                                                 <div
-                                                    className={`p-5 md:p-6 rounded-[1.7rem] transition-all ${
+                                                    className={`p-5 md:p-6 rounded-2xl ${
                                                         isUser
-                                                            ? "bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white rounded-br-md shadow-[0_12px_40px_rgba(147,51,234,0.18)]"
-                                                            : "bg-white/[0.035] border border-white/[0.09] text-slate-100 rounded-bl-md backdrop-blur-xl shadow-[0_12px_50px_rgba(0,0,0,0.18)]"
+                                                            ? "bg-gradient-to-br from-purple-600 to-fuchsia-700 text-white rounded-br-md shadow-[0_15px_40px_rgba(126,34,206,0.2)]"
+                                                            : "bg-white/[0.035] border border-white/[0.09] text-slate-100 rounded-bl-md backdrop-blur-xl"
                                                     }`}
                                                 >
+
+                                                    <div className="flex items-center gap-2 mb-2">
+
+                                                        <span
+                                                            className={`text-[9px] uppercase font-black tracking-[0.18em] ${
+                                                                isUser
+                                                                    ? "text-purple-100/70"
+                                                                    : "text-purple-400"
+                                                            }`}
+                                                        >
+                                                            {isUser
+                                                                ? "You"
+                                                                : isLastMetria &&
+                                                                    isSpeaking
+                                                                  ? "Metria • Speaking"
+                                                                  : "Metria • Analyst"}
+                                                        </span>
+
+                                                        {!isUser &&
+                                                            isLastMetria &&
+                                                            isSpeaking && (
+                                                                <span className="flex items-end gap-[2px] h-3">
+
+                                                                    <span className="w-[2px] h-1 bg-purple-400 animate-bounce" />
+
+                                                                    <span className="w-[2px] h-3 bg-fuchsia-400 animate-bounce [animation-delay:100ms]" />
+
+                                                                    <span className="w-[2px] h-2 bg-purple-400 animate-bounce [animation-delay:200ms]" />
+
+                                                                </span>
+                                                            )}
+
+                                                    </div>
 
                                                     {formatMessageText(
                                                         msg.text,
@@ -1592,83 +1567,41 @@ export const MetriaFollowUp = ({
                                 }
                             )}
 
-                            {/* ===================================== */}
-                            {/* METRIA THINKING                       */}
-                            {/* ===================================== */}
+                            {/* THINKING STATE */}
 
                             {isAnalyzing && (
-                                <div className="flex justify-start">
+                                <div className="flex justify-start animate-in fade-in duration-300">
 
-                                    <div className="relative max-w-lg">
+                                    <div className="flex gap-3">
 
-                                        <div className="flex items-center gap-2 mb-2 ml-1">
+                                        <div className="mt-1 w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-400/20 flex items-center justify-center">
 
-                                            <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse shadow-[0_0_12px_rgba(192,132,252,0.8)]" />
-
-                                            <span className="text-[9px] uppercase font-black tracking-[0.22em] text-purple-300">
-                                                Metria
-                                            </span>
+                                            <FiCpu
+                                                size={
+                                                    14
+                                                }
+                                                className="text-indigo-400 animate-spin"
+                                            />
 
                                         </div>
 
-                                        <div className="relative overflow-hidden bg-purple-500/[0.055] border border-purple-400/15 rounded-[1.7rem] rounded-bl-md px-5 py-4">
+                                        <div className="bg-white/[0.025] border border-white/[0.08] px-5 py-4 rounded-2xl rounded-bl-md">
 
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/[0.08] to-transparent animate-pulse" />
+                                            <div className="flex items-center gap-3">
 
-                                            <div className="relative flex items-center gap-4">
+                                                <div className="flex items-center gap-1">
 
-                                                <div className="relative">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" />
 
-                                                    <div className="absolute inset-0 bg-purple-500/30 blur-lg rounded-full animate-pulse" />
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce [animation-delay:120ms]" />
 
-                                                    <FiCpu
-                                                        size={
-                                                            20
-                                                        }
-                                                        className="relative text-purple-300 animate-spin"
-                                                    />
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce [animation-delay:240ms]" />
 
                                                 </div>
 
-                                                <div>
-
-                                                    <p className="text-sm font-semibold text-white">
-                                                        I'm working through it.
-                                                    </p>
-
-                                                    <p className="text-[10px] text-white/35 mt-1">
-                                                        {
-                                                            isMultiDataset
-                                                                ? `Connecting signals across ${datasetsInContext.length} sources...`
-                                                                : "Testing the data against your question..."
-                                                        }
-                                                    </p>
-
-                                                </div>
-
-                                                <div className="flex gap-1 ml-2">
-
-                                                    {[0, 1, 2].map(
-                                                        (
-                                                            dot
-                                                        ) => (
-                                                            <span
-                                                                key={
-                                                                    dot
-                                                                }
-                                                                className="w-1.5 h-1.5 rounded-full bg-purple-300 animate-bounce"
-                                                                style={{
-                                                                    animationDelay:
-                                                                        `${
-                                                                            dot *
-                                                                            150
-                                                                        }ms`
-                                                                }}
-                                                            />
-                                                        )
-                                                    )}
-
-                                                </div>
+                                                <span className="text-[10px] text-slate-400 uppercase tracking-[0.16em] font-bold">
+                                                    Working through the evidence
+                                                </span>
 
                                             </div>
 
@@ -1687,11 +1620,11 @@ export const MetriaFollowUp = ({
 
                         </div>
 
-                        {/* ========================================= */}
-                        {/* PROMPT STARTERS                           */}
-                        {/* ========================================= */}
+                        {/* ================================================= */}
+                        {/* SUGGESTED QUESTIONS                               */}
+                        {/* ================================================= */}
 
-                        <div className="pt-5 mt-auto border-t border-white/[0.06]">
+                        <div className="pt-4 border-t border-white/[0.06]">
 
                             <div className="flex items-center gap-2 mb-3">
 
@@ -1702,8 +1635,8 @@ export const MetriaFollowUp = ({
                                     className="text-purple-400"
                                 />
 
-                                <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">
-                                    Ask Metria
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                    Ask a follow-up
                                 </span>
 
                             </div>
@@ -1728,7 +1661,7 @@ export const MetriaFollowUp = ({
                                                     promptText
                                                 )
                                             }
-                                            className="bg-white/[0.035] hover:bg-purple-600/15 border border-white/[0.08] hover:border-purple-400/25 text-slate-400 hover:text-white px-3.5 py-2 rounded-xl text-[10px] md:text-xs font-medium transition-all disabled:opacity-40"
+                                            className="bg-white/[0.035] hover:bg-purple-500/10 border border-white/[0.08] hover:border-purple-400/30 text-slate-400 hover:text-white px-4 py-2 rounded-xl text-[10px] font-medium transition-all disabled:opacity-40"
                                         >
                                             {
                                                 promptText
@@ -1739,9 +1672,9 @@ export const MetriaFollowUp = ({
 
                             </div>
 
-                            {/* ===================================== */}
-                            {/* MAIN COMMAND BAR                     */}
-                            {/* ===================================== */}
+                            {/* ================================================= */}
+                            {/* COMMAND BAR                                       */}
+                            {/* ================================================= */}
 
                             <form
                                 onSubmit={(
@@ -1755,20 +1688,39 @@ export const MetriaFollowUp = ({
                             >
 
                                 <div
-                                    className={`relative flex items-center rounded-[1.4rem] border transition-all duration-300 ${
+                                    className={`relative flex items-center rounded-2xl border bg-black/50 transition-all duration-500 ${
                                         isListening
-                                            ? "border-red-400/60 shadow-[0_0_35px_rgba(239,68,68,0.12)] bg-red-500/[0.025]"
-                                            : "border-white/[0.12] focus-within:border-purple-400/40 focus-within:shadow-[0_0_35px_rgba(168,85,247,0.10)] bg-black/55"
+                                            ? "border-emerald-400/60 shadow-[0_0_30px_rgba(52,211,153,0.12)]"
+                                            : isAnalyzing
+                                              ? "border-indigo-400/30"
+                                              : "border-white/10 focus-within:border-purple-400/50 focus-within:shadow-[0_0_30px_rgba(168,85,247,0.08)]"
                                     }`}
                                 >
 
-                                    <div className="hidden md:flex items-center pl-5 text-purple-400">
+                                    {/* INPUT STATE */}
 
-                                        <FiActivity
-                                            size={
-                                                16
-                                            }
-                                        />
+                                    <div className="pl-5 shrink-0">
+
+                                        {isListening ? (
+                                            <span className="relative flex h-2.5 w-2.5">
+
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+
+                                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+
+                                            </span>
+                                        ) : (
+                                            <FiActivity
+                                                size={
+                                                    14
+                                                }
+                                                className={`${
+                                                    isAnalyzing
+                                                        ? "text-indigo-400 animate-pulse"
+                                                        : "text-purple-500"
+                                                }`}
+                                            />
+                                        )}
 
                                     </div>
 
@@ -1791,79 +1743,92 @@ export const MetriaFollowUp = ({
                                             isListening
                                                 ? "I'm listening..."
                                                 : isAnalyzing
-                                                    ? "Metria is thinking..."
-                                                    : isMultiDataset
-                                                        ? `Ask anything across your ${datasetsInContext.length} data sources...`
-                                                        : `Ask Metria anything about ${primaryDataset?.name || "your data"}...`
+                                                  ? "Metria is working on your question..."
+                                                  : isMultiDataset
+                                                    ? `Ask Metria anything about these ${datasetsInContext.length} sources...`
+                                                    : `Ask Metria anything about ${primaryDataset?.name || "your data"}...`
                                         }
-                                        className="w-full bg-transparent px-4 md:px-5 py-4 md:py-5 pr-28 text-sm text-white focus:outline-none placeholder:text-slate-600 disabled:opacity-60"
+                                        className="flex-1 min-w-0 bg-transparent px-4 py-5 text-sm text-white focus:outline-none placeholder:text-slate-600 disabled:cursor-wait"
                                     />
 
-                                    <div className="absolute right-2 flex items-center gap-2">
+                                    {/* MIC */}
 
-                                        <button
-                                            type="button"
-                                            onClick={
-                                                toggleVoiceListener
-                                            }
-                                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                                                isListening
-                                                    ? "bg-red-500 text-white shadow-[0_0_25px_rgba(239,68,68,0.3)]"
-                                                    : "bg-white/[0.05] text-slate-400 hover:text-white hover:bg-white/[0.09]"
-                                            }`}
-                                            title="Speak to Metria"
-                                        >
+                                    <button
+                                        type="button"
+                                        onClick={
+                                            toggleVoiceListener
+                                        }
+                                        disabled={
+                                            isAnalyzing
+                                        }
+                                        className={`m-2 p-3 rounded-xl transition-all ${
+                                            isListening
+                                                ? "bg-emerald-500 text-black shadow-[0_0_25px_rgba(52,211,153,0.35)]"
+                                                : "bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                                        } disabled:opacity-30`}
+                                        title={
+                                            isListening
+                                                ? "Stop listening"
+                                                : "Talk to Metria"
+                                        }
+                                    >
 
-                                            {isListening ? (
-                                                <FiMicOff
-                                                    size={
-                                                        16
-                                                    }
-                                                />
-                                            ) : (
-                                                <FiMic
-                                                    size={
-                                                        16
-                                                    }
-                                                />
-                                            )}
-
-                                        </button>
-
-                                        <button
-                                            type="submit"
-                                            disabled={
-                                                isAnalyzing ||
-                                                !inputQuery.trim()
-                                            }
-                                            className={`w-11 h-10 rounded-xl flex items-center justify-center transition-all ${
-                                                isAnalyzing ||
-                                                !inputQuery.trim()
-                                                    ? "bg-purple-600/25 text-purple-300/40 cursor-not-allowed"
-                                                    : "bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white shadow-[0_8px_25px_rgba(168,85,247,0.28)] hover:scale-[1.04] active:scale-95"
-                                            }`}
-                                        >
-
-                                            <FiSend
+                                        {isListening ? (
+                                            <FiMicOff
                                                 size={
-                                                    16
+                                                    17
                                                 }
                                             />
+                                        ) : (
+                                            <FiMic
+                                                size={
+                                                    17
+                                                }
+                                            />
+                                        )}
 
-                                        </button>
+                                    </button>
 
-                                    </div>
+                                    {/* SEND */}
+
+                                    <button
+                                        type="submit"
+                                        disabled={
+                                            isAnalyzing ||
+                                            !inputQuery.trim()
+                                        }
+                                        className={`m-2 ml-0 h-12 px-5 rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-[0.16em] transition-all ${
+                                            !isAnalyzing &&
+                                            inputQuery.trim()
+                                                ? "bg-white text-black hover:bg-purple-100 hover:scale-[1.02] shadow-[0_10px_30px_rgba(255,255,255,0.08)]"
+                                                : "bg-white/[0.06] text-slate-700 cursor-not-allowed"
+                                        }`}
+                                    >
+
+                                        <span className="hidden sm:inline">
+                                            Ask
+                                        </span>
+
+                                        <FiSend
+                                            size={
+                                                15
+                                            }
+                                        />
+
+                                    </button>
 
                                 </div>
 
-                                <div className="flex flex-wrap items-center justify-between gap-2 px-2 mt-2.5">
+                                {/* VOICE DEFAULT NOTICE */}
 
-                                    <p className="text-[9px] text-white/20">
-                                        Metria has access to the active analysis context.
-                                    </p>
+                                <div className="flex items-center justify-between gap-3 mt-2 px-2">
+
+                                    <span className="text-[9px] text-slate-700">
+                                        Metria can reason across the analysis and underlying source data.
+                                    </span>
 
                                     {voiceEnabled && (
-                                        <div className="flex items-center gap-1.5 text-[9px] text-purple-300/50">
+                                        <span className="flex items-center gap-1.5 text-[9px] text-purple-400/60 uppercase tracking-wider font-bold shrink-0">
 
                                             <FiVolume2
                                                 size={
@@ -1873,7 +1838,7 @@ export const MetriaFollowUp = ({
 
                                             Voice responses enabled
 
-                                        </div>
+                                        </span>
                                     )}
 
                                 </div>
@@ -1887,6 +1852,36 @@ export const MetriaFollowUp = ({
                 </div>
 
             </div>
+
+            {/* ==================================================== */}
+            {/* LOCAL ANIMATIONS                                     */}
+            {/* ==================================================== */}
+
+            <style>
+                {`
+                    @keyframes metriaWave {
+                        0% {
+                            transform: scaleY(0.35);
+                            opacity: 0.3;
+                        }
+
+                        100% {
+                            transform: scaleY(1);
+                            opacity: 1;
+                        }
+                    }
+
+                    @keyframes metriaScan {
+                        0% {
+                            transform: translateX(-150%);
+                        }
+
+                        100% {
+                            transform: translateX(450%);
+                        }
+                    }
+                `}
+            </style>
 
         </div>
     );
