@@ -1,10 +1,12 @@
 /**
  * components/Visualizer.js - PRODUCTION EXECUTIVE VERSION
- * Flow: AI Insights -> Dataset Identity -> Live Table -> Analytics
+ * Flow: AI Insights -> Interactive Metria Analyst -> Dataset Identity -> Live Table -> Analytics
  */
+
 import React, { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import { Line, Bar, Pie } from "react-chartjs-2";
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,6 +19,7 @@ import {
   Legend,
   Filler
 } from "chart.js";
+
 import {
   FiDownload,
   FiArrowUp,
@@ -31,14 +34,13 @@ import {
   FiTable,
   FiCpu,
   FiLayers,
-  FiActivity,
-  FiMessageCircle,
-  FiArrowRight,
-  FiZap
+  FiActivity
 } from "react-icons/fi";
+
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import AIAnalysisPanel from "./AIAnalysisPanel";
+import { MetriaFollowUp } from "./MetriaFollowUp";
 
 const API_BASE_URL =
   "https://ai-data-analyst-backend-1nuw.onrender.com";
@@ -65,25 +67,45 @@ const COLORS = [
 ];
 
 const toNumber = (v) => {
-  if (v === null || v === undefined || v === "") return null;
-  if (typeof v === "number") return v;
+  if (
+    v === null ||
+    v === undefined ||
+    v === ""
+  ) {
+    return null;
+  }
+
+  if (typeof v === "number") {
+    return v;
+  }
 
   const s = String(v).trim();
 
   if (
     s.includes("/") ||
-    (s.includes("-") && s.split("-").length > 2)
+    (
+      s.includes("-") &&
+      s.split("-").length > 2
+    )
   ) {
     return null;
   }
 
-  const cleaned = s.replace(/[^\d.-]/g, "");
+  const cleaned =
+    s.replace(/[^\d.-]/g, "");
 
-  if (cleaned === "" || cleaned === ".") return null;
+  if (
+    cleaned === "" ||
+    cleaned === "."
+  ) {
+    return null;
+  }
 
   const n = Number(cleaned);
 
-  return isNaN(n) ? null : n;
+  return isNaN(n)
+    ? null
+    : n;
 };
 
 const chartOptions = {
@@ -101,14 +123,17 @@ const chartOptions = {
       cornerRadius: 12,
       borderColor: "#27272a",
       borderWidth: 1,
+
       titleFont: {
         size: 11,
         weight: "bold"
       },
+
       bodyFont: {
         size: 10,
         family: "monospace"
       },
+
       displayColors: true,
       boxPadding: 6
     }
@@ -117,17 +142,21 @@ const chartOptions = {
   scales: {
     y: {
       grid: {
-        color: "rgba(255,255,255,0.03)",
+        color:
+          "rgba(255,255,255,0.03)",
+
         drawBorder: false
       },
 
       ticks: {
         color: "#71717a",
+
         font: {
           size: 9,
           weight: "bold",
           family: "monospace"
         },
+
         padding: 8
       }
     },
@@ -139,11 +168,13 @@ const chartOptions = {
 
       ticks: {
         color: "#a1a1aa",
+
         font: {
           size: 9,
           weight: "600",
           family: "sans-serif"
         },
+
         autoSkip: false,
         maxRotation: 45,
         minRotation: 25,
@@ -167,75 +198,139 @@ export const Visualizer = ({
   activeDatasetIndex = 0,
   setActiveDatasetIndex,
   crossAnalysis = null,
-  setCrossAnalysis
+  setCrossAnalysis,
+
+  // Parent controls when the actual interactive analyst
+  // is allowed to appear.
+  interactiveAnalystReady = false
 }) => {
-  const [readyStates, setReadyStates] = useState({});
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const [flash, setFlash] = useState(false);
-  const [localChartTypes, setLocalChartTypes] = useState({});
-  const [expandedChart, setExpandedChart] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [
+    readyStates,
+    setReadyStates
+  ] = useState({});
+
+  const [
+    showScrollTop,
+    setShowScrollTop
+  ] = useState(false);
+
+  const [
+    flash,
+    setFlash
+  ] = useState(false);
+
+  const [
+    localChartTypes,
+    setLocalChartTypes
+  ] = useState({});
+
+  const [
+    expandedChart,
+    setExpandedChart
+  ] = useState(null);
+
+  const [
+    refreshKey,
+    setRefreshKey
+  ] = useState(0);
 
   // ------------------------------------------------------------
   // INDIVIDUAL ANALYSIS TARGET
   // ------------------------------------------------------------
-  const [selectedDatasetId, setSelectedDatasetId] = useState(
-    activeDatasets[activeDatasetIndex]?.id ||
+
+  const [
+    selectedDatasetId,
+    setSelectedDatasetId
+  ] = useState(
+    activeDatasets[
+      activeDatasetIndex
+    ]?.id ||
       activeDatasets[0]?.id ||
       null
   );
 
   const effectiveAuthToken =
-    authToken || localStorage.getItem("adt_token");
+    authToken ||
+    localStorage.getItem(
+      "adt_token"
+    );
 
   // ------------------------------------------------------------
   // SCROLL LISTENER
   // ------------------------------------------------------------
+
   useEffect(() => {
     const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 800);
+      setShowScrollTop(
+        window.scrollY > 800
+      );
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener(
+      "scroll",
+      handleScroll
+    );
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener(
+        "scroll",
+        handleScroll
+      );
     };
   }, []);
 
   // ------------------------------------------------------------
   // RESTORE READY STATES FROM DATASET AI STORAGE
   // ------------------------------------------------------------
+
   useEffect(() => {
     const updatedReady = {};
 
-    activeDatasets.forEach((ds) => {
-      if (ds.aiStorage) {
-        updatedReady[ds.id] = true;
+    activeDatasets.forEach(
+      (ds) => {
+        if (ds.aiStorage) {
+          updatedReady[
+            ds.id
+          ] = true;
+        }
       }
-    });
+    );
 
-    setReadyStates(updatedReady);
+    setReadyStates(
+      updatedReady
+    );
   }, [activeDatasets]);
 
   // ------------------------------------------------------------
   // KEEP SELECTED DATASET SYNCED WITH PARENT
   // ------------------------------------------------------------
+
   useEffect(() => {
-    if (activeDatasets.length === 0) {
-      setSelectedDatasetId(null);
+    if (
+      activeDatasets.length ===
+      0
+    ) {
+      setSelectedDatasetId(
+        null
+      );
+
       return;
     }
 
     const parentSelectedDataset =
-      activeDatasets[activeDatasetIndex] ||
+      activeDatasets[
+        activeDatasetIndex
+      ] ||
       activeDatasets[0];
 
     if (
       parentSelectedDataset &&
-      parentSelectedDataset.id !== selectedDatasetId
+      parentSelectedDataset.id !==
+        selectedDatasetId
     ) {
-      setSelectedDatasetId(parentSelectedDataset.id);
+      setSelectedDatasetId(
+        parentSelectedDataset.id
+      );
     }
   }, [
     activeDatasets,
@@ -246,33 +341,58 @@ export const Visualizer = ({
   // ------------------------------------------------------------
   // HANDLE INDIVIDUAL DATASET SELECTION
   // ------------------------------------------------------------
-  const handleSelectedDatasetChange = (datasetId) => {
-    setSelectedDatasetId(datasetId);
 
-    const index = activeDatasets.findIndex(
-      (dataset) => dataset.id === datasetId
-    );
+  const handleSelectedDatasetChange =
+    (datasetId) => {
+      setSelectedDatasetId(
+        datasetId
+      );
 
-    if (
-      index !== -1 &&
-      typeof setActiveDatasetIndex === "function"
-    ) {
-      setActiveDatasetIndex(index);
-    }
-  };
+      const index =
+        activeDatasets.findIndex(
+          (dataset) =>
+            dataset.id ===
+            datasetId
+        );
+
+      if (
+        index !== -1 &&
+        typeof setActiveDatasetIndex ===
+          "function"
+      ) {
+        setActiveDatasetIndex(
+          index
+        );
+      }
+    };
 
   // ------------------------------------------------------------
   // FALL BACK TO INDIVIDUAL MODE WHEN ONLY ONE SOURCE REMAINS
   // ------------------------------------------------------------
+
   useEffect(() => {
-    if (activeDatasets.length < 2) {
-      if (typeof setAnalysisMode === "function") {
-        setAnalysisMode("individual");
+    if (
+      activeDatasets.length < 2
+    ) {
+      if (
+        typeof setAnalysisMode ===
+        "function"
+      ) {
+        setAnalysisMode(
+          "individual"
+        );
       }
 
-      // Keep the existing cross analysis cached.
-      // If the same dataset is selected again,
-      // the previous cross analysis can be reused.
+      /*
+       * IMPORTANT:
+       *
+       * Do not clear crossAnalysis here.
+       *
+       * Temporarily setting one dataset to Standby should not
+       * destroy a previously completed cross analysis.
+       *
+       * Analytics.jsx owns persistence of the cached result.
+       */
     }
   }, [
     activeDatasets.length,
@@ -282,77 +402,112 @@ export const Visualizer = ({
   // ------------------------------------------------------------
   // AI UPDATE HANDLER
   // ------------------------------------------------------------
-  const handleAIComplete = (id, aiData) => {
-    setReadyStates((prev) => ({
-      ...prev,
-      [id]: true
-    }));
+
+  const handleAIComplete = (
+    id,
+    aiData
+  ) => {
+    setReadyStates(
+      (prev) => ({
+        ...prev,
+        [id]: true
+      })
+    );
 
     if (onAIUpdate) {
-      onAIUpdate(id, aiData);
+      onAIUpdate(
+        id,
+        aiData
+      );
     }
   };
 
   const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
+    setRefreshKey(
+      (prev) =>
+        prev + 1
+    );
   };
 
   const toggleLocalChartType = (
     datasetId,
     colName
   ) => {
-    const key = `${datasetId}-${colName}`;
+    const key =
+      `${datasetId}-${colName}`;
 
-    setLocalChartTypes((prev) => ({
-      ...prev,
-      [key]:
-        prev[key] === "bar"
-          ? "line"
-          : "bar"
-    }));
+    setLocalChartTypes(
+      (prev) => ({
+        ...prev,
+
+        [key]:
+          prev[key] ===
+          "bar"
+            ? "line"
+            : "bar"
+      })
+    );
   };
 
   // ------------------------------------------------------------
   // PDF EXPORT
   // ------------------------------------------------------------
-  const handleExport = async (id, name) => {
+
+  const handleExport = async (
+    id,
+    name
+  ) => {
     setFlash(true);
 
-    setTimeout(() => {
-      setFlash(false);
-    }, 150);
+    setTimeout(
+      () => {
+        setFlash(false);
+      },
+      150
+    );
 
     const element =
       document.getElementById(
         `report-${id}`
       );
 
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
-    const canvas = await html2canvas(
-      element,
-      {
-        scale: 2,
-        backgroundColor: "#000000",
-        logging: false,
-        useCORS: true
-      }
-    );
+    const canvas =
+      await html2canvas(
+        element,
+        {
+          scale: 2,
+          backgroundColor:
+            "#000000",
+          logging: false,
+          useCORS: true
+        }
+      );
 
-    const pdf = new jsPDF(
-      "p",
-      "mm",
-      "a4"
-    );
+    const pdf =
+      new jsPDF(
+        "p",
+        "mm",
+        "a4"
+      );
 
-    const imgWidth = 210;
+    const imgWidth =
+      210;
 
     const imgHeight =
-      (canvas.height * imgWidth) /
+      (
+        canvas.height *
+        imgWidth
+      ) /
       canvas.width;
 
     pdf.addImage(
-      canvas.toDataURL("image/png"),
+      canvas.toDataURL(
+        "image/png"
+      ),
       "PNG",
       0,
       0,
@@ -368,486 +523,642 @@ export const Visualizer = ({
   // ------------------------------------------------------------
   // PARSE DATASETS FOR VISUALIZATION ONLY
   // ------------------------------------------------------------
-  const parsed = useMemo(() => {
-    return activeDatasets.map((ds) => {
-      const columns = Array.isArray(
-        ds.data?.[0]
-      )
-        ? ds.data[0]
-        : Object.keys(
-            ds.data?.[0] || {}
-          );
 
-      const rows = Array.isArray(
-        ds.data?.[0]
-      )
-        ? ds.data
-            .slice(1)
-            .map((r) =>
-              Object.fromEntries(
-                columns.map(
-                  (c, i) => [
-                    c,
-                    r[i]
-                  ]
-                )
-              )
+  const parsed =
+    useMemo(() => {
+      return activeDatasets.map(
+        (ds) => {
+          const columns =
+            Array.isArray(
+              ds.data?.[0]
             )
-        : ds.data || [];
+              ? ds.data[0]
+              : Object.keys(
+                  ds.data?.[0] ||
+                    {}
+                );
 
-      // --------------------------------------------------------
-      // SMART LABEL SELECTION
-      // --------------------------------------------------------
-      const labelCol =
-        columns.find((col) => {
-          const cLower =
-            String(col).toLowerCase();
+          const rows =
+            Array.isArray(
+              ds.data?.[0]
+            )
+              ? ds.data
+                  .slice(1)
+                  .map(
+                    (r) =>
+                      Object.fromEntries(
+                        columns.map(
+                          (
+                            c,
+                            i
+                          ) => [
+                            c,
+                            r[i]
+                          ]
+                        )
+                      )
+                  )
+              : ds.data ||
+                [];
 
-          if (
-            cLower.includes("value") ||
-            cLower.includes("amount") ||
-            cLower.includes("price") ||
-            cLower.includes("cost") ||
-            cLower.includes("total") ||
-            cLower.includes("revenue")
-          ) {
-            return false;
-          }
+          // --------------------------------------------------------
+          // SMART LABEL SELECTION
+          // --------------------------------------------------------
 
-          return (
-            cLower.includes("name") ||
-            cLower.includes("product") ||
-            cLower.includes("item") ||
-            cLower.includes("deal") ||
-            cLower.includes("client") ||
-            cLower.includes("company") ||
-            cLower.includes("rep") ||
-            cLower.includes("title") ||
-            cLower.includes("id")
-          );
-        }) ||
-        columns.find((col) => {
-          const cLower =
-            String(col).toLowerCase();
+          const labelCol =
+            columns.find(
+              (col) => {
+                const cLower =
+                  String(
+                    col
+                  ).toLowerCase();
 
-          return (
-            cLower.includes("date") ||
-            cLower.includes("time")
-          );
-        }) ||
-        columns[0];
+                if (
+                  cLower.includes(
+                    "value"
+                  ) ||
+                  cLower.includes(
+                    "amount"
+                  ) ||
+                  cLower.includes(
+                    "price"
+                  ) ||
+                  cLower.includes(
+                    "cost"
+                  ) ||
+                  cLower.includes(
+                    "total"
+                  ) ||
+                  cLower.includes(
+                    "revenue"
+                  )
+                ) {
+                  return false;
+                }
 
-      const labelColName =
-        labelCol
-          ? String(labelCol)
-          : "";
-
-      const isDateLabel =
-        labelColName
-          .toLowerCase()
-          .includes("date") ||
-        labelColName
-          .toLowerCase()
-          .includes("time");
-
-      // --------------------------------------------------------
-      // COLUMN ANALYSIS
-      // --------------------------------------------------------
-      const analysis =
-        columns.map((col) => {
-          const chartValues =
-            rows.map((r) =>
-              toNumber(r[col])
-            );
-
-          const numeric =
-            chartValues.filter(
-              (v) => v !== null
-            );
-
-          const colName =
-            String(col).toLowerCase();
-
-          const isDateCol =
-            colName.includes(
-              "date"
+                return (
+                  cLower.includes(
+                    "name"
+                  ) ||
+                  cLower.includes(
+                    "product"
+                  ) ||
+                  cLower.includes(
+                    "item"
+                  ) ||
+                  cLower.includes(
+                    "deal"
+                  ) ||
+                  cLower.includes(
+                    "client"
+                  ) ||
+                  cLower.includes(
+                    "company"
+                  ) ||
+                  cLower.includes(
+                    "rep"
+                  ) ||
+                  cLower.includes(
+                    "title"
+                  ) ||
+                  cLower.includes(
+                    "id"
+                  )
+                );
+              }
             ) ||
-            colName.includes(
-              "time"
+            columns.find(
+              (col) => {
+                const cLower =
+                  String(
+                    col
+                  ).toLowerCase();
+
+                return (
+                  cLower.includes(
+                    "date"
+                  ) ||
+                  cLower.includes(
+                    "time"
+                  )
+                );
+              }
+            ) ||
+            columns[0];
+
+          const labelColName =
+            labelCol
+              ? String(
+                  labelCol
+                )
+              : "";
+
+          const isDateLabel =
+            labelColName
+              .toLowerCase()
+              .includes(
+                "date"
+              ) ||
+            labelColName
+              .toLowerCase()
+              .includes(
+                "time"
+              );
+
+          // --------------------------------------------------------
+          // COLUMN ANALYSIS
+          // --------------------------------------------------------
+
+          const analysis =
+            columns.map(
+              (col) => {
+                const chartValues =
+                  rows.map(
+                    (r) =>
+                      toNumber(
+                        r[col]
+                      )
+                  );
+
+                const numeric =
+                  chartValues.filter(
+                    (v) =>
+                      v !==
+                      null
+                  );
+
+                const colName =
+                  String(
+                    col
+                  ).toLowerCase();
+
+                const isDateCol =
+                  colName.includes(
+                    "date"
+                  ) ||
+                  colName.includes(
+                    "time"
+                  );
+
+                const isNumeric =
+                  numeric.length >
+                    0 &&
+                  col !==
+                    labelCol &&
+                  !isDateCol;
+
+                let stats =
+                  null;
+
+                if (
+                  isNumeric
+                ) {
+                  const mid =
+                    Math.floor(
+                      numeric.length /
+                        2
+                    );
+
+                  const firstHalf =
+                    numeric.slice(
+                      0,
+                      mid
+                    );
+
+                  const secondHalf =
+                    numeric.slice(
+                      mid
+                    );
+
+                  const avg1 =
+                    firstHalf.reduce(
+                      (
+                        a,
+                        b
+                      ) =>
+                        a +
+                        b,
+                      0
+                    ) /
+                    (
+                      firstHalf.length ||
+                      1
+                    );
+
+                  const avg2 =
+                    secondHalf.reduce(
+                      (
+                        a,
+                        b
+                      ) =>
+                        a +
+                        b,
+                      0
+                    ) /
+                    (
+                      secondHalf.length ||
+                      1
+                    );
+
+                  const trendVal =
+                    avg1 ===
+                    0
+                      ? 0
+                      : (
+                          (
+                            avg2 -
+                            avg1
+                          ) /
+                          avg1
+                        ) *
+                        100;
+
+                  stats = {
+                    avg:
+                      numeric.reduce(
+                        (
+                          a,
+                          b
+                        ) =>
+                          a +
+                          b,
+                        0
+                      ) /
+                      numeric.length,
+
+                    min:
+                      Math.min(
+                        ...numeric
+                      ),
+
+                    max:
+                      Math.max(
+                        ...numeric
+                      ),
+
+                    sum:
+                      numeric.reduce(
+                        (
+                          a,
+                          b
+                        ) =>
+                          a +
+                          b,
+                        0
+                      ),
+
+                    trend:
+                      Math.abs(
+                        trendVal
+                      ).toFixed(
+                        1
+                      ),
+
+                    trendDir:
+                      trendVal >=
+                      0
+                        ? "up"
+                        : "down"
+                  };
+                }
+
+                const freq =
+                  {};
+
+                if (
+                  !isNumeric
+                ) {
+                  rows.forEach(
+                    (r) => {
+                      const val =
+                        r[
+                          col
+                        ] ||
+                        "N/A";
+
+                      freq[
+                        val
+                      ] =
+                        (
+                          freq[
+                            val
+                          ] ||
+                          0
+                        ) +
+                        1;
+                    }
+                  );
+                }
+
+                return {
+                  col,
+                  isNumeric,
+                  numeric,
+                  chartValues,
+                  stats,
+                  freq
+                };
+              }
             );
-
-          const isNumeric =
-            numeric.length > 0 &&
-            col !== labelCol &&
-            !isDateCol;
-
-          let stats = null;
-
-          if (isNumeric) {
-            const mid =
-              Math.floor(
-                numeric.length / 2
-              );
-
-            const firstHalf =
-              numeric.slice(
-                0,
-                mid
-              );
-
-            const secondHalf =
-              numeric.slice(mid);
-
-            const avg1 =
-              firstHalf.reduce(
-                (a, b) => a + b,
-                0
-              ) /
-              (firstHalf.length ||
-                1);
-
-            const avg2 =
-              secondHalf.reduce(
-                (a, b) => a + b,
-                0
-              ) /
-              (secondHalf.length ||
-                1);
-
-            const trendVal =
-              avg1 === 0
-                ? 0
-                : ((avg2 - avg1) /
-                    avg1) *
-                  100;
-
-            stats = {
-              avg:
-                numeric.reduce(
-                  (a, b) => a + b,
-                  0
-                ) /
-                numeric.length,
-
-              min:
-                Math.min(
-                  ...numeric
-                ),
-
-              max:
-                Math.max(
-                  ...numeric
-                ),
-
-              sum:
-                numeric.reduce(
-                  (a, b) => a + b,
-                  0
-                ),
-
-              trend:
-                Math.abs(
-                  trendVal
-                ).toFixed(1),
-
-              trendDir:
-                trendVal >= 0
-                  ? "up"
-                  : "down"
-            };
-          }
-
-          const freq = {};
-
-          if (!isNumeric) {
-            rows.forEach((r) => {
-              const val =
-                r[col] || "N/A";
-
-              freq[val] =
-                (freq[val] ||
-                  0) + 1;
-            });
-          }
 
           return {
-            col,
-            isNumeric,
-            numeric,
-            chartValues,
-            stats,
-            freq
+            ...ds,
+            rows,
+            columns,
+            analysis,
+            labelCol,
+            isDateLabel,
+
+            labels:
+              rows.map(
+                (r) =>
+                  labelCol
+                    ? r[
+                        labelCol
+                      ] ||
+                      "N/A"
+                    : "N/A"
+              )
           };
-        });
-
-      return {
-        ...ds,
-        rows,
-        columns,
-        analysis,
-        labelCol,
-        isDateLabel,
-
-        labels: rows.map((r) =>
-          labelCol
-            ? r[labelCol] ||
-              "N/A"
-            : "N/A"
-        )
-      };
-    });
-  }, [
-    activeDatasets,
-    refreshKey
-  ]);
+        }
+      );
+    }, [
+      activeDatasets,
+      refreshKey
+    ]);
 
   const selectedDataset =
     parsed.find(
       (ds) =>
         ds.id ===
         selectedDatasetId
-    ) || parsed[0];
-
-  // ------------------------------------------------------------
-  // INTERACTIVE METRIA ANALYST READINESS
-  // ------------------------------------------------------------
-  const allActiveDatasetsAnalyzed =
-    activeDatasets.length > 0 &&
-    activeDatasets.every(
-      (ds) => Boolean(ds.aiStorage)
-    );
-
-  const singleDatasetAnalyzed =
-    activeDatasets.length === 1 &&
-    Boolean(
-      activeDatasets[0]?.aiStorage
-    );
-
-  const interactiveAnalystReady =
-    activeDatasets.length === 1
-      ? singleDatasetAnalyzed
-      : analysisMode === "cross"
-        ? Boolean(crossAnalysis)
-        : allActiveDatasetsAnalyzed;
-
-  // ------------------------------------------------------------
-  // FOCUS INTERACTIVE METRIA ANALYST
-  // ------------------------------------------------------------
-  const handleOpenMetriaAnalyst = () => {
-    const analystTarget =
-      document.getElementById(
-        "metria-analyst"
-      ) ||
-      document.querySelector(
-        '[data-metria-analyst="true"]'
-      );
-
-    if (analystTarget) {
-      analystTarget.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-
-      return;
-    }
-
-    window.scrollTo({
-      top:
-        document.documentElement
-          .scrollHeight,
-      behavior: "smooth"
-    });
-  };
+    ) ||
+    parsed[0];
 
   // ------------------------------------------------------------
   // CROSS DATASETS
+  // ------------------------------------------------------------
   //
   // IMPORTANT:
-  // These are only UI copies.
-  // Original data is still available through activeDatasets.
+  //
+  // These are UI copies only.
+  //
+  // aiStorage is removed from cross copies so AIAnalysisPanel
+  // cannot mistake an old individual dataset brief for the
+  // completed cross-analysis result.
+  //
+  // Original activeDatasets remain untouched.
   // ------------------------------------------------------------
-  const crossDatasets = useMemo(
-    () =>
-      parsed.map((ds) => ({
-        ...ds,
-        aiStorage: null
-      })),
-    [parsed]
-  );
+
+  const crossDatasets =
+    useMemo(
+      () =>
+        parsed.map(
+          (ds) => ({
+            ...ds,
+
+            aiStorage:
+              null
+          })
+        ),
+      [parsed]
+    );
 
   // ------------------------------------------------------------
   // CROSS-DATASET AI REQUEST
   // ------------------------------------------------------------
-  const handleRunCrossAnalysis = async (
-    datasetsForCross = crossDatasets
-  ) => {
-    if (!effectiveAuthToken) {
-      console.warn(
-        "Cross analysis aborted: Missing auth token."
-      );
 
-      return null;
-    }
-
-    if (
-      !datasetsForCross ||
-      datasetsForCross.length < 2
-    ) {
-      console.warn(
-        "Cross analysis requires at least two active datasets."
-      );
-
-      return null;
-    }
-
-    try {
-      /*
-       * CRITICAL:
-       *
-       * Use activeDatasets as the authoritative raw source.
-       * Do NOT use Visualizer's parsed rows for backend validation.
-       */
-      const contexts =
-        datasetsForCross.map(
-          (crossDs) => {
-            const original =
-              activeDatasets.find(
-                (sourceDs) =>
-                  sourceDs.id ===
-                  crossDs.id
-              );
-
-            const rawData =
-              original &&
-              Array.isArray(
-                original.data
-              )
-                ? original.data
-                : Array.isArray(
-                    crossDs.data
-                  )
-                  ? crossDs.data
-                  : [];
-
-            return {
-              id:
-                original?.id ??
-                crossDs.id,
-
-              name:
-                original?.name ||
-                crossDs.name ||
-                "Dataset",
-
-              data: rawData,
-              rows: rawData
-            };
-          }
+  const handleRunCrossAnalysis =
+    async (
+      datasetsForCross =
+        crossDatasets
+    ) => {
+      if (
+        !effectiveAuthToken
+      ) {
+        console.warn(
+          "Cross analysis aborted: Missing auth token."
         );
 
-      // ----------------------------------------------------------
-      // SAFETY CHECK BEFORE REQUEST
-      // ----------------------------------------------------------
-      const unusableDataset =
-        contexts.find(
-          (ctx) =>
-            !Array.isArray(
-              ctx.data
-            ) ||
-            ctx.data.length < 2 ||
-            !Array.isArray(
-              ctx.data[0]
-            )
-        );
-
-      if (unusableDataset) {
-        console.error(
-          "[Metria Cross Analysis] Invalid source:",
-          unusableDataset
-        );
-
-        throw new Error(
-          `${unusableDataset.name} does not contain a valid table structure.`
-        );
+        return null;
       }
 
-      // ----------------------------------------------------------
-      // DEVELOPMENT DIAGNOSTIC
-      // ----------------------------------------------------------
-      console.log(
-        "[Metria Cross Analysis Payload]",
-        contexts.map(
-          (ctx) => ({
-            id: ctx.id,
-            name: ctx.name,
-            rowCount:
-              ctx.data.length,
-            header:
-              ctx.data[0],
-            firstRecord:
-              ctx.data[1]
-          })
-        )
-      );
+      if (
+        !datasetsForCross ||
+        datasetsForCross.length <
+          2
+      ) {
+        console.warn(
+          "Cross analysis requires at least two active datasets."
+        );
 
-      const response =
-        await axios.post(
-          `${API_BASE_URL}/ai/analyze`,
-          {
-            contexts
-          },
-          {
-            headers: {
-              Authorization:
-                `Bearer ${effectiveAuthToken}`,
+        return null;
+      }
 
-              "Content-Type":
-                "application/json"
+      try {
+        /*
+         * CRITICAL:
+         *
+         * Use activeDatasets as the authoritative raw source.
+         *
+         * Do NOT use Visualizer's parsed rows for backend
+         * validation because the validator expects the
+         * original imported matrix including the header row.
+         */
+
+        const contexts =
+          datasetsForCross.map(
+            (
+              crossDs
+            ) => {
+              const original =
+                activeDatasets.find(
+                  (
+                    sourceDs
+                  ) =>
+                    sourceDs.id ===
+                    crossDs.id
+                );
+
+              const rawData =
+                original &&
+                Array.isArray(
+                  original.data
+                )
+                  ? original.data
+                  : Array.isArray(
+                      crossDs.data
+                    )
+                    ? crossDs.data
+                    : [];
+
+              return {
+                id:
+                  original?.id ??
+                  crossDs.id,
+
+                name:
+                  original?.name ||
+                  crossDs.name ||
+                  "Dataset",
+
+                data:
+                  rawData,
+
+                rows:
+                  rawData
+              };
             }
-          }
-        );
+          );
 
-      if (response.data) {
-        console.log(
-          "[Metria Cross Analysis Result]",
-          response.data
-        );
+        // ----------------------------------------------------------
+        // SAFETY CHECK BEFORE REQUEST
+        // ----------------------------------------------------------
+
+        const unusableDataset =
+          contexts.find(
+            (ctx) =>
+              !Array.isArray(
+                ctx.data
+              ) ||
+              ctx.data.length <
+                2 ||
+              !Array.isArray(
+                ctx.data[0]
+              )
+          );
 
         if (
-          typeof setCrossAnalysis ===
-          "function"
+          unusableDataset
         ) {
-          setCrossAnalysis(
-            response.data
+          console.error(
+            "[Metria Cross Analysis] Invalid source:",
+            unusableDataset
+          );
+
+          throw new Error(
+            `${unusableDataset.name} does not contain a valid table structure.`
           );
         }
 
-        return response.data;
+        // ----------------------------------------------------------
+        // DEVELOPMENT DIAGNOSTIC
+        // ----------------------------------------------------------
+
+        console.log(
+          "[Metria Cross Analysis Payload]",
+
+          contexts.map(
+            (ctx) => ({
+              id:
+                ctx.id,
+
+              name:
+                ctx.name,
+
+              rowCount:
+                ctx.data
+                  .length,
+
+              header:
+                ctx.data[
+                  0
+                ],
+
+              firstRecord:
+                ctx.data[
+                  1
+                ]
+            })
+          )
+        );
+
+        const response =
+          await axios.post(
+            `${API_BASE_URL}/ai/analyze`,
+
+            {
+              contexts
+            },
+
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${effectiveAuthToken}`,
+
+                "Content-Type":
+                  "application/json"
+              }
+            }
+          );
+
+        if (
+          response.data
+        ) {
+          console.log(
+            "[Metria Cross Analysis Result]",
+            response.data
+          );
+
+          /*
+           * CRITICAL:
+           *
+           * Keep using the genuine React setter supplied by
+           * Analytics.jsx.
+           *
+           * Analytics handles persistence separately.
+           */
+
+          if (
+            typeof setCrossAnalysis ===
+            "function"
+          ) {
+            setCrossAnalysis(
+              response.data
+            );
+          }
+
+          return response.data;
+        }
+
+        return null;
+      } catch (
+        error
+      ) {
+        console.error(
+          "Cross analysis failed:",
+          error.response
+            ?.data ||
+            error.message
+        );
+
+        throw error;
       }
+    };
 
-      return null;
-    } catch (error) {
-      console.error(
-        "Cross analysis failed:",
-        error.response?.data ||
-          error.message
-      );
-
-      throw error;
-    }
-  };
+  // ------------------------------------------------------------
+  // NOTHING ACTIVE
+  // ------------------------------------------------------------
 
   if (
-    activeDatasets.length === 0
+    activeDatasets.length ===
+    0
   ) {
     return null;
   }
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <div
-      key={refreshKey}
+      key={
+        refreshKey
+      }
       className="mt-10 md:mt-16 space-y-16 pb-32 max-w-[1600px] mx-auto px-4 md:px-10"
     >
+
       {flash && (
         <div className="fixed inset-0 z-[9999] bg-white pointer-events-none" />
       )}
@@ -855,15 +1166,21 @@ export const Visualizer = ({
       {/* ======================================================== */}
       {/* 1. TOP AI ANALYSIS RUN                                  */}
       {/* ======================================================== */}
+
       <section className="scroll-mt-28">
 
-        {/* ANALYSIS MODE SELECTOR */}
-        {parsed.length > 1 && (
+        {/* ====================================================== */}
+        {/* ANALYSIS MODE SELECTOR                                 */}
+        {/* ====================================================== */}
+
+        {parsed.length >
+          1 && (
           <div className="mb-10 p-6 md:p-8 rounded-[2rem] bg-white/[0.02] border border-white/10">
 
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
 
               <div>
+
                 <div className="flex items-center gap-3 mb-2">
 
                   <FiActivity className="text-indigo-400" />
@@ -871,22 +1188,26 @@ export const Visualizer = ({
                   <p className="text-[10px] font-black uppercase tracking-[0.45em] text-white/50">
                     Analysis Mode
                   </p>
+
                 </div>
 
                 <p className="text-sm text-white/50 max-w-2xl">
                   Analyze one source independently or connect all active
                   datasets to uncover relationships between them.
                 </p>
+
               </div>
 
               <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">
                 {parsed.length} Sources Active
               </span>
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
               {/* INDIVIDUAL MODE */}
+
               <button
                 onClick={() => {
                   if (
@@ -905,6 +1226,7 @@ export const Visualizer = ({
                     : "bg-black/20 border-white/10 hover:border-white/20"
                 }`}
               >
+
                 <div className="flex items-start gap-4">
 
                   <div
@@ -915,12 +1237,17 @@ export const Visualizer = ({
                         : "bg-white/5 border-white/10 text-zinc-600"
                     }`}
                   >
+
                     <FiDatabase
-                      size={20}
+                      size={
+                        20
+                      }
                     />
+
                   </div>
 
                   <div>
+
                     <p
                       className={`text-[11px] font-black uppercase tracking-[0.25em] ${
                         analysisMode ===
@@ -936,11 +1263,15 @@ export const Visualizer = ({
                       Analyze each dataset independently with its own
                       executive brief, risks and actions.
                     </p>
+
                   </div>
+
                 </div>
+
               </button>
 
               {/* CROSS MODE */}
+
               <button
                 onClick={() => {
                   if (
@@ -959,6 +1290,7 @@ export const Visualizer = ({
                     : "bg-black/20 border-white/10 hover:border-white/20"
                 }`}
               >
+
                 <div className="flex items-start gap-4">
 
                   <div
@@ -969,12 +1301,17 @@ export const Visualizer = ({
                         : "bg-white/5 border-white/10 text-zinc-600"
                     }`}
                   >
+
                     <FiLayers
-                      size={20}
+                      size={
+                        20
+                      }
                     />
+
                   </div>
 
                   <div>
+
                     <p
                       className={`text-[11px] font-black uppercase tracking-[0.25em] ${
                         analysisMode ===
@@ -990,122 +1327,164 @@ export const Visualizer = ({
                       Connect all active sources to identify shared
                       drivers, relationships, risks and opportunities.
                     </p>
+
                   </div>
+
                 </div>
+
               </button>
+
             </div>
+
           </div>
         )}
 
         {/* ====================================================== */}
         {/* INDIVIDUAL ANALYSIS TARGET                             */}
         {/* ====================================================== */}
+
         {analysisMode ===
           "individual" &&
-          parsed.length > 1 && (
-            <div className="mb-10">
+          parsed.length >
+            1 && (
+          <div className="mb-10">
 
-              <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex items-center justify-between gap-4 mb-4">
 
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30">
-                    Analysis_Target
-                  </p>
+              <div>
 
-                  <p className="text-xs text-white/50 mt-1">
-                    Select the dataset for individual neural analysis
-                  </p>
-                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30">
+                  Analysis_Target
+                </p>
 
-                <span className="text-[9px] font-mono text-zinc-600 uppercase">
-                  Individual Mode
-                </span>
+                <p className="text-xs text-white/50 mt-1">
+                  Select the dataset for individual neural analysis
+                </p>
+
               </div>
 
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <span className="text-[9px] font-mono text-zinc-600 uppercase">
+                Individual Mode
+              </span>
 
-                {parsed.map(
-                  (ds) => (
-                    <button
-                      key={ds.id}
-                      onClick={() =>
-                        handleSelectedDatasetChange(
-                          ds.id
-                        )
-                      }
-                      className={`shrink-0 px-5 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
-                        selectedDatasetId ===
-                        ds.id
-                          ? "bg-indigo-500 text-white border-indigo-400"
-                          : "bg-white/[0.03] text-white/40 border-white/10 hover:text-white hover:border-white/20"
-                      }`}
-                    >
-                      <FiDatabase className="inline mr-2" />
-
-                      {ds.name}
-                    </button>
-                  )
-                )}
-              </div>
             </div>
-          )}
+
+            <div className="flex gap-3 overflow-x-auto pb-2">
+
+              {parsed.map(
+                (
+                  ds
+                ) => (
+                  <button
+                    key={
+                      ds.id
+                    }
+
+                    onClick={() =>
+                      handleSelectedDatasetChange(
+                        ds.id
+                      )
+                    }
+
+                    className={`shrink-0 px-5 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                      selectedDatasetId ===
+                      ds.id
+                        ? "bg-indigo-500 text-white border-indigo-400"
+                        : "bg-white/[0.03] text-white/40 border-white/10 hover:text-white hover:border-white/20"
+                    }`}
+                  >
+
+                    <FiDatabase className="inline mr-2" />
+
+                    {
+                      ds.name
+                    }
+
+                  </button>
+                )
+              )}
+
+            </div>
+
+          </div>
+        )}
 
         {/* ====================================================== */}
         {/* CROSS ANALYSIS SOURCES                                 */}
         {/* ====================================================== */}
+
         {analysisMode ===
           "cross" &&
-          parsed.length > 1 && (
-            <div className="mb-10">
+          parsed.length >
+            1 && (
+          <div className="mb-10">
 
-              <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex items-center justify-between gap-4 mb-4">
 
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.4em] text-purple-300/60">
-                    Cross_Analysis_Sources
-                  </p>
+              <div>
 
-                  <p className="text-xs text-white/50 mt-1">
-                    Metria will analyze relationships across all active sources
-                  </p>
-                </div>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-purple-300/60">
+                  Cross_Analysis_Sources
+                </p>
 
-                <span className="text-[9px] font-mono text-purple-400/60 uppercase">
-                  {parsed.length} Sources Linked
-                </span>
+                <p className="text-xs text-white/50 mt-1">
+                  Metria will analyze relationships across all active sources
+                </p>
+
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <span className="text-[9px] font-mono text-purple-400/60 uppercase">
+                {parsed.length} Sources Linked
+              </span>
 
-                {parsed.map(
-                  (ds, index) => (
-                    <React.Fragment
-                      key={ds.id}
-                    >
-                      <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-
-                        <FiDatabase className="text-purple-300" />
-
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white">
-                          {ds.name}
-                        </span>
-                      </div>
-
-                      {index <
-                        parsed.length -
-                          1 && (
-                        <span className="text-purple-400 font-black">
-                          +
-                        </span>
-                      )}
-                    </React.Fragment>
-                  )
-                )}
-              </div>
             </div>
-          )}
 
-        {/* ACTIVE ANALYSIS DIVIDER */}
+            <div className="flex flex-wrap items-center gap-3">
+
+              {parsed.map(
+                (
+                  ds,
+                  index
+                ) => (
+                  <React.Fragment
+                    key={
+                      ds.id
+                    }
+                  >
+
+                    <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+
+                      <FiDatabase className="text-purple-300" />
+
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white">
+                        {
+                          ds.name
+                        }
+                      </span>
+
+                    </div>
+
+                    {index <
+                      parsed.length -
+                        1 && (
+                      <span className="text-purple-400 font-black">
+                        +
+                      </span>
+                    )}
+
+                  </React.Fragment>
+                )
+              )}
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ====================================================== */}
+        {/* ACTIVE ANALYSIS DIVIDER                                */}
+        {/* ====================================================== */}
+
         <div className="mb-6 flex items-center gap-4">
 
           <div className="h-[1px] flex-1 bg-white/10" />
@@ -1122,22 +1501,29 @@ export const Visualizer = ({
             />
 
             <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40">
+
               {analysisMode ===
               "cross"
                 ? `Cross Analysis: ${parsed.length} Linked Sources`
                 : `Live Analysis: ${
-                    selectedDataset?.name ||
+                    selectedDataset
+                      ?.name ||
                     "Active Session"
-                  }`}
+                  }`
+              }
+
             </span>
+
           </div>
 
           <div className="h-[1px] flex-1 bg-white/10" />
+
         </div>
 
         {/* ====================================================== */}
-        {/* AI PANEL                                               */}
+        {/* STRATEGIC BRIEF                                       */}
         {/* ====================================================== */}
+
         <AIAnalysisPanel
           datasets={
             analysisMode ===
@@ -1149,747 +1535,823 @@ export const Visualizer = ({
                   ]
                 : []
           }
+
           analysisMode={
             analysisMode
           }
+
           activeDatasetIndex={
             activeDatasetIndex
           }
+
           crossAnalysis={
             crossAnalysis
           }
+
           onRunCrossAnalysis={
             handleRunCrossAnalysis
           }
+
           onUpdateAI={
             handleAIComplete
           }
         />
 
         {/* ====================================================== */}
-        {/* METRIA ANALYST SPOTLIGHT                               */}
+        {/* INTERACTIVE METRIA ANALYST                              */}
         {/* Strategic Brief -> Ask Metria -> Evidence              */}
         {/* ====================================================== */}
+
         {interactiveAnalystReady && (
-          <div className="mt-8 md:mt-10 relative overflow-hidden rounded-[2.5rem] border border-purple-500/30 bg-gradient-to-r from-[#160b26] via-[#0b0912] to-[#0b1022] p-6 md:p-8 shadow-[0_24px_90px_rgba(112,0,255,0.12)]">
+          <div
+            id="metria-analyst"
+            data-metria-analyst="true"
+            className="mt-8 md:mt-10 scroll-mt-24"
+          >
 
-            <div className="absolute -top-24 -right-20 w-72 h-72 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+            <MetriaFollowUp
+              activeDatasets={
+                activeDatasets
+              }
 
-            <div className="absolute -bottom-28 left-1/3 w-80 h-80 rounded-full bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-7">
-
-              <div className="flex items-start gap-4 md:gap-5 max-w-4xl">
-
-                <div className="shrink-0 p-3.5 md:p-4 rounded-2xl bg-purple-500/10 border border-purple-400/20 text-purple-300 shadow-[0_0_35px_rgba(168,85,247,0.12)]">
-
-                  <FiMessageCircle
-                    size={22}
-                  />
-
-                </div>
-
-                <div className="min-w-0">
-
-                  <div className="flex flex-wrap items-center gap-2 mb-2.5">
-
-                    <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400">
-
-                      <FiZap
-                        size={11}
-                      />
-
-                      Analysis Complete
-
-                    </span>
-
-                    <span className="w-1 h-1 rounded-full bg-white/20" />
-
-                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-purple-300/70">
-                      Interactive Analyst Ready
-                    </span>
-
-                  </div>
-
-                  <h3 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                    Don&apos;t stop at the brief. Ask Metria why.
-                  </h3>
-
-                  <p className="mt-2.5 text-xs md:text-sm leading-relaxed text-white/45 max-w-3xl">
-
-                    {analysisMode ===
-                    "cross"
-                      ? `Metria now has the completed cross-analysis and context from all ${activeDatasets.length} linked sources. Challenge the findings, trace the drivers, test risks, or ask what to do next.`
-
-                      : activeDatasets.length >
+              activeDataset={
+                analysisMode ===
+                "cross"
+                  ? null
+                  : selectedDataset ||
+                    activeDatasets[
+                      activeDatasetIndex
+                    ] ||
+                    activeDatasets[
+                      activeDatasets.length -
                         1
+                    ] ||
+                    null
+              }
 
-                        ? `Metria has completed analysis context across all ${activeDatasets.length} active sources. Ask follow-up questions and turn the findings into decisions.`
+              analysisMode={
+                analysisMode
+              }
 
-                        : `Metria has this dataset and its completed strategic brief in context. Ask follow-up questions, challenge conclusions, or turn the findings into an action plan.`
-                    }
+              crossAnalysis={
+                crossAnalysis
+              }
 
-                  </p>
+              authToken={
+                effectiveAuthToken
+              }
 
-                  <div className="flex flex-wrap gap-2 mt-4">
-
-                    <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
-                      Why is this happening?
-                    </span>
-
-                    <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
-                      What should we fix first?
-                    </span>
-
-                    {analysisMode ===
-                    "cross" ? (
-                      <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
-                        How do these datasets connect?
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1.5 rounded-full bg-white/[0.035] border border-white/10 text-[9px] font-bold text-white/45">
-                        What is the biggest opportunity?
-                      </span>
-                    )}
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  handleOpenMetriaAnalyst
-                }
-                className="group shrink-0 inline-flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-white text-black text-[10px] font-black uppercase tracking-[0.22em] hover:bg-purple-100 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_16px_40px_rgba(255,255,255,0.08)]"
-              >
-
-                Ask Metria
-
-                <FiArrowRight
-                  size={16}
-                  className="transition-transform group-hover:translate-x-1"
-                />
-
-              </button>
-
-            </div>
+              aiAnalysisReady={
+                interactiveAnalystReady
+              }
+            />
 
           </div>
         )}
+
       </section>
 
       {/* ======================================================== */}
       {/* DATASET VISUALIZATIONS                                  */}
       {/* ======================================================== */}
-      {parsed.map((ds) => {
-        const numericCols =
-          ds.analysis.filter(
-            (c) => c.isNumeric
-          );
 
-        const categoricalCols =
-          ds.analysis.filter(
-            (c) =>
-              !c.isNumeric &&
-              Object.keys(c.freq)
-                .length > 1 &&
-              Object.keys(c.freq)
-                .length < 15
-          );
+      {parsed.map(
+        (ds) => {
+          const numericCols =
+            ds.analysis.filter(
+              (c) =>
+                c.isNumeric
+            );
 
-        /*
-         * CROSS MODE:
-         * Do not reveal evidence until cross analysis exists.
-         */
-        if (
-          analysisMode === "cross" &&
-          !crossAnalysis
-        ) {
-          return null;
-        }
+          const categoricalCols =
+            ds.analysis.filter(
+              (c) =>
+                !c.isNumeric &&
+                Object.keys(
+                  c.freq
+                ).length >
+                  1 &&
+                Object.keys(
+                  c.freq
+                ).length <
+                  15
+            );
 
-        /*
-         * INDIVIDUAL MODE:
-         * Do not reveal a dataset until its brief exists.
-         */
-        if (
-          analysisMode !== "cross" &&
-          !readyStates[ds.id]
-        ) {
-          return null;
-        }
+          /*
+           * CROSS MODE:
+           *
+           * Do not reveal any dataset evidence until the
+           * cross-analysis request has actually completed.
+           */
 
-        return (
-          <div
-            key={ds.id}
-            className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000"
-            id={`report-${ds.id}`}
-          >
+          if (
+            analysisMode ===
+              "cross" &&
+            !crossAnalysis
+          ) {
+            return null;
+          }
 
-            {/* 2. DATASET IDENTITY HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
+          /*
+           * INDIVIDUAL MODE:
+           *
+           * Do not reveal a dataset until that individual
+           * strategic brief exists.
+           */
 
-              <div className="max-w-full">
+          if (
+            analysisMode !==
+              "cross" &&
+            !readyStates[
+              ds.id
+            ]
+          ) {
+            return null;
+          }
 
-                <div className="flex items-center gap-3 mb-4">
+          return (
+            <div
+              key={
+                ds.id
+              }
+              className="space-y-12 md:space-y-20 animate-in fade-in slide-in-from-bottom-10 duration-1000"
+              id={
+                `report-${ds.id}`
+              }
+            >
 
-                  <div className="p-2.5 bg-[#7000FF]/10 rounded-xl border border-[#7000FF]/20">
-                    <FiDatabase className="text-[#7000FF] w-5 h-5" />
+              {/* ================================================= */}
+              {/* DATASET IDENTITY HEADER                           */}
+              {/* ================================================= */}
+
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/5 pb-10 gap-8">
+
+                <div className="max-w-full">
+
+                  <div className="flex items-center gap-3 mb-4">
+
+                    <div className="p-2.5 bg-[#7000FF]/10 rounded-xl border border-[#7000FF]/20">
+
+                      <FiDatabase className="text-[#7000FF] w-5 h-5" />
+
+                    </div>
+
+                    <h3 className="text-zinc-500 font-black text-[9px] uppercase tracking-[0.6em]">
+                      System_Source_Verified
+                    </h3>
+
                   </div>
 
-                  <h3 className="text-zinc-500 font-black text-[9px] uppercase tracking-[0.6em]">
-                    System_Source_Verified
-                  </h3>
-                </div>
-
-                <h2 className="text-5xl sm:text-6xl md:text-8xl font-[1000] text-white uppercase tracking-tighter italic leading-none break-words">
-                  {ds.name}
-                </h2>
-              </div>
-
-              <div className="flex w-full md:w-auto gap-4">
-
-                <button
-                  onClick={
-                    handleRefresh
-                  }
-                  className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all"
-                >
-                  <FiRefreshCw className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={() =>
-                    handleExport(
-                      ds.id,
+                  <h2 className="text-5xl sm:text-6xl md:text-8xl font-[1000] text-white uppercase tracking-tighter italic leading-none break-words">
+                    {
                       ds.name
-                    )
-                  }
-                  className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl"
-                >
-                  <FiDownload className="w-5 h-5" />
+                    }
+                  </h2>
 
-                  Download Report
-                </button>
-              </div>
-            </div>
-
-            {/* 3. LIVE TABLE */}
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
-
-              <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-
-                <div className="flex items-center gap-3">
-
-                  <FiTable className="text-zinc-500 w-4 h-4" />
-
-                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">
-                    Full_Dataset_Records
-                  </span>
                 </div>
 
-                <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">
-                  {ds.rows.length} Total Records Found
-                </span>
+                <div className="flex w-full md:w-auto gap-4">
+
+                  <button
+                    onClick={
+                      handleRefresh
+                    }
+                    className="flex-1 md:flex-none p-5 bg-zinc-900/50 border border-white/10 text-white rounded-2xl hover:bg-zinc-800 transition-all"
+                  >
+
+                    <FiRefreshCw className="w-5 h-5" />
+
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleExport(
+                        ds.id,
+                        ds.name
+                      )
+                    }
+                    className="flex-[3] md:flex-none flex items-center justify-center gap-4 px-8 py-5 bg-white text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl"
+                  >
+
+                    <FiDownload className="w-5 h-5" />
+
+                    Download Report
+
+                  </button>
+
+                </div>
+
               </div>
 
-              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+              {/* ================================================= */}
+              {/* LIVE TABLE                                        */}
+              {/* ================================================= */}
 
-                <table className="w-full text-left border-collapse min-w-[800px]">
+              <div className="bg-[#0a0a0f] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl">
 
-                  <thead className="sticky top-0 bg-[#0a0a0f] z-10">
+                <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
 
-                    <tr className="bg-black/60 backdrop-blur-md">
+                  <div className="flex items-center gap-3">
 
-                      {ds.columns.map(
-                        (col) => (
-                          <th
-                            key={col}
-                            className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5"
+                    <FiTable className="text-zinc-500 w-4 h-4" />
+
+                    <span className="text-[10px] font-black text-white/50 uppercase tracking-widest italic">
+                      Full_Dataset_Records
+                    </span>
+
+                  </div>
+
+                  <span className="text-[9px] font-bold text-zinc-600 font-mono uppercase tracking-widest">
+                    {ds.rows.length} Total Records Found
+                  </span>
+
+                </div>
+
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+
+                    <thead className="sticky top-0 bg-[#0a0a0f] z-10">
+
+                      <tr className="bg-black/60 backdrop-blur-md">
+
+                        {ds.columns.map(
+                          (
+                            col
+                          ) => (
+                            <th
+                              key={
+                                col
+                              }
+                              className="px-8 py-5 text-[10px] font-black text-white/70 uppercase tracking-wider border-b border-white/5"
+                            >
+                              {
+                                col
+                              }
+                            </th>
+                          )
+                        )}
+
+                      </tr>
+
+                    </thead>
+
+                    <tbody className="divide-y divide-white/[0.03]">
+
+                      {ds.rows.map(
+                        (
+                          row,
+                          i
+                        ) => (
+                          <tr
+                            key={
+                              i
+                            }
+                            className="hover:bg-white/[0.02] transition-colors group"
                           >
-                            {col}
-                          </th>
+
+                            {ds.columns.map(
+                              (
+                                col
+                              ) => (
+                                <td
+                                  key={
+                                    col
+                                  }
+                                  className="px-8 py-4 text-[11px] font-medium text-zinc-400 font-mono truncate max-w-[200px] group-hover:text-white transition-colors"
+                                >
+                                  {
+                                    row[
+                                      col
+                                    ]
+                                  }
+                                </td>
+                              )
+                            )}
+
+                          </tr>
                         )
                       )}
 
-                    </tr>
-                  </thead>
+                    </tbody>
 
-                  <tbody className="divide-y divide-white/[0.03]">
+                  </table>
 
-                    {ds.rows.map(
-                      (row, i) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-white/[0.02] transition-colors group"
+                </div>
+
+                <div className="px-8 py-4 bg-black/40 border-t border-white/5">
+
+                  <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center italic">
+                    End of Dataset Records
+                  </p>
+
+                </div>
+
+              </div>
+
+              {/* ================================================= */}
+              {/* ANALYTICS CARDS & GRAPHS                          */}
+              {/* ================================================= */}
+
+              <div className="space-y-16">
+
+                {/* =============================================== */}
+                {/* STAT CARDS                                      */}
+                {/* =============================================== */}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                  {numericCols
+                    .slice(
+                      0,
+                      4
+                    )
+                    .map(
+                      (
+                        col,
+                        idx
+                      ) => (
+                        <div
+                          key={
+                            col.col
+                          }
+                          className="relative overflow-hidden bg-[#0d0d12] border border-white/10 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl group hover:border-[#7000FF]/30 transition-all"
                         >
 
-                          {ds.columns.map(
-                            (col) => (
-                              <td
-                                key={col}
-                                className="px-8 py-4 text-[11px] font-medium text-zinc-400 font-mono truncate max-w-[200px] group-hover:text-white transition-colors"
+                          <div
+                            className={`absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r ${
+                              idx %
+                                  2 ===
+                              0
+                                ? "from-[#7000FF]"
+                                : "from-zinc-600"
+                            } to-transparent`}
+                          />
+
+                          <div className="flex justify-between items-start mb-6">
+
+                            <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] truncate max-w-[70%]">
+                              {
+                                col.col
+                              }
+                            </p>
+
+                            {col
+                              .stats
+                              ?.trend && (
+                              <div
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[8px] font-black ${
+                                  col
+                                    .stats
+                                    .trendDir ===
+                                  "up"
+                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    : "bg-rose-500/10 text-rose-500"
+                                }`}
                               >
-                                {row[col]}
-                              </td>
-                            )
-                          )}
 
-                        </tr>
-                      )
-                    )}
-
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="px-8 py-4 bg-black/40 border-t border-white/5">
-
-                <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center italic">
-                  End of Dataset Records
-                </p>
-
-              </div>
-            </div>
-
-            {/* 4. ANALYTICS CARDS & GRAPHS */}
-            <div className="space-y-16">
-
-              {/* STAT CARDS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-
-                {numericCols
-                  .slice(0, 4)
-                  .map(
-                    (col, idx) => (
-                      <div
-                        key={col.col}
-                        className="relative overflow-hidden bg-[#0d0d12] border border-white/10 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl group hover:border-[#7000FF]/30 transition-all"
-                      >
-
-                        <div
-                          className={`absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r ${
-                            idx % 2 ===
-                            0
-                              ? "from-[#7000FF]"
-                              : "from-zinc-600"
-                          } to-transparent`}
-                        />
-
-                        <div className="flex justify-between items-start mb-6">
-
-                          <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] truncate max-w-[70%]">
-                            {col.col}
-                          </p>
-
-                          {col.stats
-                            ?.trend && (
-                            <div
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[8px] font-black ${
-                                col
+                                {col
                                   .stats
                                   .trendDir ===
-                                "up"
-                                  ? "bg-emerald-500/10 text-emerald-500"
-                                  : "bg-rose-500/10 text-rose-500"
-                              }`}
-                            >
+                                "up" ? (
+                                  <FiTrendingUp className="w-3 h-3" />
+                                ) : (
+                                  <FiTrendingDown className="w-3 h-3" />
+                                )}
 
-                              {col
-                                .stats
-                                .trendDir ===
-                              "up" ? (
-                                <FiTrendingUp className="w-3 h-3" />
-                              ) : (
-                                <FiTrendingDown className="w-3 h-3" />
-                              )}
+                                {
+                                  col
+                                    .stats
+                                    .trend
+                                }
+                                %
 
-                              {
-                                col
-                                  .stats
-                                  .trend
-                              }
-                              %
-
-                            </div>
-                          )}
-
-                        </div>
-
-                        <div className="flex items-baseline gap-3 mb-8">
-
-                          <span className="text-5xl md:text-6xl font-black tracking-tighter group-hover:text-[#a5b4fc] transition-colors">
-
-                            {col.stats?.avg.toLocaleString(
-                              undefined,
-                              {
-                                maximumFractionDigits: 1
-                              }
+                              </div>
                             )}
 
-                          </span>
-
-                          <span className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em]">
-                            avg_val
-                          </span>
-
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3 border-t border-white/5 pt-8">
-
-                          <div>
-
-                            <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
-                              Min_Range
-                            </p>
-
-                            <p className="text-[12px] font-bold text-zinc-300">
-                              {col.stats?.min.toLocaleString()}
-                            </p>
-
                           </div>
 
-                          <div className="border-x border-white/5 px-3 text-center">
+                          <div className="flex items-baseline gap-3 mb-8">
 
-                            <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
-                              Peak_Cap
-                            </p>
-
-                            <p className="text-[12px] font-bold text-zinc-300">
-                              {col.stats?.max.toLocaleString()}
-                            </p>
-
-                          </div>
-
-                          <div className="text-right">
-
-                            <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
-                              Net_Agg
-                            </p>
-
-                            <p className="text-[12px] font-bold text-[#7000FF] truncate">
+                            <span className="text-5xl md:text-6xl font-black tracking-tighter group-hover:text-[#a5b4fc] transition-colors">
 
                               {col.stats
-                                ?.sum >
-                              1e6
-                                ? (
-                                    col
-                                      .stats
-                                      .sum /
-                                    1e6
-                                  ).toFixed(
-                                    1
-                                  ) +
-                                  "M"
-                                : col.stats?.sum.toLocaleString()}
-
-                            </p>
-
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  )}
-
-              </div>
-
-              {/* GRAPHS */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-
-                {numericCols.map(
-                  (col, idx) => {
-                    const defaultChartType =
-                      ds.isDateLabel
-                        ? "line"
-                        : "bar";
-
-                    const currentChartType =
-                      localChartTypes[
-                        `${ds.id}-${col.col}`
-                      ] ||
-                      defaultChartType;
-
-                    const activeColor =
-                      COLORS[
-                        idx %
-                          COLORS.length
-                      ];
-
-                    const chartData = {
-                      labels:
-                        ds.labels,
-
-                      datasets: [
-                        {
-                          label:
-                            col.col,
-
-                          data:
-                            col.chartValues,
-
-                          borderColor:
-                            activeColor,
-
-                          backgroundColor:
-                            currentChartType ===
-                            "bar"
-                              ? `${activeColor}CC`
-                              : `${activeColor}15`,
-
-                          borderWidth:
-                            currentChartType ===
-                            "bar"
-                              ? 1
-                              : 3,
-
-                          borderRadius:
-                            currentChartType ===
-                            "bar"
-                              ? 6
-                              : 0,
-
-                          minBarLength: 4,
-
-                          tension: 0.3,
-
-                          fill:
-                            currentChartType ===
-                            "line",
-
-                          pointRadius:
-                            ds.isDateLabel
-                              ? 3
-                              : 0
-                        }
-                      ]
-                    };
-
-                    return (
-                      <div
-                        key={`${col.col}-${refreshKey}`}
-                        className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20"
-                      >
-
-                        <div className="flex justify-between items-start mb-10">
-
-                          <div className="min-w-0 pr-4">
-
-                            <div className="flex items-center gap-3 mb-3">
-
-                              <div
-                                className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]"
-                                style={{
-                                  backgroundColor:
-                                    activeColor
-                                }}
-                              />
-
-                              <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">
-                                {col.col}
-                              </h4>
-
-                            </div>
-
-                            <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
-                              Mapped_By_
-                              {ds.labelCol}
-                            </p>
-
-                          </div>
-
-                          <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
-
-                            <button
-                              onClick={() =>
-                                setExpandedChart(
+                                ?.avg
+                                .toLocaleString(
+                                  undefined,
                                   {
-                                    title:
-                                      col.col,
-
-                                    data:
-                                      chartData,
-
-                                    type:
-                                      currentChartType
+                                    maximumFractionDigits:
+                                      1
                                   }
-                                )
-                              }
-                              className="p-2 text-zinc-500 hover:text-white transition-colors"
-                            >
-                              <FiMaximize2 className="w-5 h-5" />
-                            </button>
+                                )}
 
-                            <button
-                              onClick={() =>
-                                toggleLocalChartType(
-                                  ds.id,
-                                  col.col
-                                )
-                              }
-                              className="p-2 text-zinc-500 hover:text-white transition-colors"
-                            >
+                            </span>
 
-                              {currentChartType ===
-                              "line" ? (
-                                <FiBarChart2 className="w-5 h-5" />
-                              ) : (
-                                <FiTrendingUp className="w-5 h-5" />
-                              )}
-
-                            </button>
-
-                          </div>
-                        </div>
-
-                        <div className="w-full aspect-[4/3] sm:aspect-[16/9] relative">
-
-                          {currentChartType ===
-                          "bar" ? (
-                            <Bar
-                              data={
-                                chartData
-                              }
-                              options={
-                                chartOptions
-                              }
-                            />
-                          ) : (
-                            <Line
-                              data={
-                                chartData
-                              }
-                              options={
-                                chartOptions
-                              }
-                            />
-                          )}
-
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
-
-              </div>
-
-              {/* PIE CHARTS */}
-              {categoricalCols.length >
-                0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 mt-16">
-
-                  {categoricalCols
-                    .slice(0, 3)
-                    .map(
-                      (col) => (
-                        <div
-                          key={`${col.col}-${refreshKey}`}
-                          className="p-10 md:p-14 border border-white/10 rounded-[3rem] bg-[#0d0d12] shadow-2xl relative overflow-hidden group hover:border-[#7000FF]/30 transition-all"
-                        >
-
-                          <div className="absolute top-6 right-8 px-4 py-1.5 bg-[#7000FF]/10 border border-[#7000FF]/20 rounded-full">
-
-                            <span className="text-[8px] font-black text-[#7000FF] uppercase tracking-widest italic">
-                              Categorical_Split
+                            <span className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em]">
+                              avg_val
                             </span>
 
                           </div>
 
-                          <div className="flex items-center gap-4 mb-10">
+                          <div className="grid grid-cols-3 gap-3 border-t border-white/5 pt-8">
 
-                            <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                            <div>
 
-                              <FiPieChart className="text-[#a5b4fc] w-5 h-5" />
+                              <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
+                                Min_Range
+                              </p>
+
+                              <p className="text-[12px] font-bold text-zinc-300">
+                                {col.stats
+                                  ?.min
+                                  .toLocaleString()}
+                              </p>
 
                             </div>
 
-                            <h4 className="text-white/50 text-[11px] font-black uppercase tracking-[0.4em] truncate pr-16">
-                              {col.col}
-                            </h4>
+                            <div className="border-x border-white/5 px-3 text-center">
+
+                              <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
+                                Peak_Cap
+                              </p>
+
+                              <p className="text-[12px] font-bold text-zinc-300">
+                                {col.stats
+                                  ?.max
+                                  .toLocaleString()}
+                              </p>
+
+                            </div>
+
+                            <div className="text-right">
+
+                              <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
+                                Net_Agg
+                              </p>
+
+                              <p className="text-[12px] font-bold text-[#7000FF] truncate">
+
+                                {col.stats
+                                  ?.sum >
+                                1e6
+                                  ? (
+                                      col
+                                        .stats
+                                        .sum /
+                                      1e6
+                                    ).toFixed(
+                                      1
+                                    ) +
+                                    "M"
+                                  : col.stats
+                                      ?.sum
+                                      .toLocaleString()}
+
+                              </p>
+
+                            </div>
 
                           </div>
 
-                          <div className="aspect-square relative w-full">
-
-                            <Pie
-                              data={{
-                                labels:
-                                  Object.keys(
-                                    col.freq
-                                  ),
-
-                                datasets:
-                                  [
-                                    {
-                                      data:
-                                        Object.values(
-                                          col.freq
-                                        ),
-
-                                      backgroundColor:
-                                        COLORS,
-
-                                      borderWidth:
-                                        4,
-
-                                      borderColor:
-                                        "#0d0d12",
-
-                                      hoverOffset:
-                                        20
-                                    }
-                                  ]
-                              }}
-                              options={{
-                                maintainAspectRatio:
-                                  false,
-
-                                plugins:
-                                  {
-                                    legend:
-                                      {
-                                        position:
-                                          "bottom",
-
-                                        labels:
-                                          {
-                                            color:
-                                              "#666",
-
-                                            font:
-                                              {
-                                                size: 9,
-                                                weight:
-                                                  "bold"
-                                              },
-
-                                            padding:
-                                              20,
-
-                                            usePointStyle:
-                                              true
-                                          }
-                                      }
-                                  }
-                              }}
-                            />
-
-                          </div>
                         </div>
                       )
                     )}
 
                 </div>
-              )}
+
+                {/* =============================================== */}
+                {/* GRAPHS                                          */}
+                {/* =============================================== */}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+
+                  {numericCols.map(
+                    (
+                      col,
+                      idx
+                    ) => {
+                      const defaultChartType =
+                        ds.isDateLabel
+                          ? "line"
+                          : "bar";
+
+                      const currentChartType =
+                        localChartTypes[
+                          `${ds.id}-${col.col}`
+                        ] ||
+                        defaultChartType;
+
+                      const activeColor =
+                        COLORS[
+                          idx %
+                            COLORS.length
+                        ];
+
+                      const chartData = {
+                        labels:
+                          ds.labels,
+
+                        datasets: [
+                          {
+                            label:
+                              col.col,
+
+                            data:
+                              col.chartValues,
+
+                            borderColor:
+                              activeColor,
+
+                            backgroundColor:
+                              currentChartType ===
+                              "bar"
+                                ? `${activeColor}CC`
+                                : `${activeColor}15`,
+
+                            borderWidth:
+                              currentChartType ===
+                              "bar"
+                                ? 1
+                                : 3,
+
+                            borderRadius:
+                              currentChartType ===
+                              "bar"
+                                ? 6
+                                : 0,
+
+                            minBarLength:
+                              4,
+
+                            tension:
+                              0.3,
+
+                            fill:
+                              currentChartType ===
+                              "line",
+
+                            pointRadius:
+                              ds.isDateLabel
+                                ? 3
+                                : 0
+                          }
+                        ]
+                      };
+
+                      return (
+                        <div
+                          key={
+                            `${col.col}-${refreshKey}`
+                          }
+                          className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20"
+                        >
+
+                          <div className="flex justify-between items-start mb-10">
+
+                            <div className="min-w-0 pr-4">
+
+                              <div className="flex items-center gap-3 mb-3">
+
+                                <div
+                                  className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]"
+                                  style={{
+                                    backgroundColor:
+                                      activeColor
+                                  }}
+                                />
+
+                                <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">
+                                  {
+                                    col.col
+                                  }
+                                </h4>
+
+                              </div>
+
+                              <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
+                                Mapped_By_
+                                {
+                                  ds.labelCol
+                                }
+                              </p>
+
+                            </div>
+
+                            <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
+
+                              <button
+                                onClick={() =>
+                                  setExpandedChart(
+                                    {
+                                      title:
+                                        col.col,
+
+                                      data:
+                                        chartData,
+
+                                      type:
+                                        currentChartType
+                                    }
+                                  )
+                                }
+                                className="p-2 text-zinc-500 hover:text-white transition-colors"
+                              >
+
+                                <FiMaximize2 className="w-5 h-5" />
+
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  toggleLocalChartType(
+                                    ds.id,
+                                    col.col
+                                  )
+                                }
+                                className="p-2 text-zinc-500 hover:text-white transition-colors"
+                              >
+
+                                {currentChartType ===
+                                "line" ? (
+                                  <FiBarChart2 className="w-5 h-5" />
+                                ) : (
+                                  <FiTrendingUp className="w-5 h-5" />
+                                )}
+
+                              </button>
+
+                            </div>
+
+                          </div>
+
+                          <div className="w-full aspect-[4/3] sm:aspect-[16/9] relative">
+
+                            {currentChartType ===
+                            "bar" ? (
+                              <Bar
+                                data={
+                                  chartData
+                                }
+                                options={
+                                  chartOptions
+                                }
+                              />
+                            ) : (
+                              <Line
+                                data={
+                                  chartData
+                                }
+                                options={
+                                  chartOptions
+                                }
+                              />
+                            )}
+
+                          </div>
+
+                        </div>
+                      );
+                    }
+                  )}
+
+                </div>
+
+                {/* =============================================== */}
+                {/* PIE CHARTS                                      */}
+                {/* =============================================== */}
+
+                {categoricalCols.length >
+                  0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 mt-16">
+
+                    {categoricalCols
+                      .slice(
+                        0,
+                        3
+                      )
+                      .map(
+                        (
+                          col
+                        ) => (
+                          <div
+                            key={
+                              `${col.col}-${refreshKey}`
+                            }
+                            className="p-10 md:p-14 border border-white/10 rounded-[3rem] bg-[#0d0d12] shadow-2xl relative overflow-hidden group hover:border-[#7000FF]/30 transition-all"
+                          >
+
+                            <div className="absolute top-6 right-8 px-4 py-1.5 bg-[#7000FF]/10 border border-[#7000FF]/20 rounded-full">
+
+                              <span className="text-[8px] font-black text-[#7000FF] uppercase tracking-widest italic">
+                                Categorical_Split
+                              </span>
+
+                            </div>
+
+                            <div className="flex items-center gap-4 mb-10">
+
+                              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+
+                                <FiPieChart className="text-[#a5b4fc] w-5 h-5" />
+
+                              </div>
+
+                              <h4 className="text-white/50 text-[11px] font-black uppercase tracking-[0.4em] truncate pr-16">
+                                {
+                                  col.col
+                                }
+                              </h4>
+
+                            </div>
+
+                            <div className="aspect-square relative w-full">
+
+                              <Pie
+                                data={{
+                                  labels:
+                                    Object.keys(
+                                      col.freq
+                                    ),
+
+                                  datasets:
+                                    [
+                                      {
+                                        data:
+                                          Object.values(
+                                            col.freq
+                                          ),
+
+                                        backgroundColor:
+                                          COLORS,
+
+                                        borderWidth:
+                                          4,
+
+                                        borderColor:
+                                          "#0d0d12",
+
+                                        hoverOffset:
+                                          20
+                                      }
+                                    ]
+                                }}
+
+                                options={{
+                                  maintainAspectRatio:
+                                    false,
+
+                                  plugins:
+                                    {
+                                      legend:
+                                        {
+                                          position:
+                                            "bottom",
+
+                                          labels:
+                                            {
+                                              color:
+                                                "#666",
+
+                                              font:
+                                                {
+                                                  size:
+                                                    9,
+
+                                                  weight:
+                                                    "bold"
+                                                },
+
+                                              padding:
+                                                20,
+
+                                              usePointStyle:
+                                                true
+                                            }
+                                        }
+                                    }
+                                }}
+                              />
+
+                            </div>
+
+                          </div>
+                        )
+                      )}
+
+                  </div>
+                )}
+
+              </div>
 
             </div>
-          </div>
-        );
-      })}
+          );
+        }
+      )}
 
-      {/* EXPANDED CHART */}
+      {/* ======================================================== */}
+      {/* EXPANDED CHART                                          */}
+      {/* ======================================================== */}
+
       {expandedChart && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 backdrop-blur-3xl p-6 md:p-12">
 
@@ -1901,13 +2363,17 @@ export const Visualizer = ({
             }
             className="absolute top-10 right-10 p-4 bg-white/5 border border-white/10 text-white rounded-full hover:bg-white/10"
           >
+
             <FiX className="w-8 h-8" />
+
           </button>
 
           <div className="w-full h-full max-w-7xl flex flex-col">
 
             <h2 className="text-white text-4xl md:text-6xl font-[1000] uppercase italic tracking-tighter mb-10">
-              {expandedChart.title}
+              {
+                expandedChart.title
+              }
             </h2>
 
             <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-[4rem] p-10">
@@ -1934,22 +2400,34 @@ export const Visualizer = ({
               )}
 
             </div>
+
           </div>
+
         </div>
       )}
 
-      {/* SCROLL TO TOP */}
+      {/* ======================================================== */}
+      {/* SCROLL TO TOP                                           */}
+      {/* ======================================================== */}
+
       {showScrollTop && (
         <button
           onClick={() =>
-            window.scrollTo({
-              top: 0,
-              behavior: "smooth"
-            })
+            window.scrollTo(
+              {
+                top:
+                  0,
+
+                behavior:
+                  "smooth"
+              }
+            )
           }
           className="fixed bottom-10 right-10 z-[100] w-16 h-16 bg-white text-black rounded-full flex items-center justify-center border-8 border-black shadow-[0_20px_50px_rgba(0,0,0,0.5)] active:scale-90 transition-all"
         >
+
           <FiArrowUp className="w-6 h-6" />
+
         </button>
       )}
 

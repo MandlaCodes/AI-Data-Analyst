@@ -8,7 +8,7 @@
  * FIX: Dataset standby/broadcast toggles no longer wipe completed analysis.
  * FIX: Reactivation restores the canonical dataset from allDatasets.
  * FIX: Cross-analysis survives temporary dataset deselection/reselection.
- * UX: Interactive Metria analyst is now surfaced as a primary post-analysis action.
+ * UX: Interactive Metria analyst is now rendered inside Visualizer after the brief.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -37,15 +37,12 @@ import {
 
 import {
     FiTrash2,
-    FiPlus,
-    FiMessageCircle,
-    FiArrowDown
+    FiPlus
 } from "react-icons/fi";
 
 import { WorkbenchHeader } from "../components/WorkbenchHeader";
 import { Visualizer } from "../components/Visualizer";
 import { ImportModal } from "../components/ImportModal";
-import { MetriaFollowUp } from "../components/MetriaFollowUp";
 
 ChartJS.register(
     CategoryScale,
@@ -170,22 +167,6 @@ export default function Analytics() {
 
     const toggleSaveTimerRef =
         useRef(null);
-
-    /**
-     * Anchor used by the new Ask Metria entry points.
-     *
-     * This changes presentation only.
-     * MetriaFollowUp itself remains unchanged.
-     */
-    const metriaSectionRef =
-        useRef(null);
-
-    const scrollToMetria = () => {
-        metriaSectionRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
-    };
 
     // ============================================================
     // DATA UTILITIES
@@ -484,6 +465,13 @@ export default function Analytics() {
     // PAGE STATE FACTORY
     // ============================================================
 
+    /**
+     * Creates the exact state object persisted by both
+     * manual save and autosave.
+     *
+     * Cross analysis is included here so refresh/navigation
+     * restores the completed cross brief.
+     */
     const buildPageState = (
         crossOverride =
             crossAnalysis,
@@ -1091,6 +1079,14 @@ export default function Analytics() {
                         dataset.id
                 );
         } else {
+            /**
+             * IMPORTANT:
+             *
+             * Restore the canonical copy from allDatasets.
+             *
+             * That copy contains aiStorage and any previously
+             * completed analysis state.
+             */
             const storedDataset =
                 allDatasets.find(
                     (item) =>
@@ -1127,6 +1123,15 @@ export default function Analytics() {
             );
         }
 
+        /**
+         * Persist the selected active dataset IDs independently
+         * from React's delayed autosave cycle.
+         *
+         * Cross analysis is deliberately retained here.
+         *
+         * Going Standby is not the same thing as deleting or
+         * importing a new source.
+         */
         toggleSaveTimerRef.current =
             setTimeout(
                 async () => {
@@ -1718,8 +1723,8 @@ export default function Analytics() {
         );
 
         /**
-         * Delete genuinely changes the underlying data,
-         * so old cross analysis is no longer valid.
+         * Deletion genuinely changes the underlying data,
+         * so the completed cross analysis is no longer valid.
          */
         setCrossAnalysis(
             null
@@ -1742,6 +1747,10 @@ export default function Analytics() {
                 )
         );
 
+    /**
+     * MULTI / INDIVIDUAL:
+     * Every active dataset must have its own brief.
+     */
     const allActiveDatasetsAnalyzed =
         activeDatasets.length >
             0 &&
@@ -1752,6 +1761,10 @@ export default function Analytics() {
                 )
         );
 
+    /**
+     * SINGLE:
+     * One dataset must have completed its brief.
+     */
     const singleDatasetAnalyzed =
         activeDatasets.length ===
             1 &&
@@ -1760,6 +1773,10 @@ export default function Analytics() {
                 ?.aiStorage
         );
 
+    /**
+     * CROSS:
+     * Unlock once a real cross-analysis response exists.
+     */
     const crossAnalysisReady =
         activeDatasets.length >
             1 &&
@@ -1769,6 +1786,12 @@ export default function Analytics() {
             crossAnalysis
         );
 
+    /**
+     * This value is now passed down into Visualizer.
+     *
+     * Visualizer will own the actual placement of
+     * MetriaFollowUp directly after the Strategic Brief.
+     */
     const metriaAnalystReady =
         activeDatasets.length ===
         1
@@ -1828,14 +1851,17 @@ export default function Analytics() {
                         isSaving={
                             isSaving
                         }
+
                         onImport={() =>
                             setShowModal(
                                 true
                             )
                         }
+
                         onSave={
                             handleSave
                         }
+
                         onOpenAI={() => {}}
                     />
 
@@ -1885,11 +1911,13 @@ export default function Analytics() {
                                             key={
                                                 ds.id
                                             }
+
                                             onClick={() =>
                                                 handleToggleDataset(
                                                     ds
                                                 )
                                             }
+
                                             className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
                                                 isActive
                                                     ? "bg-purple-900/20 border-purple-500/40 shadow-[0_0_50px_rgba(188,19,254,0.1)] scale-[1.02]"
@@ -1899,6 +1927,7 @@ export default function Analytics() {
 
                                             <div
                                                 className="absolute inset-0 opacity-40 pointer-events-none"
+
                                                 style={{
                                                     background:
                                                         isActive
@@ -1992,7 +2021,9 @@ export default function Analytics() {
                                                             ds.id
                                                         );
                                                     }}
+
                                                     className="text-slate-600 hover:text-red-400 transition-colors"
+
                                                     size={
                                                         18
                                                     }
@@ -2005,7 +2036,9 @@ export default function Analytics() {
                                 }
                             )}
 
-                            {/* ADD STREAM */}
+                            {/* ===================================== */}
+                            {/* ADD STREAM                            */}
+                            {/* ===================================== */}
 
                             <button
                                 onClick={() =>
@@ -2013,6 +2046,7 @@ export default function Analytics() {
                                         true
                                     )
                                 }
+
                                 className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group"
                             >
 
@@ -2063,6 +2097,10 @@ export default function Analytics() {
                                     handleAIUpdate
                                 }
 
+                                // ---------------------------------
+                                // AI ANALYSIS MODE
+                                // ---------------------------------
+
                                 analysisMode={
                                     analysisMode
                                 }
@@ -2070,6 +2108,10 @@ export default function Analytics() {
                                 setAnalysisMode={
                                     handleAnalysisModeChange
                                 }
+
+                                // ---------------------------------
+                                // INDIVIDUAL ANALYSIS
+                                // ---------------------------------
 
                                 activeDatasetIndex={
                                     activeDatasetIndex
@@ -2079,6 +2121,10 @@ export default function Analytics() {
                                     handleActiveDatasetChange
                                 }
 
+                                // ---------------------------------
+                                // CROSS ANALYSIS
+                                // ---------------------------------
+
                                 crossAnalysis={
                                     crossAnalysis
                                 }
@@ -2086,169 +2132,27 @@ export default function Analytics() {
                                 setCrossAnalysis={
                                     setCrossAnalysis
                                 }
+
+                                // ---------------------------------
+                                // INTERACTIVE ANALYST
+                                // ---------------------------------
+                                // Visualizer will use this to place
+                                // the REAL MetriaFollowUp directly
+                                // after the Strategic Brief.
+                                interactiveAnalystReady={
+                                    metriaAnalystReady
+                                }
                             />
 
                         </div>
 
-                        {/* ========================================= */}
-                        {/* METRIA ANALYST SPOTLIGHT                  */}
-                        {/* ========================================= */}
-
-                        {metriaAnalystReady && (
-                            <div className="px-6 lg:px-10 pb-4">
-
-                                <div className="relative overflow-hidden rounded-[2.5rem] border border-purple-500/40 bg-gradient-to-r from-purple-950/50 via-[#120B22] to-indigo-950/40 p-6 md:p-8 shadow-[0_0_60px_rgba(168,85,247,0.12)]">
-
-                                    <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
-
-                                    <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-
-                                        <div className="max-w-3xl">
-
-                                            <div className="flex items-center gap-3 mb-3">
-
-                                                <div className="p-3 rounded-2xl bg-purple-500/15 border border-purple-400/30 text-purple-300">
-
-                                                    <FiMessageCircle
-                                                        size={
-                                                            20
-                                                        }
-                                                    />
-
-                                                </div>
-
-                                                <div>
-
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.45em] text-purple-300/70">
-                                                        Metria is ready
-                                                    </p>
-
-                                                    <p className="text-white text-xl md:text-2xl font-black tracking-tight mt-1">
-                                                        Interrogate the analysis, not just the charts.
-                                                    </p>
-
-                                                </div>
-
-                                            </div>
-
-                                            <p className="text-sm text-slate-400 leading-relaxed max-w-2xl">
-
-                                                {analysisMode ===
-                                                "cross"
-                                                    ? `Metria has context from all ${activeDatasets.length} active datasets. Ask why the result happened, what is driving it, what is risky, or what you should do next.`
-                                                    : `Metria has the completed analysis in context. Ask follow-up questions, challenge a conclusion, or turn the findings into an action plan.`
-                                                }
-
-                                            </p>
-
-                                            <div className="flex flex-wrap gap-2 mt-5">
-
-                                                {[
-                                                    "What should we fix first?",
-
-                                                    "Why is this happening?",
-
-                                                    analysisMode ===
-                                                    "cross"
-                                                        ? "How do these datasets connect?"
-                                                        : "What is the biggest opportunity?"
-                                                ].map(
-                                                    (
-                                                        item
-                                                    ) => (
-                                                        <span
-                                                            key={
-                                                                item
-                                                            }
-                                                            className="px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-[10px] font-semibold text-slate-300"
-                                                        >
-                                                            {
-                                                                item
-                                                            }
-                                                        </span>
-                                                    )
-                                                )}
-
-                                            </div>
-
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={
-                                                scrollToMetria
-                                            }
-                                            className="shrink-0 inline-flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-white text-black text-[11px] font-black uppercase tracking-[0.22em] hover:bg-purple-100 transition-all shadow-xl"
-                                        >
-                                            Ask Metria
-
-                                            <FiArrowDown
-                                                size={
-                                                    16
-                                                }
-                                            />
-                                        </button>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-                        )}
-
-                        {/* ========================================= */}
-                        {/* INTERACTIVE METRIA ANALYST                */}
-                        {/* ========================================= */}
-
-                        {metriaAnalystReady && (
-                            <div
-                                ref={
-                                    metriaSectionRef
-                                }
-                                className="scroll-mt-24"
-                            >
-
-                                <MetriaFollowUp
-                                    activeDatasets={
-                                        activeDatasets
-                                    }
-
-                                    activeDataset={
-                                        analysisMode ===
-                                        "cross"
-                                            ? null
-                                            : activeDatasets[
-                                                  activeDatasetIndex
-                                              ] ||
-                                              activeDatasets[
-                                                  activeDatasets.length -
-                                                      1
-                                              ]
-                                    }
-
-                                    analysisMode={
-                                        analysisMode
-                                    }
-
-                                    crossAnalysis={
-                                        crossAnalysis
-                                    }
-
-                                    authToken={
-                                        userToken
-                                    }
-
-                                    aiAnalysisReady={
-                                        metriaAnalystReady
-                                    }
-                                />
-
-                            </div>
-                        )}
-
                     </div>
 
                 ) : (
+
+                    // =============================================
+                    // EMPTY STATE
+                    // =============================================
 
                     <div className="px-6 lg:px-10 pb-12 mt-12">
 
@@ -2271,6 +2175,7 @@ export default function Analytics() {
                                         true
                                     )
                                 }
+
                                 className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
                             >
                                 Initialize Stream
@@ -2282,55 +2187,6 @@ export default function Analytics() {
                 )}
 
             </div>
-
-            {/* ==================================================== */}
-            {/* FLOATING METRIA ENTRY POINT                           */}
-            {/* ==================================================== */}
-
-            {metriaAnalystReady && (
-                <button
-                    type="button"
-                    onClick={
-                        scrollToMetria
-                    }
-                    className="fixed bottom-6 right-28 z-[75] group flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 border border-purple-300/30 text-white shadow-[0_15px_50px_rgba(168,85,247,0.35)] hover:scale-[1.03] active:scale-95 transition-all"
-                    title="Ask Metria about this analysis"
-                >
-
-                    <div className="relative">
-
-                        <FiMessageCircle
-                            size={
-                                18
-                            }
-                        />
-
-                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-
-                    </div>
-
-                    <div className="text-left leading-tight">
-
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em]">
-                            Ask Metria
-                        </div>
-
-                        <div className="text-[9px] text-white/70 mt-0.5">
-
-                            Analyst ready
-
-                            {activeDatasets.length >
-                            1
-                                ? ` • ${activeDatasets.length} sources`
-                                : ""
-                            }
-
-                        </div>
-
-                    </div>
-
-                </button>
-            )}
 
             {/* ==================================================== */}
             {/* IMPORT MODAL                                         */}
