@@ -22,11 +22,15 @@ import {
     FiActivity,
     FiMessageCircle,
     FiRadio,
-    FiChevronRight
+    FiChevronRight,
+    FiSkipForward
 } from "react-icons/fi";
 
 const API_BASE_URL =
     "https://ai-data-analyst-backend-1nuw.onrender.com";
+
+const INTRO_STORAGE_KEY =
+    "metria_intro_seen";
 
 export const MetriaFollowUp = ({
     activeDataset,
@@ -53,30 +57,58 @@ export const MetriaFollowUp = ({
         useState(false);
 
     // ============================================================
-    // EXPERIENCE STATE
+    // METRIA EXPERIENCE
     // ============================================================
 
     /*
-     * VOICE is the hero/default experience.
-     *
-     * Chat still exists, but becomes the secondary
-     * detailed transcript / keyboard interface.
+     * Voice is now the primary interface.
+     * Chat is a secondary transcript/keyboard experience.
      */
     const [
         interfaceMode,
         setInterfaceMode
     ] = useState("voice");
 
-    const [isListening, setIsListening] =
-        useState(false);
+    /*
+     * Metria starts dormant.
+     *
+     * The user must deliberately activate her.
+     * That makes the product interaction obvious instead
+     * of dropping them into an unexplained assistant.
+     */
+    const [
+        isActivated,
+        setIsActivated
+    ] = useState(false);
 
-    const [isSpeaking, setIsSpeaking] =
-        useState(false);
+    const [
+        isPlayingIntro,
+        setIsPlayingIntro
+    ] = useState(false);
+
+    const [
+        hasPlayedIntro,
+        setHasPlayedIntro
+    ] = useState(() => {
+        return (
+            localStorage.getItem(
+                INTRO_STORAGE_KEY
+            ) === "true"
+        );
+    });
+
+    const [
+        isListening,
+        setIsListening
+    ] = useState(false);
+
+    const [
+        isSpeaking,
+        setIsSpeaking
+    ] = useState(false);
 
     /*
-     * Voice is ON by default.
-     *
-     * User choice persists between sessions.
+     * Voice remains ON by default.
      */
     const [
         voiceEnabled,
@@ -87,7 +119,10 @@ export const MetriaFollowUp = ({
                 "metria_voice_enabled"
             );
 
-        return savedPreference !== "false";
+        return (
+            savedPreference !==
+            "false"
+        );
     });
 
     const [
@@ -123,22 +158,28 @@ export const MetriaFollowUp = ({
     // ============================================================
 
     const datasetsInContext =
-        Array.isArray(activeDatasets) &&
-        activeDatasets.length > 0
+        Array.isArray(
+            activeDatasets
+        ) &&
+        activeDatasets.length >
+            0
             ? activeDatasets
             : activeDataset
               ? [activeDataset]
               : [];
 
     const primaryDataset =
-        datasetsInContext.length > 0
+        datasetsInContext.length >
+        0
             ? datasetsInContext[
-                  datasetsInContext.length - 1
+                  datasetsInContext.length -
+                      1
               ]
             : null;
 
     const isMultiDataset =
-        datasetsInContext.length > 1;
+        datasetsInContext.length >
+        1;
 
     const datasetNames =
         datasetsInContext.map(
@@ -162,50 +203,119 @@ export const MetriaFollowUp = ({
     useEffect(() => {
         localStorage.setItem(
             "metria_voice_enabled",
-            String(voiceEnabled)
+            String(
+                voiceEnabled
+            )
         );
-    }, [voiceEnabled]);
+    }, [
+        voiceEnabled
+    ]);
 
     // ============================================================
-    // METRIA ACTIVE STATE
+    // EXPANDED MODE — LOCK PAGE SCROLL
+    // ============================================================
+
+    /*
+     * Prevent the main Analytics page scrollbar from showing
+     * behind the expanded Metria interface.
+     */
+    useEffect(() => {
+        if (!isExpanded) {
+            return;
+        }
+
+        const previousBodyOverflow =
+            document.body.style
+                .overflow;
+
+        const previousHtmlOverflow =
+            document.documentElement
+                .style.overflow;
+
+        document.body.style.overflow =
+            "hidden";
+
+        document.documentElement.style.overflow =
+            "hidden";
+
+        return () => {
+            document.body.style.overflow =
+                previousBodyOverflow;
+
+            document.documentElement.style.overflow =
+                previousHtmlOverflow;
+        };
+    }, [
+        isExpanded
+    ]);
+
+    // ============================================================
+    // METRIA STATE
     // ============================================================
 
     const metriaState =
-        isListening
-            ? "listening"
-            : isAnalyzing
-              ? "thinking"
-              : isSpeaking
-                ? "speaking"
-                : "ready";
+        !isActivated
+            ? "dormant"
+            : isPlayingIntro
+              ? "introducing"
+              : isListening
+                ? "listening"
+                : isAnalyzing
+                  ? "thinking"
+                  : isSpeaking
+                    ? "speaking"
+                    : "ready";
 
     const stateLabel = {
-        listening: "Listening",
-        thinking: "Thinking",
-        speaking: "Speaking",
-        ready: "Ready"
-    }[metriaState];
+        dormant:
+            "Offline",
+
+        introducing:
+            "Introducing",
+
+        listening:
+            "Listening",
+
+        thinking:
+            "Thinking",
+
+        speaking:
+            "Speaking",
+
+        ready:
+            "Active"
+    }[
+        metriaState
+    ];
 
     const stateSubtext = {
+        dormant:
+            "Tap the core to activate Metria",
+
+        introducing:
+            "Metria is coming online",
+
         listening:
-            "Go ahead. I'm listening.",
+            "I'm listening",
 
         thinking:
             isMultiDataset
                 ? `Reasoning across ${datasetsInContext.length} connected sources`
-                : "Working through your data",
+                : "Working through the evidence",
 
         speaking:
-            "Delivering your analysis",
+            "Delivering analysis",
 
         ready:
             isMultiDataset
-                ? `${datasetsInContext.length} business sources connected`
-                : `Context loaded: ${primaryDataset?.name || "Dataset"}`
-    }[metriaState];
+                ? `${datasetsInContext.length} sources are in context`
+                : `${primaryDataset?.name || "Dataset"} is in context`
+    }[
+        metriaState
+    ];
 
     // ============================================================
-    // LAST RESPONSE / LAST USER QUESTION
+    // CURRENT RESPONSE
     // ============================================================
 
     const latestMetriaMessage =
@@ -215,7 +325,8 @@ export const MetriaFollowUp = ({
                 (message) =>
                     message.sender ===
                     "metria"
-            )?.text || "";
+            )?.text ||
+        "";
 
     const latestUserMessage =
         [...messages]
@@ -224,23 +335,28 @@ export const MetriaFollowUp = ({
                 (message) =>
                     message.sender ===
                     "user"
-            )?.text || "";
+            )?.text ||
+        "";
 
     // ============================================================
-    // AUTO SCROLL
+    // AUTO SCROLL CHAT
     // ============================================================
 
     useEffect(() => {
         if (
-            interfaceMode !== "chat"
+            interfaceMode !==
+            "chat"
         ) {
             return;
         }
 
         conversationEndRef.current
             ?.scrollIntoView({
-                behavior: "smooth",
-                block: "nearest"
+                behavior:
+                    "smooth",
+
+                block:
+                    "nearest"
             });
     }, [
         messages,
@@ -250,28 +366,50 @@ export const MetriaFollowUp = ({
     ]);
 
     // ============================================================
-    // VOICE HELPERS
+    // AUDIO
     // ============================================================
 
     const stopVoice = () => {
-        if (audioRef.current) {
+        if (
+            audioRef.current
+        ) {
             audioRef.current.pause();
 
             audioRef.current.currentTime =
                 0;
 
-            audioRef.current = null;
+            audioRef.current =
+                null;
         }
 
-        setIsSpeaking(false);
+        setIsSpeaking(
+            false
+        );
+
+        setIsPlayingIntro(
+            false
+        );
     };
 
     const playResponseAudio =
-        async (audioBase64) => {
+        async (
+            audioBase64,
+            {
+                isIntro =
+                    false,
+                onFinished
+            } = {}
+        ) => {
             if (
                 !voiceEnabled ||
                 !audioBase64
             ) {
+                if (
+                    onFinished
+                ) {
+                    onFinished();
+                }
+
                 return;
             }
 
@@ -286,47 +424,93 @@ export const MetriaFollowUp = ({
                 audioRef.current =
                     audio;
 
-                audio.onplay = () => {
-                    setIsSpeaking(true);
-                };
+                audio.onplay =
+                    () => {
+                        setIsSpeaking(
+                            true
+                        );
 
-                audio.onended = () => {
-                    setIsSpeaking(false);
+                        if (
+                            isIntro
+                        ) {
+                            setIsPlayingIntro(
+                                true
+                            );
+                        }
+                    };
 
-                    audioRef.current =
-                        null;
-                };
+                const finish =
+                    () => {
+                        setIsSpeaking(
+                            false
+                        );
 
-                audio.onerror = () => {
-                    setIsSpeaking(false);
+                        setIsPlayingIntro(
+                            false
+                        );
 
-                    audioRef.current =
-                        null;
-                };
+                        audioRef.current =
+                            null;
+
+                        if (
+                            onFinished
+                        ) {
+                            onFinished();
+                        }
+                    };
+
+                audio.onended =
+                    finish;
+
+                audio.onerror =
+                    finish;
 
                 await audio.play();
-            } catch (error) {
+            } catch (
+                error
+            ) {
                 console.warn(
                     "Browser prevented automatic Metria voice playback:",
                     error
                 );
 
-                setIsSpeaking(false);
+                setIsSpeaking(
+                    false
+                );
+
+                setIsPlayingIntro(
+                    false
+                );
+
+                if (
+                    onFinished
+                ) {
+                    onFinished();
+                }
             }
         };
 
     // ============================================================
-    // WELCOME / CONTEXT RESET
+    // DATASET WELCOME
     // ============================================================
 
     useEffect(() => {
         if (
             !aiAnalysisReady ||
-            datasetsInContext.length === 0
+            datasetsInContext.length ===
+                0
         ) {
-            setIsVisible(false);
+            setIsVisible(
+                false
+            );
 
-            setMessages([]);
+            setMessages(
+                []
+            );
+
+            setIsActivated(
+                false
+            );
 
             stopVoice();
 
@@ -334,49 +518,57 @@ export const MetriaFollowUp = ({
         }
 
         const timer =
-            setTimeout(() => {
-                setIsVisible(true);
+            setTimeout(
+                () => {
+                    setIsVisible(
+                        true
+                    );
 
-                let welcomeText;
+                    /*
+                     * We preload a context message for Chat mode,
+                     * but Metria remains dormant visually until tapped.
+                     */
 
-                if (
-                    datasetsInContext.length >
-                    1
-                ) {
-                    welcomeText =
-                        `Analysis complete. I have ${datasetsInContext.length} active sources in context: ` +
-                        `${datasetNames.join(", ")}. ` +
-                        `I've got the strategic analysis, metrics and underlying records ready. ` +
-                        `Ask me what's driving performance, where the biggest risk is, ` +
-                        `how these sources connect, or what I'd recommend doing next.`;
-                } else {
-                    welcomeText =
-                        `Analysis complete. I've got "${datasetsInContext[0]?.name}" in context. ` +
-                        `You can challenge the brief, ask me why something is happening, ` +
-                        `investigate a specific number, or ask what I think you should do next.`;
-                }
+                    let welcomeText;
 
-                setMessages([
-                    {
-                        sender:
-                            "metria",
-
-                        text:
-                            welcomeText
+                    if (
+                        isMultiDataset
+                    ) {
+                        welcomeText =
+                            `I've got ${datasetsInContext.length} active sources in context: ` +
+                            `${datasetNames.join(", ")}. ` +
+                            `I can reason across the strategic analysis, metrics and underlying records.`;
+                    } else {
+                        welcomeText =
+                            `I've got "${datasetsInContext[0]?.name}" in context. ` +
+                            `I can investigate the strategic brief, metrics and underlying records with you.`;
                     }
-                ]);
 
-                /*
-                 * Keep Voice mode as the hero when
-                 * analysis context changes.
-                 */
-                setInterfaceMode(
-                    "voice"
-                );
-            }, 350);
+                    setMessages([
+                        {
+                            sender:
+                                "metria",
+
+                            text:
+                                welcomeText
+                        }
+                    ]);
+
+                    setInterfaceMode(
+                        "voice"
+                    );
+
+                    setIsActivated(
+                        false
+                    );
+                },
+                300
+            );
 
         return () => {
-            clearTimeout(timer);
+            clearTimeout(
+                timer
+            );
         };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -386,12 +578,234 @@ export const MetriaFollowUp = ({
     ]);
 
     // ============================================================
+    // METRIA INTRODUCTION
+    // ============================================================
+
+    /*
+     * Since /ai/speak was removed, this deliberately uses /ai/query.
+     *
+     * That means the intro comes back through the exact same
+     * ElevenLabs voice pipeline as every other Metria response.
+     */
+    const playMetriaIntroduction =
+        async () => {
+            if (
+                isPlayingIntro
+            ) {
+                return;
+            }
+
+            setIsPlayingIntro(
+                true
+            );
+
+            const introScript =
+                isMultiDataset
+                    ? `Hello there. I'm Metria, your interactive business analyst. I've already reviewed the ${datasetsInContext.length} data sources connected to this analysis. You don't need to use special commands with me. Just tap my core, speak naturally, and ask me anything you would ask a real analyst — why something happened, where the risk is, how the data connects, or what I think you should do next. If you'd rather type, you can switch to Chat at any time.`
+                    : `Hello there. I'm Metria, your interactive business analyst. I've already reviewed ${primaryDataset?.name || "your data"} and I have the analysis and underlying records in context. You don't need to use special commands with me. Just tap my core, speak naturally, and ask me anything you would ask a real analyst — why something happened, what stands out, where the risk is, or what I think you should do next. If you'd rather type, you can switch to Chat at any time.`;
+
+            /*
+             * Ask /ai/query to speak the controlled intro.
+             *
+             * We intentionally ignore the returned messages
+             * so this hidden onboarding request does not replace
+             * the visible analyst conversation.
+             */
+            try {
+                const datasetsPayload =
+                    datasetsInContext.map(
+                        (
+                            dataset
+                        ) => ({
+                            id:
+                                dataset?.id,
+
+                            name:
+                                dataset?.name ||
+                                "Unnamed Dataset",
+
+                            metrics:
+                                dataset?.metrics ||
+                                {},
+
+                            data_sample:
+                                dataset?.data ||
+                                dataset?.rows ||
+                                []
+                        })
+                    );
+
+                const res =
+                    await axios.post(
+                        `${API_BASE_URL}/ai/query`,
+                        {
+                            query:
+                                `Say exactly the following introduction and nothing else:\n\n${introScript}`,
+
+                            // IMPORTANT:
+                            // This is Metria's activation/onboarding request.
+                            // The backend still generates the normal OpenAI
+                            // response and ElevenLabs voice, but does not save
+                            // this hidden intro as a chat session or append it
+                            // to the user's conversation history.
+                            intro_only:
+                                true,
+
+                            datasets:
+                                datasetsPayload,
+
+                            dataset_name:
+                                primaryDataset?.name ||
+                                "Dataset",
+
+                            metrics:
+                                primaryDataset?.metrics ||
+                                {},
+
+                            data_sample:
+                                primaryDataset?.data ||
+                                primaryDataset?.rows ||
+                                [],
+
+                            messages:
+                                [],
+
+                            analysis_mode:
+                                analysisMode,
+
+                            cross_analysis:
+                                crossAnalysis
+                        },
+                        {
+                            headers: {
+                                Authorization:
+                                    `Bearer ${authToken}`
+                            }
+                        }
+                    );
+
+                const audioBase64 =
+                    res.data
+                        ?.audio_base64;
+
+                /*
+                 * Even if voice has been manually switched off,
+                 * activation still succeeds.
+                 */
+                if (
+                    audioBase64 &&
+                    voiceEnabled
+                ) {
+                    await playResponseAudio(
+                        audioBase64,
+                        {
+                            isIntro:
+                                true,
+
+                            onFinished:
+                                () => {
+                                    setHasPlayedIntro(
+                                        true
+                                    );
+
+                                    localStorage.setItem(
+                                        INTRO_STORAGE_KEY,
+                                        "true"
+                                    );
+                                }
+                        }
+                    );
+                } else {
+                    setIsPlayingIntro(
+                        false
+                    );
+
+                    setHasPlayedIntro(
+                        true
+                    );
+
+                    localStorage.setItem(
+                        INTRO_STORAGE_KEY,
+                        "true"
+                    );
+                }
+            } catch (
+                error
+            ) {
+                console.error(
+                    "Metria introduction failed:",
+                    error.response
+                        ?.data ||
+                        error.message
+                );
+
+                setIsPlayingIntro(
+                    false
+                );
+
+                setHasPlayedIntro(
+                    true
+                );
+
+                localStorage.setItem(
+                    INTRO_STORAGE_KEY,
+                    "true"
+                );
+            }
+        };
+
+    // ============================================================
+    // ACTIVATE METRIA
+    // ============================================================
+
+    const activateMetria =
+        async () => {
+            if (
+                isActivated
+            ) {
+                return;
+            }
+
+            setIsActivated(
+                true
+            );
+
+            /*
+             * First-time activation gets onboarding.
+             *
+             * After the user has heard/skipped onboarding once,
+             * future activations go straight into tap-to-talk mode.
+             */
+            if (
+                !hasPlayedIntro
+            ) {
+                await playMetriaIntroduction();
+            }
+        };
+
+    const skipIntroduction =
+        () => {
+            stopVoice();
+
+            setHasPlayedIntro(
+                true
+            );
+
+            localStorage.setItem(
+                INTRO_STORAGE_KEY,
+                "true"
+            );
+        };
+
+    // ============================================================
     // CLEANUP
     // ============================================================
 
     useEffect(() => {
         return () => {
-            if (audioRef.current) {
+            if (
+                audioRef.current
+            ) {
                 audioRef.current.pause();
 
                 audioRef.current =
@@ -414,7 +828,7 @@ export const MetriaFollowUp = ({
     }, []);
 
     // ============================================================
-    // CHAT HISTORY
+    // HISTORY
     // ============================================================
 
     useEffect(() => {
@@ -437,23 +851,33 @@ export const MetriaFollowUp = ({
                             .sessions ||
                             []
                     );
-                } catch (err) {
+                } catch (
+                    err
+                ) {
                     console.error(
                         "Failed to load past chat sessions",
                         err
                     );
 
-                    setPastSessions([]);
+                    setPastSessions(
+                        []
+                    );
                 }
             };
 
-        if (authToken) {
+        if (
+            authToken
+        ) {
             fetchHistory();
         }
-    }, [authToken]);
+    }, [
+        authToken
+    ]);
 
     const loadSession =
-        async (sessionId) => {
+        async (
+            sessionId
+        ) => {
             try {
                 stopVoice();
 
@@ -478,14 +902,16 @@ export const MetriaFollowUp = ({
                     false
                 );
 
-                /*
-                 * Historical sessions make more sense
-                 * in transcript mode.
-                 */
+                setIsActivated(
+                    true
+                );
+
                 setInterfaceMode(
                     "chat"
                 );
-            } catch (err) {
+            } catch (
+                err
+            ) {
                 console.error(
                     "Failed to load session messages",
                     err
@@ -494,16 +920,38 @@ export const MetriaFollowUp = ({
         };
 
     // ============================================================
-    // SPEECH TO TEXT
+    // SPEECH RECOGNITION
     // ============================================================
 
     const toggleVoiceListener =
         () => {
+            /*
+             * First tap wakes Metria.
+             */
+            if (
+                !isActivated
+            ) {
+                activateMetria();
+
+                return;
+            }
+
+            /*
+             * Do not start recognition during onboarding.
+             */
+            if (
+                isPlayingIntro
+            ) {
+                return;
+            }
+
             const SpeechRecognition =
                 window.SpeechRecognition ||
                 window.webkitSpeechRecognition;
 
-            if (!SpeechRecognition) {
+            if (
+                !SpeechRecognition
+            ) {
                 alert(
                     "Speech recognition isn't supported in this browser. Chrome provides the most reliable voice input."
                 );
@@ -511,11 +959,25 @@ export const MetriaFollowUp = ({
                 return;
             }
 
-            if (isAnalyzing) {
+            if (
+                isAnalyzing
+            ) {
                 return;
             }
 
-            if (isListening) {
+            /*
+             * Tapping while Metria is speaking interrupts her,
+             * then immediately opens the mic.
+             */
+            if (
+                isSpeaking
+            ) {
+                stopVoice();
+            }
+
+            if (
+                isListening
+            ) {
                 try {
                     recognitionRef.current
                         ?.stop();
@@ -529,8 +991,6 @@ export const MetriaFollowUp = ({
 
                 return;
             }
-
-            stopVoice();
 
             const recognition =
                 new SpeechRecognition();
@@ -558,10 +1018,14 @@ export const MetriaFollowUp = ({
                 };
 
             recognition.onresult =
-                (event) => {
+                (
+                    event
+                ) => {
                     const speechText =
                         event
-                            .results[0][0]
+                            .results[
+                                0
+                            ][0]
                             .transcript;
 
                     setInputQuery(
@@ -578,7 +1042,9 @@ export const MetriaFollowUp = ({
                 };
 
             recognition.onerror =
-                (event) => {
+                (
+                    event
+                ) => {
                     console.warn(
                         "Speech recognition error:",
                         event.error
@@ -607,7 +1073,9 @@ export const MetriaFollowUp = ({
     // ============================================================
 
     const handleSend =
-        async (queryText) => {
+        async (
+            queryText
+        ) => {
             const textToSend =
                 String(
                     queryText ||
@@ -624,31 +1092,47 @@ export const MetriaFollowUp = ({
                 return;
             }
 
+            if (
+                !isActivated
+            ) {
+                setIsActivated(
+                    true
+                );
+            }
+
             stopVoice();
 
-            const newMessages = [
-                ...messages,
-                {
-                    sender:
-                        "user",
+            const newMessages =
+                [
+                    ...messages,
 
-                    text:
-                        textToSend
-                }
-            ];
+                    {
+                        sender:
+                            "user",
+
+                        text:
+                            textToSend
+                    }
+                ];
 
             setMessages(
                 newMessages
             );
 
-            setInputQuery("");
+            setInputQuery(
+                ""
+            );
 
-            setIsAnalyzing(true);
+            setIsAnalyzing(
+                true
+            );
 
             try {
                 const datasetsPayload =
                     datasetsInContext.map(
-                        (dataset) => ({
+                        (
+                            dataset
+                        ) => ({
                             id:
                                 dataset?.id,
 
@@ -670,10 +1154,13 @@ export const MetriaFollowUp = ({
                 const res =
                     await axios.post(
                         `${API_BASE_URL}/ai/query`,
-
                         {
                             query:
                                 textToSend,
+
+                            // Normal analyst conversation.
+                            intro_only:
+                                false,
 
                             datasets:
                                 datasetsPayload,
@@ -691,8 +1178,12 @@ export const MetriaFollowUp = ({
                                 primaryDataset?.rows ||
                                 [],
 
+                            // Send the history BEFORE this new question.
+                            // The backend appends the current user question
+                            // and Metria response itself. This prevents the
+                            // user's latest question from appearing twice.
                             messages:
-                                newMessages,
+                                messages,
 
                             analysis_mode:
                                 analysisMode,
@@ -700,7 +1191,6 @@ export const MetriaFollowUp = ({
                             cross_analysis:
                                 crossAnalysis
                         },
-
                         {
                             headers: {
                                 Authorization:
@@ -710,7 +1200,8 @@ export const MetriaFollowUp = ({
                     );
 
                 const answerText =
-                    res.data.answer ||
+                    res.data
+                        .answer ||
                     "I wasn't able to generate an analysis.";
 
                 const audioBase64 =
@@ -718,9 +1209,11 @@ export const MetriaFollowUp = ({
                         .audio_base64;
 
                 const finalMessages =
-                    res.data.messages ||
+                    res.data
+                        .messages ||
                     [
                         ...newMessages,
+
                         {
                             sender:
                                 "metria",
@@ -738,10 +1231,6 @@ export const MetriaFollowUp = ({
                     false
                 );
 
-                /*
-                 * Default Metria behavior:
-                 * successful answers speak automatically.
-                 */
                 if (
                     voiceEnabled &&
                     audioBase64
@@ -750,7 +1239,9 @@ export const MetriaFollowUp = ({
                         audioBase64
                     );
                 }
-            } catch (err) {
+            } catch (
+                err
+            ) {
                 console.error(
                     "Metria query failed:",
                     err.response
@@ -766,8 +1257,11 @@ export const MetriaFollowUp = ({
                     "I lost the connection for a moment. Send that again and I'll pick it up.";
 
                 setMessages(
-                    (prev) => [
+                    (
+                        prev
+                    ) => [
                         ...prev,
+
                         {
                             sender:
                                 "metria",
@@ -781,14 +1275,18 @@ export const MetriaFollowUp = ({
         };
 
     // ============================================================
-    // FORMAT MESSAGE
+    // MESSAGE FORMAT
     // ============================================================
 
     const formatMessageText =
-        (text, sender) => {
+        (
+            text,
+            sender
+        ) => {
             const safeText =
                 String(
-                    text || ""
+                    text ||
+                        ""
                 );
 
             if (
@@ -797,13 +1295,16 @@ export const MetriaFollowUp = ({
             ) {
                 return (
                     <p className="leading-relaxed text-sm md:text-base">
-                        {safeText}
+                        {
+                            safeText
+                        }
                     </p>
                 );
             }
 
             return (
                 <div className="space-y-4 text-sm md:text-base leading-relaxed text-slate-100 font-normal">
+
                     {safeText
                         .split(
                             "\n\n"
@@ -825,6 +1326,7 @@ export const MetriaFollowUp = ({
                                 </p>
                             )
                         )}
+
                 </div>
             );
         };
@@ -842,33 +1344,33 @@ export const MetriaFollowUp = ({
     }
 
     // ============================================================
-    // SUGGESTED PROMPTS
+    // PROMPTS
     // ============================================================
 
     const suggestedPrompts =
         isMultiDataset
             ? [
-                  "What's the most important thing I should know?",
-                  "How do these datasets influence each other?",
+                  "What's the biggest thing I should know?",
+                  "How do these sources affect each other?",
                   "What would you fix first?"
               ]
             : [
-                  "What's the most important thing I should know?",
+                  "What's the biggest thing I should know?",
                   "What's driving this result?",
                   "What would you do next?"
               ];
 
     // ============================================================
-    // UI
+    // RENDER
     // ============================================================
 
     return (
         <div
-            className={`transition-all duration-500 ${
+            className={
                 isExpanded
-                    ? "fixed top-0 right-0 bottom-0 left-64 z-50 bg-[#030207] p-5 md:p-8 flex flex-col"
+                    ? "fixed top-0 right-0 bottom-0 left-64 z-[999] bg-[#030207] flex flex-col overflow-hidden"
                     : "w-full mx-auto my-6 flex flex-col"
-            }`}
+            }
         >
             <div
                 className={`transition-all duration-700 transform ${
@@ -877,56 +1379,55 @@ export const MetriaFollowUp = ({
                         : "opacity-0 translate-y-5 pointer-events-none"
                 } w-full flex-1 flex flex-col`}
             >
+
                 {/* ================================================= */}
-                {/* MAIN METRIA SHELL                                  */}
+                {/* MAIN METRIA EXPERIENCE                            */}
                 {/* ================================================= */}
 
                 <div
-                    className={`relative overflow-hidden w-full flex-1 flex flex-col border transition-all duration-700 ${
+                    className={`relative overflow-hidden w-full flex-1 flex flex-col transition-all duration-700 ${
                         isExpanded
-                            ? "bg-[#06040c] border-purple-500/30 rounded-[3rem]"
+                            ? "bg-[#030207] border-0 rounded-none shadow-none h-full"
                             : isSpeaking
-                              ? "bg-[#090411] border-purple-400/60 rounded-[3rem] shadow-[0_0_120px_rgba(147,51,234,0.22)]"
+                              ? "bg-[#090411] border border-purple-400/60 rounded-[3rem] shadow-[0_0_120px_rgba(147,51,234,0.22)]"
                               : isAnalyzing
-                                ? "bg-[#080610] border-indigo-400/40 rounded-[3rem] shadow-[0_0_100px_rgba(99,102,241,0.16)]"
+                                ? "bg-[#080610] border border-indigo-400/40 rounded-[3rem] shadow-[0_0_100px_rgba(99,102,241,0.16)]"
                                 : isListening
-                                  ? "bg-[#050b0d] border-cyan-400/40 rounded-[3rem] shadow-[0_0_100px_rgba(34,211,238,0.12)]"
-                                  : "bg-gradient-to-br from-[#0c0618] via-[#07050d] to-[#060914] border-purple-500/35 rounded-[3rem] shadow-[0_30px_120px_rgba(112,0,255,0.14)]"
+                                  ? "bg-[#03090d] border border-cyan-400/40 rounded-[3rem] shadow-[0_0_100px_rgba(34,211,238,0.12)]"
+                                  : "bg-gradient-to-br from-[#0c0618] via-[#07050d] to-[#060914] border border-purple-500/35 rounded-[3rem] shadow-[0_30px_120px_rgba(112,0,255,0.14)]"
                     }`}
                 >
+
                     {/* ================================================= */}
-                    {/* AMBIENT BACKGROUND                                */}
+                    {/* BACKGROUND                                        */}
                     {/* ================================================= */}
 
                     <div
-                        className={`absolute -top-64 left-[15%] w-[650px] h-[650px] rounded-full blur-[160px] transition-all duration-1000 pointer-events-none ${
-                            isSpeaking
-                                ? "bg-purple-500/20 scale-125"
-                                : isAnalyzing
-                                  ? "bg-indigo-500/15 scale-110"
+                        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[170px] pointer-events-none transition-all duration-1000 ${
+                            !isActivated
+                                ? "bg-purple-500/[0.06]"
+                                : isSpeaking
+                                  ? "bg-purple-500/20 scale-125"
                                   : isListening
-                                    ? "bg-cyan-500/12 scale-110"
-                                    : "bg-purple-500/[0.07]"
+                                    ? "bg-cyan-500/14 scale-110"
+                                    : isAnalyzing
+                                      ? "bg-indigo-500/15 scale-110"
+                                      : "bg-purple-500/[0.08]"
                         }`}
                     />
 
-                    <div
-                        className={`absolute -bottom-72 right-[5%] w-[700px] h-[700px] rounded-full blur-[170px] transition-all duration-1000 pointer-events-none ${
-                            isSpeaking
-                                ? "bg-fuchsia-500/14 scale-125"
-                                : isListening
-                                  ? "bg-blue-500/10"
-                                  : "bg-indigo-500/[0.05]"
-                        }`}
-                    />
+                    {/* subtle energy field */}
 
-                    {/* stars / particles */}
+                    <div className="absolute inset-0 pointer-events-none opacity-35">
 
-                    <div className="absolute inset-0 opacity-30 pointer-events-none overflow-hidden">
                         {Array.from({
-                            length: 28
+                            length:
+                                34
                         }).map(
-                            (_, index) => (
+                            (
+                                _,
+                                index
+                            ) => (
                                 <span
                                     key={
                                         index
@@ -938,22 +1439,16 @@ export const MetriaFollowUp = ({
                                     }`}
                                     style={{
                                         width:
-                                            `${2 + (index % 3)}px`,
+                                            `${1 + (index % 3)}px`,
 
                                         height:
-                                            `${2 + (index % 3)}px`,
+                                            `${1 + (index % 3)}px`,
 
                                         left:
-                                            `${(index * 37) % 100}%`,
+                                            `${(index * 41) % 100}%`,
 
                                         top:
-                                            `${(index * 53) % 100}%`,
-
-                                        opacity:
-                                            0.2 +
-                                            (index %
-                                                5) *
-                                                0.12,
+                                            `${(index * 59) % 100}%`,
 
                                         animation:
                                             `metriaParticle ${
@@ -964,83 +1459,96 @@ export const MetriaFollowUp = ({
 
                                         animationDelay:
                                             `${(index %
-                                                9) *
-                                            0.25}s`
+                                                8) *
+                                            0.18}s`
                                     }}
                                 />
                             )
                         )}
+
                     </div>
 
-                    {/* top energy scan */}
+                    <div
+                        className={`relative z-10 flex flex-col flex-1 ${
+                            isExpanded
+                                ? "px-8 md:px-12 py-7"
+                                : "p-5 md:p-8"
+                        }`}
+                    >
 
-                    <div className="absolute top-0 left-0 right-0 h-[1px] overflow-hidden">
-                        <div
-                            className={`h-full w-1/3 bg-gradient-to-r from-transparent via-purple-300 to-transparent ${
-                                isSpeaking ||
-                                isAnalyzing ||
-                                isListening
-                                    ? "animate-[metriaScan_2s_linear_infinite]"
-                                    : "opacity-40"
-                            }`}
-                        />
-                    </div>
-
-                    <div className="relative z-10 flex flex-col flex-1 p-5 md:p-8">
                         {/* ================================================= */}
                         {/* HEADER                                            */}
                         {/* ================================================= */}
 
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-white/[0.07]">
-                            <div className="flex items-center gap-3">
-                                <div className="relative">
-                                    <span className="absolute inset-0 rounded-xl bg-purple-500/40 blur-xl" />
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
 
-                                    <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-700 border border-purple-300/30 flex items-center justify-center shadow-[0_0_25px_rgba(147,51,234,0.25)]">
+                            <div className="flex items-center gap-3">
+
+                                <div className="relative">
+
+                                    <span className="absolute inset-0 bg-purple-500/35 rounded-xl blur-lg" />
+
+                                    <div className="relative w-10 h-10 rounded-xl border border-purple-400/25 bg-purple-500/10 flex items-center justify-center">
+
                                         <FiActivity
                                             size={
-                                                18
+                                                17
                                             }
-                                            className={`text-white ${
+                                            className={`${
+                                                isActivated
+                                                    ? "text-purple-300"
+                                                    : "text-slate-600"
+                                            } ${
                                                 isSpeaking ||
                                                 isAnalyzing
                                                     ? "animate-pulse"
                                                     : ""
                                             }`}
                                         />
+
                                     </div>
+
                                 </div>
 
                                 <div>
+
                                     <div className="flex items-center gap-2">
-                                        <h3 className="text-white text-lg font-black tracking-tight">
+
+                                        <h3 className="text-white font-black text-lg tracking-tight">
                                             Metria
                                         </h3>
 
                                         <span
-                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[8px] uppercase tracking-[0.16em] font-black ${
-                                                isSpeaking
-                                                    ? "bg-purple-500/10 border-purple-400/30 text-purple-300"
-                                                    : isAnalyzing
-                                                      ? "bg-indigo-500/10 border-indigo-400/30 text-indigo-300"
-                                                      : isListening
-                                                        ? "bg-cyan-500/10 border-cyan-400/30 text-cyan-300"
-                                                        : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[8px] uppercase tracking-[0.17em] font-black ${
+                                                !isActivated
+                                                    ? "border-white/10 bg-white/[0.03] text-slate-600"
+                                                    : isListening
+                                                      ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-300"
+                                                      : isAnalyzing
+                                                        ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-300"
+                                                        : isSpeaking
+                                                          ? "border-purple-400/30 bg-purple-500/10 text-purple-300"
+                                                          : "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
                                             }`}
                                         >
+
                                             <span
                                                 className={`w-1.5 h-1.5 rounded-full ${
-                                                    metriaState ===
-                                                    "ready"
-                                                        ? "bg-emerald-400"
-                                                        : "bg-current animate-pulse"
+                                                    !isActivated
+                                                        ? "bg-slate-700"
+                                                        : metriaState ===
+                                                            "ready"
+                                                          ? "bg-emerald-400"
+                                                          : "bg-current animate-pulse"
                                                 }`}
                                             />
 
                                             {
                                                 stateLabel
                                             }
+
                                         </span>
+
                                     </div>
 
                                     <p className="text-[10px] text-slate-500 mt-1">
@@ -1048,15 +1556,25 @@ export const MetriaFollowUp = ({
                                             stateSubtext
                                         }
                                     </p>
+
                                 </div>
+
                             </div>
 
                             {/* ================================================= */}
-                            {/* MODE SWITCH                                       */}
+                            {/* PRIMARY MODE CONTROL                               */}
                             {/* ================================================= */}
 
-                            <div className="flex flex-wrap items-center gap-2">
-                                <div className="flex p-1 rounded-xl bg-black/40 border border-white/[0.08]">
+                            <div className="flex flex-wrap items-center gap-3">
+
+                                {/*
+                                 * Deliberately larger than before.
+                                 * Users should immediately understand
+                                 * that Voice and Chat are separate modes.
+                                 */}
+
+                                <div className="flex p-1.5 rounded-2xl bg-black/60 border border-white/10 shadow-xl">
+
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -1064,20 +1582,22 @@ export const MetriaFollowUp = ({
                                                 "voice"
                                             )
                                         }
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] uppercase tracking-[0.16em] font-black transition-all ${
+                                        className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl min-w-[115px] text-[10px] uppercase tracking-[0.17em] font-black transition-all ${
                                             interfaceMode ===
                                             "voice"
-                                                ? "bg-purple-500/20 border border-purple-400/30 text-white shadow-[0_0_20px_rgba(147,51,234,0.12)]"
-                                                : "text-slate-600 hover:text-white"
+                                                ? "bg-gradient-to-r from-purple-600/30 to-indigo-500/20 border border-purple-400/40 text-white shadow-[0_0_25px_rgba(147,51,234,0.12)]"
+                                                : "border border-transparent text-slate-600 hover:text-white hover:bg-white/[0.04]"
                                         }`}
                                     >
+
                                         <FiRadio
                                             size={
-                                                12
+                                                14
                                             }
                                         />
 
-                                        Voice
+                                        Talk
+
                                     </button>
 
                                     <button
@@ -1087,51 +1607,62 @@ export const MetriaFollowUp = ({
                                                 "chat"
                                             )
                                         }
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] uppercase tracking-[0.16em] font-black transition-all ${
+                                        className={`flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl min-w-[115px] text-[10px] uppercase tracking-[0.17em] font-black transition-all ${
                                             interfaceMode ===
                                             "chat"
-                                                ? "bg-purple-500/20 border border-purple-400/30 text-white shadow-[0_0_20px_rgba(147,51,234,0.12)]"
-                                                : "text-slate-600 hover:text-white"
+                                                ? "bg-gradient-to-r from-purple-600/30 to-indigo-500/20 border border-purple-400/40 text-white shadow-[0_0_25px_rgba(147,51,234,0.12)]"
+                                                : "border border-transparent text-slate-600 hover:text-white hover:bg-white/[0.04]"
                                         }`}
                                     >
+
                                         <FiMessageCircle
                                             size={
-                                                12
+                                                14
                                             }
                                         />
 
                                         Chat
+
                                     </button>
+
                                 </div>
 
                                 {/* HISTORY */}
 
                                 <div className="relative">
+
                                     <button
                                         type="button"
                                         onClick={() =>
                                             setShowHistoryDropdown(
-                                                (prev) =>
+                                                (
+                                                    prev
+                                                ) =>
                                                     !prev
                                             )
                                         }
-                                        className="p-2.5 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all"
-                                        title="Conversation history"
+                                        className="p-3 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all"
                                     >
+
                                         <FiClock
                                             size={
-                                                14
+                                                15
                                             }
                                         />
+
                                     </button>
 
                                     {showHistoryDropdown && (
                                         <div className="absolute right-0 top-full mt-3 w-80 bg-[#090812]/95 border border-purple-500/30 rounded-2xl p-4 shadow-[0_30px_80px_rgba(0,0,0,0.7)] z-50 backdrop-blur-2xl">
+
                                             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] mb-3">
+
                                                 <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+
                                                     <FiClock className="text-purple-400" />
 
                                                     Previous Conversations
+
                                                 </div>
 
                                                 <button
@@ -1143,15 +1674,19 @@ export const MetriaFollowUp = ({
                                                     }
                                                     className="text-slate-500 hover:text-white"
                                                 >
+
                                                     <FiX
                                                         size={
                                                             15
                                                         }
                                                     />
+
                                                 </button>
+
                                             </div>
 
                                             <div className="space-y-1.5 max-h-64 overflow-y-auto">
+
                                                 {pastSessions.length >
                                                 0 ? (
                                                     pastSessions.map(
@@ -1159,10 +1694,10 @@ export const MetriaFollowUp = ({
                                                             session
                                                         ) => (
                                                             <button
-                                                                type="button"
                                                                 key={
                                                                     session.id
                                                                 }
+                                                                type="button"
                                                                 onClick={() =>
                                                                     loadSession(
                                                                         session.id
@@ -1170,6 +1705,7 @@ export const MetriaFollowUp = ({
                                                                 }
                                                                 className="w-full text-left p-3 rounded-xl hover:bg-purple-600/10 border border-transparent hover:border-purple-500/20 transition-all flex items-center gap-3"
                                                             >
+
                                                                 <FiMessageSquare
                                                                     className="text-purple-400 shrink-0"
                                                                     size={
@@ -1178,6 +1714,7 @@ export const MetriaFollowUp = ({
                                                                 />
 
                                                                 <div className="truncate">
+
                                                                     <p className="text-white text-xs font-bold truncate">
                                                                         {
                                                                             session.title
@@ -1189,7 +1726,9 @@ export const MetriaFollowUp = ({
                                                                             session.date
                                                                         }
                                                                     </p>
+
                                                                 </div>
+
                                                             </button>
                                                         )
                                                     )
@@ -1198,12 +1737,15 @@ export const MetriaFollowUp = ({
                                                         No previous conversations
                                                     </div>
                                                 )}
+
                                             </div>
+
                                         </div>
                                     )}
+
                                 </div>
 
-                                {/* VOICE ENABLED */}
+                                {/* VOICE */}
 
                                 <button
                                     type="button"
@@ -1215,34 +1757,33 @@ export const MetriaFollowUp = ({
                                             next
                                         );
 
-                                        if (!next) {
+                                        if (
+                                            !next
+                                        ) {
                                             stopVoice();
                                         }
                                     }}
-                                    className={`p-2.5 rounded-xl border transition-all ${
+                                    className={`p-3 rounded-xl border transition-all ${
                                         voiceEnabled
                                             ? "bg-purple-500/10 border-purple-400/30 text-purple-200"
                                             : "bg-white/[0.035] border-white/10 text-slate-600"
                                     }`}
-                                    title={
-                                        voiceEnabled
-                                            ? "Voice replies enabled"
-                                            : "Voice replies disabled"
-                                    }
                                 >
+
                                     {voiceEnabled ? (
                                         <FiVolume2
                                             size={
-                                                14
+                                                15
                                             }
                                         />
                                     ) : (
                                         <FiVolumeX
                                             size={
-                                                14
+                                                15
                                             }
                                         />
                                     )}
+
                                 </button>
 
                                 {/* EXPAND */}
@@ -1257,8 +1798,9 @@ export const MetriaFollowUp = ({
                                                 !prev
                                         )
                                     }
-                                    className="p-2.5 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all"
+                                    className="p-3 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all"
                                 >
+
                                     {isExpanded ? (
                                         <FiMinimize2
                                             size={
@@ -1272,573 +1814,367 @@ export const MetriaFollowUp = ({
                                             }
                                         />
                                     )}
+
                                 </button>
+
                             </div>
+
                         </div>
 
                         {/* ================================================= */}
-                        {/* VOICE EXPERIENCE                                  */}
+                        {/* VOICE MODE                                        */}
                         {/* ================================================= */}
 
                         {interfaceMode ===
                             "voice" && (
-                            <div className="relative flex-1 flex flex-col items-center justify-center min-h-[520px] md:min-h-[600px] py-10 md:py-14">
-                                {/* source context */}
 
-                                <div className="absolute top-6 left-0 right-0 flex justify-center">
-                                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/30 border border-white/[0.06] backdrop-blur-xl">
-                                        <FiZap
+                            <div
+                                className={`relative flex-1 flex flex-col items-center justify-center ${
+                                    isExpanded
+                                        ? "min-h-0 h-full"
+                                        : "min-h-[600px]"
+                                } py-10`}
+                            >
+
+                                {/* ========================================= */}
+                                {/* INTRO SKIP                                */}
+                                {/* ========================================= */}
+
+                                {isPlayingIntro && (
+                                    <button
+                                        type="button"
+                                        onClick={
+                                            skipIntroduction
+                                        }
+                                        className="absolute top-6 right-0 md:right-4 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all text-[9px] uppercase tracking-[0.17em] font-black"
+                                    >
+
+                                        Skip intro
+
+                                        <FiSkipForward
                                             size={
-                                                11
+                                                12
                                             }
-                                            className="text-purple-400"
                                         />
 
-                                        <span className="text-[8px] md:text-[9px] uppercase tracking-[0.18em] font-black text-slate-500">
-                                            {
-                                                datasetsInContext.length
-                                            }{" "}
-                                            source
-                                            {datasetsInContext.length ===
-                                            1
-                                                ? ""
-                                                : "s"}{" "}
-                                            in context
-                                        </span>
-                                    </div>
-                                </div>
+                                    </button>
+                                )}
 
-                                {/* ================================================= */}
-                                {/* ORB                                                */}
-                                {/* ================================================= */}
+                                {/* ========================================= */}
+                                {/* CUSTOM METRIA CORE                         */}
+                                {/* ========================================= */}
 
                                 <button
                                     type="button"
+                                    disabled={
+                                        isAnalyzing ||
+                                        isPlayingIntro
+                                    }
                                     onClick={
                                         toggleVoiceListener
                                     }
-                                    disabled={
-                                        isAnalyzing
-                                    }
-                                    className="relative flex items-center justify-center outline-none disabled:cursor-wait"
-                                    title={
-                                        isListening
-                                            ? "Stop listening"
+                                    className="relative group flex items-center justify-center outline-none disabled:cursor-default"
+                                    aria-label={
+                                        !isActivated
+                                            ? "Activate Metria"
                                             : "Talk to Metria"
                                     }
                                 >
-                                    {/* far aura */}
+
+                                    {/* huge ambient activation glow */}
 
                                     <div
-                                        className={`absolute w-[330px] h-[330px] md:w-[420px] md:h-[420px] rounded-full blur-[80px] transition-all duration-1000 ${
-                                            isSpeaking
-                                                ? "bg-purple-500/25 scale-125 animate-pulse"
-                                                : isAnalyzing
-                                                  ? "bg-indigo-500/20 scale-110 animate-pulse"
-                                                  : isListening
-                                                    ? "bg-cyan-500/20 scale-110 animate-pulse"
-                                                    : "bg-purple-500/10 scale-95"
+                                        className={`absolute w-[420px] h-[420px] md:w-[540px] md:h-[540px] rounded-full blur-[100px] transition-all duration-1000 ${
+                                            !isActivated
+                                                ? "bg-purple-600/10 group-hover:bg-purple-500/16 group-hover:scale-110"
+                                                : isListening
+                                                  ? "bg-cyan-500/18 scale-110 animate-pulse"
+                                                  : isSpeaking
+                                                    ? "bg-purple-500/24 scale-125 animate-pulse"
+                                                    : isAnalyzing
+                                                      ? "bg-indigo-500/20 scale-110 animate-pulse"
+                                                      : "bg-purple-600/13"
                                         }`}
                                     />
 
-                                    {/* outer orbit 1 */}
+                                    {/* orbital architecture */}
 
                                     <div
-                                        className={`absolute w-[290px] h-[290px] md:w-[370px] md:h-[370px] rounded-full border transition-all duration-700 ${
-                                            isSpeaking
-                                                ? "border-purple-400/35 animate-[metriaOrbit_5s_linear_infinite]"
-                                                : isAnalyzing
-                                                  ? "border-indigo-400/30 animate-[metriaOrbit_3s_linear_infinite]"
-                                                  : isListening
-                                                    ? "border-cyan-300/30 animate-[metriaOrbit_7s_linear_infinite]"
-                                                    : "border-purple-500/12"
+                                        className={`absolute w-[330px] h-[330px] md:w-[420px] md:h-[420px] transition-all ${
+                                            isActivated
+                                                ? "opacity-100"
+                                                : "opacity-40"
                                         }`}
                                     >
-                                        <span className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-purple-300 shadow-[0_0_16px_rgba(216,180,254,1)]" />
+
+                                        {/* RING A */}
+
+                                        <div
+                                            className={`absolute inset-0 rounded-full border ${
+                                                isListening
+                                                    ? "border-cyan-300/45"
+                                                    : "border-purple-400/25"
+                                            } ${
+                                                isActivated
+                                                    ? "animate-[metriaOrbit_12s_linear_infinite]"
+                                                    : ""
+                                            }`}
+                                        >
+
+                                            <span className="absolute left-1/2 -top-2 -translate-x-1/2 w-4 h-4 rotate-45 bg-purple-400 border border-purple-200/60 shadow-[0_0_20px_rgba(192,132,252,0.8)]" />
+
+                                        </div>
+
+                                        {/* RING B */}
+
+                                        <div
+                                            className={`absolute inset-[9%] rounded-full border border-dashed ${
+                                                isListening
+                                                    ? "border-cyan-400/30"
+                                                    : "border-indigo-400/20"
+                                            } ${
+                                                isActivated
+                                                    ? "animate-[metriaOrbitReverse_8s_linear_infinite]"
+                                                    : ""
+                                            }`}
+                                        >
+
+                                            <span className="absolute bottom-[14%] -right-1 w-3 h-3 rotate-45 bg-indigo-400 shadow-[0_0_18px_rgba(129,140,248,0.8)]" />
+
+                                        </div>
+
+                                        {/* RING C — asymmetric */}
+
+                                        <div
+                                            className={`absolute inset-[20%] border-x border-purple-400/30 rounded-[42%_58%_54%_46%/55%_41%_59%_45%] ${
+                                                isActivated
+                                                    ? "animate-[metriaOrbit_6s_linear_infinite]"
+                                                    : ""
+                                            }`}
+                                        />
+
                                     </div>
 
-                                    {/* outer orbit 2 */}
-
-                                    <div
-                                        className={`absolute w-[250px] h-[250px] md:w-[320px] md:h-[320px] rounded-full border border-dashed transition-all ${
-                                            isAnalyzing
-                                                ? "border-indigo-400/25 animate-[metriaOrbitReverse_5s_linear_infinite]"
-                                                : isSpeaking
-                                                  ? "border-fuchsia-400/20 animate-[metriaOrbitReverse_7s_linear_infinite]"
-                                                  : isListening
-                                                    ? "border-cyan-400/20 animate-[metriaOrbitReverse_6s_linear_infinite]"
-                                                    : "border-purple-400/[0.08] animate-[metriaOrbitReverse_14s_linear_infinite]"
-                                        }`}
-                                    />
-
-                                    {/* listening ring */}
-
-                                    {isListening && (
-                                        <>
-                                            <div className="absolute w-[220px] h-[220px] md:w-[280px] md:h-[280px] rounded-full border-2 border-cyan-300/30 animate-ping" />
-
-                                            <div className="absolute w-[200px] h-[200px] md:w-[260px] md:h-[260px] rounded-full border border-cyan-300/40 animate-pulse" />
-                                        </>
-                                    )}
-
-                                    {/* speaking rings */}
+                                    {/* speaking pulse */}
 
                                     {isSpeaking && (
                                         <>
-                                            <div className="absolute w-[215px] h-[215px] md:w-[275px] md:h-[275px] rounded-full border border-purple-300/30 animate-[metriaSpeechRing_1.4s_ease-out_infinite]" />
+                                            <span className="absolute w-[250px] h-[250px] md:w-[315px] md:h-[315px] rounded-full border border-purple-300/25 animate-[metriaSpeechRing_1.4s_ease-out_infinite]" />
 
-                                            <div className="absolute w-[215px] h-[215px] md:w-[275px] md:h-[275px] rounded-full border border-fuchsia-300/20 animate-[metriaSpeechRing_1.4s_ease-out_infinite] [animation-delay:450ms]" />
+                                            <span className="absolute w-[250px] h-[250px] md:w-[315px] md:h-[315px] rounded-full border border-fuchsia-300/20 animate-[metriaSpeechRing_1.4s_ease-out_infinite] [animation-delay:450ms]" />
                                         </>
                                     )}
 
-                                    {/* actual orb */}
+                                    {/* listening pulse */}
+
+                                    {isListening && (
+                                        <>
+                                            <span className="absolute w-[260px] h-[260px] md:w-[325px] md:h-[325px] rounded-full border border-cyan-300/30 animate-ping" />
+
+                                            <span className="absolute w-[225px] h-[225px] md:w-[285px] md:h-[285px] rounded-full border border-cyan-300/50 animate-pulse" />
+                                        </>
+                                    )}
+
+                                    {/* ===================================== */}
+                                    {/* METRIA SIGNATURE CORE                  */}
+                                    {/* ===================================== */}
 
                                     <div
-                                        className={`relative w-[180px] h-[180px] md:w-[230px] md:h-[230px] rounded-full overflow-hidden border transition-all duration-500 ${
-                                            isSpeaking
-                                                ? "border-purple-200/60 scale-[1.06] shadow-[0_0_80px_rgba(168,85,247,0.55),inset_0_0_70px_rgba(168,85,247,0.25)]"
-                                                : isAnalyzing
-                                                  ? "border-indigo-300/50 scale-[1.03] shadow-[0_0_70px_rgba(99,102,241,0.45),inset_0_0_60px_rgba(99,102,241,0.2)]"
+                                        className={`relative w-[190px] h-[190px] md:w-[245px] md:h-[245px] transition-all duration-700 ${
+                                            !isActivated
+                                                ? "group-hover:scale-[1.06]"
+                                                : isSpeaking
+                                                  ? "scale-[1.07]"
                                                   : isListening
-                                                    ? "border-cyan-300/60 scale-[1.05] shadow-[0_0_70px_rgba(34,211,238,0.4),inset_0_0_60px_rgba(34,211,238,0.18)]"
-                                                    : "border-purple-300/30 shadow-[0_0_60px_rgba(126,34,206,0.35),inset_0_0_55px_rgba(126,34,206,0.18)] hover:scale-[1.03]"
+                                                    ? "scale-[1.06]"
+                                                    : ""
                                         }`}
                                     >
-                                        {/* orb body */}
+
+                                        {/* four diamond wings */}
 
                                         <div
-                                            className={`absolute inset-0 transition-all duration-700 ${
+                                            className={`absolute inset-[13%] rotate-45 rounded-[32px] border transition-all duration-500 ${
                                                 isListening
-                                                    ? "bg-[radial-gradient(circle_at_50%_65%,#22d3ee_0%,#2563eb_18%,#6d28d9_46%,#14051f_77%,#030207_100%)]"
+                                                    ? "border-cyan-300/45 bg-cyan-400/[0.05]"
                                                     : isSpeaking
-                                                      ? "bg-[radial-gradient(circle_at_50%_65%,#38bdf8_0%,#7c3aed_20%,#9333ea_44%,#250735_74%,#030207_100%)]"
-                                                      : isAnalyzing
-                                                        ? "bg-[radial-gradient(circle_at_50%_65%,#6366f1_0%,#4f46e5_22%,#6d28d9_50%,#16051f_78%,#030207_100%)]"
-                                                        : "bg-[radial-gradient(circle_at_50%_68%,#0ea5e9_0%,#4f46e5_18%,#7e22ce_46%,#1e062d_76%,#030207_100%)]"
-                                            }`}
+                                                      ? "border-purple-300/50 bg-purple-500/[0.08]"
+                                                      : "border-purple-400/30 bg-purple-500/[0.05]"
+                                            } shadow-[0_0_70px_rgba(126,34,206,0.25)]`}
                                         />
-
-                                        {/* moving glow */}
 
                                         <div
-                                            className={`absolute -inset-[30%] rounded-full bg-gradient-to-tr from-transparent via-white/[0.08] to-purple-300/20 blur-xl ${
-                                                isAnalyzing ||
-                                                isSpeaking ||
+                                            className={`absolute inset-[24%] rotate-45 rounded-[22px] border transition-all duration-500 ${
                                                 isListening
-                                                    ? "animate-[metriaCoreSpin_3s_linear_infinite]"
-                                                    : "animate-[metriaCoreSpin_10s_linear_infinite]"
-                                            }`}
+                                                    ? "border-cyan-300/60"
+                                                    : "border-indigo-300/40"
+                                            } bg-[#090411] shadow-[inset_0_0_45px_rgba(124,58,237,0.22)]`}
                                         />
 
-                                        {/* glass highlight */}
+                                        {/* central aperture */}
 
-                                        <div className="absolute top-[13%] left-[18%] w-[55%] h-[30%] rounded-full bg-white/[0.09] blur-xl rotate-[-18deg]" />
+                                        <div
+                                            className={`absolute inset-[34%] rotate-45 rounded-[14px] overflow-hidden border transition-all duration-500 ${
+                                                !isActivated
+                                                    ? "border-slate-700 bg-[#09070d]"
+                                                    : isListening
+                                                      ? "border-cyan-200/80 bg-cyan-400/20 shadow-[0_0_40px_rgba(34,211,238,0.5)]"
+                                                      : isSpeaking
+                                                        ? "border-purple-200/80 bg-purple-400/30 shadow-[0_0_45px_rgba(192,132,252,0.65)]"
+                                                        : isAnalyzing
+                                                          ? "border-indigo-200/70 bg-indigo-500/20 shadow-[0_0_40px_rgba(99,102,241,0.5)]"
+                                                          : "border-purple-300/60 bg-purple-500/20 shadow-[0_0_35px_rgba(147,51,234,0.4)]"
+                                            }`}
+                                        >
 
-                                        {/* face */}
-
-                                        <div className="absolute inset-0 flex items-center justify-center gap-6 md:gap-7">
-                                            <span
-                                                className={`w-[11px] md:w-[14px] rounded-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.95)] transition-all duration-300 ${
-                                                    isSpeaking
-                                                        ? "h-12 md:h-14 animate-[metriaEyeTalk_0.7s_ease-in-out_infinite_alternate]"
-                                                        : isListening
-                                                          ? "h-12 md:h-14"
-                                                          : isAnalyzing
-                                                            ? "h-8 md:h-10 animate-pulse"
-                                                            : "h-11 md:h-13"
+                                            <div
+                                                className={`absolute -inset-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent ${
+                                                    isActivated
+                                                        ? "animate-[metriaCoreSweep_2.8s_linear_infinite]"
+                                                        : ""
                                                 }`}
                                             />
 
-                                            <span
-                                                className={`w-[11px] md:w-[14px] rounded-full bg-white shadow-[0_0_20px_rgba(255,255,255,0.95)] transition-all duration-300 ${
-                                                    isSpeaking
-                                                        ? "h-12 md:h-14 animate-[metriaEyeTalk_0.8s_ease-in-out_infinite_alternate] [animation-delay:100ms]"
-                                                        : isListening
-                                                          ? "h-12 md:h-14"
-                                                          : isAnalyzing
-                                                            ? "h-8 md:h-10 animate-pulse"
-                                                            : "h-11 md:h-13"
-                                                }`}
-                                            />
                                         </div>
 
-                                        {/* little energy particles inside */}
+                                        {/* energy nodes */}
 
-                                        {Array.from({
-                                            length: 12
-                                        }).map(
-                                            (
-                                                _,
-                                                index
-                                            ) => (
-                                                <span
-                                                    key={
-                                                        index
-                                                    }
-                                                    className="absolute rounded-full bg-purple-200"
-                                                    style={{
-                                                        width:
-                                                            `${2 + (index % 3)}px`,
+                                        <span className="absolute top-[12%] left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-purple-300 shadow-[0_0_18px_rgba(216,180,254,1)]" />
 
-                                                        height:
-                                                            `${2 + (index % 3)}px`,
+                                        <span className="absolute bottom-[12%] left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-indigo-300 shadow-[0_0_18px_rgba(165,180,252,1)]" />
 
-                                                        left:
-                                                            `${15 + ((index * 19) % 70)}%`,
+                                        <span className="absolute left-[12%] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-fuchsia-300 shadow-[0_0_18px_rgba(240,171,252,1)]" />
 
-                                                        top:
-                                                            `${18 + ((index * 23) % 65)}%`,
+                                        <span className="absolute right-[12%] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,1)]" />
 
-                                                        opacity:
-                                                            0.25 +
-                                                            (index %
-                                                                4) *
-                                                                0.15,
-
-                                                        animation:
-                                                            `metriaParticle ${
-                                                                2.5 +
-                                                                (index %
-                                                                    5)
-                                                            }s ease-in-out infinite`
-                                                    }}
-                                                />
-                                            )
-                                        )}
                                     </div>
+
                                 </button>
 
-                                {/* ================================================= */}
-                                {/* STATE / VOICE TEXT                                  */}
-                                {/* ================================================= */}
+                                {/* ========================================= */}
+                                {/* ACTIVATION MESSAGE                         */}
+                                {/* ========================================= */}
 
-                                <div className="relative z-10 mt-10 text-center max-w-3xl px-4">
-                                    <div className="flex items-center justify-center gap-3 mb-3">
-                                        {metriaState ===
-                                        "ready" ? (
-                                            <span className="relative flex h-2.5 w-2.5">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
+                                <div className="relative z-20 text-center max-w-3xl mt-10 px-5">
 
-                                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
-                                            </span>
-                                        ) : (
-                                            <FiActivity
-                                                size={
-                                                    13
-                                                }
-                                                className={`${
-                                                    isListening
-                                                        ? "text-cyan-300"
-                                                        : isAnalyzing
-                                                          ? "text-indigo-300"
-                                                          : "text-purple-300"
-                                                } animate-pulse`}
-                                            />
-                                        )}
-
-                                        <span
-                                            className={`text-[10px] md:text-xs uppercase tracking-[0.35em] font-black ${
-                                                isListening
-                                                    ? "text-cyan-300"
-                                                    : isAnalyzing
-                                                      ? "text-indigo-300"
-                                                      : isSpeaking
-                                                        ? "text-purple-300"
-                                                        : "text-slate-500"
-                                            }`}
-                                        >
-                                            {
-                                                stateLabel
-                                            }
-                                        </span>
-                                    </div>
-
-                                    <h2 className="text-white text-2xl md:text-4xl font-black tracking-tight leading-tight">
-                                        {isListening
-                                            ? "I'm listening."
-                                            : isAnalyzing
-                                              ? "Give me a second."
-                                              : isSpeaking
-                                                ? "Here's what I'm seeing."
-                                                : "Ask me anything about your business."}
-                                    </h2>
-
-                                    <p className="text-slate-500 text-xs md:text-sm mt-3">
-                                        {isListening
-                                            ? "Ask naturally. I'll send it as soon as you finish."
-                                            : isAnalyzing
-                                              ? stateSubtext
-                                              : isSpeaking
-                                                ? "You can interrupt me by tapping the orb."
-                                                : "Tap the Metria core and speak, or type below."}
-                                    </p>
-                                </div>
-
-                                {/* ================================================= */}
-                                {/* LAST QUESTION                                     */}
-                                {/* ================================================= */}
-
-                                {latestUserMessage &&
-                                    !isListening && (
-                                        <div className="mt-7 max-w-2xl px-5">
-                                            <div className="text-center text-[9px] uppercase tracking-[0.18em] text-slate-700 font-black mb-2">
-                                                Your question
-                                            </div>
-
-                                            <p className="text-center text-xs md:text-sm text-slate-400 line-clamp-2">
-                                                “
-                                                {
-                                                    latestUserMessage
-                                                }
-                                                ”
+                                    {!isActivated ? (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.38em] font-black text-purple-400 mb-4">
+                                                Interactive analyst ready
                                             </p>
-                                        </div>
-                                    )}
 
-                                {/* ================================================= */}
-                                {/* CURRENT METRIA ANSWER                              */}
-                                {/* ================================================= */}
+                                            <h2 className="text-white text-3xl md:text-5xl font-black tracking-tight">
+                                                Tap to activate Metria
+                                            </h2>
 
-                                {latestMetriaMessage &&
-                                    !isAnalyzing &&
-                                    !isListening && (
-                                        <div className="mt-8 w-full max-w-3xl px-4">
-                                            <div
-                                                className={`relative p-5 md:p-6 rounded-2xl border text-center backdrop-blur-xl transition-all ${
-                                                    isSpeaking
-                                                        ? "bg-purple-500/[0.07] border-purple-400/20 shadow-[0_0_35px_rgba(147,51,234,0.08)]"
-                                                        : "bg-white/[0.025] border-white/[0.07]"
-                                                }`}
-                                            >
-                                                {isSpeaking && (
-                                                    <div className="flex items-end justify-center gap-[3px] h-5 mb-4">
-                                                        {Array.from(
-                                                            {
-                                                                length: 28
-                                                            }
-                                                        ).map(
-                                                            (
-                                                                _,
-                                                                index
-                                                            ) => (
-                                                                <span
-                                                                    key={
-                                                                        index
-                                                                    }
-                                                                    className="w-[3px] rounded-full bg-purple-400"
-                                                                    style={{
-                                                                        height:
-                                                                            `${
-                                                                                20 +
-                                                                                ((index *
-                                                                                    17) %
-                                                                                    75)
-                                                                            }%`,
+                                            <p className="text-slate-500 max-w-xl mx-auto text-xs md:text-sm leading-relaxed mt-4">
+                                                Your analysis is complete. Wake Metria to talk through the findings like you would with a real analyst.
+                                            </p>
 
-                                                                        animation:
-                                                                            `metriaWave ${
-                                                                                0.5 +
-                                                                                (index %
-                                                                                    5) *
-                                                                                    0.09
-                                                                            }s ease-in-out infinite alternate`,
+                                            <div className="mt-6 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.2em] font-black text-purple-300/70">
 
-                                                                        animationDelay:
-                                                                            `${(index %
-                                                                                8) *
-                                                                            0.05}s`
-                                                                    }}
-                                                                />
-                                                            )
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                <p className="text-sm md:text-base text-slate-200 leading-relaxed line-clamp-4">
-                                                    {
-                                                        latestMetriaMessage
-                                                    }
-                                                </p>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setInterfaceMode(
-                                                            "chat"
-                                                        )
-                                                    }
-                                                    className="mt-4 inline-flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] font-black text-purple-400 hover:text-purple-300 transition-colors"
-                                                >
-                                                    Open full response
-
-                                                    <FiChevronRight
-                                                        size={
-                                                            12
-                                                        }
-                                                    />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                {/* ================================================= */}
-                                {/* VOICE SUGGESTIONS                                  */}
-                                {/* ================================================= */}
-
-                                {!isListening &&
-                                    !isAnalyzing &&
-                                    !isSpeaking && (
-                                        <div className="mt-8 flex flex-wrap justify-center gap-2 px-4">
-                                            {suggestedPrompts.map(
-                                                (
-                                                    promptText,
-                                                    index
-                                                ) => (
-                                                    <button
-                                                        type="button"
-                                                        key={
-                                                            index
-                                                        }
-                                                        onClick={() =>
-                                                            handleSend(
-                                                                promptText
-                                                            )
-                                                        }
-                                                        className="px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.07] text-[9px] md:text-[10px] text-slate-500 hover:text-white hover:bg-purple-500/10 hover:border-purple-400/20 transition-all"
-                                                    >
-                                                        {
-                                                            promptText
-                                                        }
-                                                    </button>
-                                                )
-                                            )}
-                                        </div>
-                                    )}
-
-                                {/* ================================================= */}
-                                {/* QUICK TEXT INPUT                                   */}
-                                {/* ================================================= */}
-
-                                <form
-                                    onSubmit={(
-                                        e
-                                    ) => {
-                                        e.preventDefault();
-
-                                        handleSend();
-                                    }}
-                                    className="w-full max-w-3xl mt-8 px-4"
-                                >
-                                    <div
-                                        className={`flex items-center rounded-2xl border bg-black/45 backdrop-blur-xl transition-all ${
-                                            isListening
-                                                ? "border-cyan-400/40"
-                                                : "border-white/[0.08] focus-within:border-purple-400/40"
-                                        }`}
-                                    >
-                                        <input
-                                            type="text"
-                                            value={
-                                                inputQuery
-                                            }
-                                            disabled={
-                                                isAnalyzing
-                                            }
-                                            onChange={(
-                                                e
-                                            ) =>
-                                                setInputQuery(
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder={
-                                                isListening
-                                                    ? "Listening..."
-                                                    : "Or type a question..."
-                                            }
-                                            className="flex-1 min-w-0 bg-transparent px-5 py-4 text-sm text-white placeholder:text-slate-700 focus:outline-none disabled:cursor-wait"
-                                        />
-
-                                        <button
-                                            type="button"
-                                            onClick={
-                                                toggleVoiceListener
-                                            }
-                                            disabled={
-                                                isAnalyzing
-                                            }
-                                            className={`m-2 p-3 rounded-xl transition-all ${
-                                                isListening
-                                                    ? "bg-cyan-400 text-black shadow-[0_0_25px_rgba(34,211,238,0.35)]"
-                                                    : "bg-purple-500/10 border border-purple-400/20 text-purple-300 hover:bg-purple-500/20"
-                                            }`}
-                                        >
-                                            {isListening ? (
-                                                <FiMicOff
-                                                    size={
-                                                        17
-                                                    }
-                                                />
-                                            ) : (
                                                 <FiMic
                                                     size={
-                                                        17
+                                                        12
                                                     }
                                                 />
-                                            )}
-                                        </button>
 
-                                        <button
-                                            type="submit"
-                                            disabled={
-                                                isAnalyzing ||
-                                                !inputQuery.trim()
-                                            }
-                                            className={`m-2 ml-0 h-11 px-4 rounded-xl transition-all ${
-                                                !isAnalyzing &&
-                                                inputQuery.trim()
-                                                    ? "bg-white text-black hover:bg-purple-100"
-                                                    : "bg-white/[0.05] text-slate-700 cursor-not-allowed"
-                                            }`}
-                                        >
-                                            <FiSend
-                                                size={
-                                                    15
+                                                Tap the intelligence core
+
+                                            </div>
+                                        </>
+                                    ) : isPlayingIntro ? (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-purple-300 mb-3">
+                                                Metria online
+                                            </p>
+
+                                            <h2 className="text-white text-2xl md:text-4xl font-black">
+                                                Hello there.
+                                            </h2>
+
+                                            <p className="text-slate-500 text-xs md:text-sm mt-3">
+                                                A quick introduction, then she's yours.
+                                            </p>
+                                        </>
+                                    ) : isListening ? (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-cyan-300 mb-3">
+                                                Voice channel open
+                                            </p>
+
+                                            <h2 className="text-white text-3xl md:text-5xl font-black">
+                                                I'm listening.
+                                            </h2>
+
+                                            <p className="text-slate-500 text-xs md:text-sm mt-3">
+                                                Speak naturally. You don't need to phrase it like a prompt.
+                                            </p>
+                                        </>
+                                    ) : isAnalyzing ? (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-indigo-300 mb-3">
+                                                Reasoning
+                                            </p>
+
+                                            <h2 className="text-white text-3xl md:text-5xl font-black">
+                                                Let me look at that.
+                                            </h2>
+
+                                            <p className="text-slate-500 text-xs md:text-sm mt-3">
+                                                {
+                                                    stateSubtext
                                                 }
-                                            />
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        )}
+                                            </p>
+                                        </>
+                                    ) : isSpeaking ? (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-purple-300 mb-3">
+                                                Metria speaking
+                                            </p>
 
-                        {/* ================================================= */}
-                        {/* CHAT EXPERIENCE                                   */}
-                        {/* ================================================= */}
+                                            <h2 className="text-white text-3xl md:text-5xl font-black">
+                                                Here's what I'm seeing.
+                                            </h2>
 
-                        {interfaceMode ===
-                            "chat" && (
-                            <div className="flex-1 flex flex-col pt-5">
-                                {/* voice activity bar */}
+                                            <p className="text-slate-500 text-xs md:text-sm mt-3">
+                                                Tap the core if you want to interrupt and ask something else.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-emerald-400 mb-3">
+                                                Metria active
+                                            </p>
+
+                                            <h2 className="text-white text-3xl md:text-5xl font-black">
+                                                Tap to talk.
+                                            </h2>
+
+                                            <p className="text-slate-500 text-xs md:text-sm mt-3">
+                                                Ask why. Challenge a finding. Trace a number. Ask what happens next.
+                                            </p>
+                                        </>
+                                    )}
+
+                                </div>
+
+                                {/* ========================================= */}
+                                {/* VOICE WAVE                                */}
+                                {/* ========================================= */}
 
                                 {(isSpeaking ||
-                                    isAnalyzing ||
-                                    isListening) && (
-                                    <div className="flex items-center gap-4 pb-4">
-                                        <span className="text-[9px] uppercase tracking-[0.22em] font-black text-slate-600 shrink-0">
-                                            {isSpeaking
-                                                ? "Speaking"
-                                                : isListening
-                                                  ? "Listening"
-                                                  : "Thinking"}
-                                        </span>
+                                    isListening ||
+                                    isAnalyzing) && (
 
-                                        <div className="flex items-end gap-[3px] h-4 flex-1 overflow-hidden">
-                                            {Array.from(
-                                                {
-                                                    length: 42
-                                                }
-                                            ).map(
+                                    <div className="w-full max-w-2xl mt-8 px-8">
+
+                                        <div className="flex items-end justify-center gap-[4px] h-8">
+
+                                            {Array.from({
+                                                length:
+                                                    38
+                                            }).map(
                                                 (
                                                     _,
                                                     index
@@ -1857,41 +2193,194 @@ export const MetriaFollowUp = ({
                                                         style={{
                                                             height:
                                                                 `${
-                                                                    20 +
+                                                                    18 +
                                                                     ((index *
-                                                                        17) %
-                                                                        75)
+                                                                        19) %
+                                                                        82)
                                                                 }%`,
+
+                                                            opacity:
+                                                                0.25 +
+                                                                (index %
+                                                                    6) /
+                                                                    10,
 
                                                             animation:
                                                                 `metriaWave ${
-                                                                    0.65 +
+                                                                    0.55 +
                                                                     (index %
-                                                                        5) *
-                                                                        0.08
+                                                                        6) *
+                                                                        0.07
                                                                 }s ease-in-out infinite alternate`,
 
                                                             animationDelay:
                                                                 `${(index %
-                                                                    9) *
+                                                                    10) *
                                                                 0.04}s`
                                                         }}
                                                     />
                                                 )
                                             )}
+
                                         </div>
+
                                     </div>
                                 )}
 
-                                {/* messages */}
+                                {/* ========================================= */}
+                                {/* LAST ANSWER                                */}
+                                {/* ========================================= */}
+
+                                {isActivated &&
+                                    latestMetriaMessage &&
+                                    !isPlayingIntro &&
+                                    !isListening &&
+                                    !isAnalyzing && (
+
+                                        <div className="w-full max-w-3xl mt-8 px-5">
+
+                                            <div
+                                                className={`p-5 md:p-6 rounded-2xl text-center border backdrop-blur-xl ${
+                                                    isSpeaking
+                                                        ? "border-purple-400/20 bg-purple-500/[0.05]"
+                                                        : "border-white/[0.07] bg-white/[0.025]"
+                                                }`}
+                                            >
+
+                                                <p className="text-sm md:text-base text-slate-300 leading-relaxed line-clamp-3">
+                                                    {
+                                                        latestMetriaMessage
+                                                    }
+                                                </p>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setInterfaceMode(
+                                                            "chat"
+                                                        )
+                                                    }
+                                                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-400/20 text-[9px] uppercase tracking-[0.17em] font-black text-purple-300 hover:bg-purple-500/20 transition-all"
+                                                >
+
+                                                    Open full conversation
+
+                                                    <FiChevronRight
+                                                        size={
+                                                            12
+                                                        }
+                                                    />
+
+                                                </button>
+
+                                            </div>
+
+                                        </div>
+                                    )}
+
+                                {/* ========================================= */}
+                                {/* VOICE-ONLY SUGGESTIONS                     */}
+                                {/* ========================================= */}
+
+                                {isActivated &&
+                                    !isPlayingIntro &&
+                                    !isListening &&
+                                    !isAnalyzing &&
+                                    !isSpeaking && (
+
+                                        <div className="mt-8">
+
+                                            <p className="text-center text-[8px] uppercase tracking-[0.24em] font-black text-slate-700 mb-3">
+                                                Try asking
+                                            </p>
+
+                                            <div className="flex flex-wrap justify-center gap-3 px-4">
+
+                                                {suggestedPrompts.map(
+                                                    (
+                                                        promptText,
+                                                        index
+                                                    ) => (
+                                                        <button
+                                                            type="button"
+                                                            key={
+                                                                index
+                                                            }
+                                                            onClick={() =>
+                                                                handleSend(
+                                                                    promptText
+                                                                )
+                                                            }
+                                                            className="px-5 py-3 rounded-full bg-white/[0.035] border border-white/[0.09] text-[10px] text-slate-400 hover:text-white hover:bg-purple-500/10 hover:border-purple-400/30 transition-all"
+                                                        >
+                                                            {
+                                                                promptText
+                                                            }
+                                                        </button>
+                                                    )
+                                                )}
+
+                                            </div>
+
+                                        </div>
+                                    )}
+
+                            </div>
+                        )}
+
+                        {/* ================================================= */}
+                        {/* CHAT MODE                                         */}
+                        {/* ================================================= */}
+
+                        {interfaceMode ===
+                            "chat" && (
+
+                            <div className="flex-1 flex flex-col pt-7">
+
+                                <div className="flex items-center justify-between gap-4 mb-5">
+
+                                    <div>
+
+                                        <p className="text-[9px] uppercase tracking-[0.22em] text-purple-400 font-black">
+                                            Conversation
+                                        </p>
+
+                                        <h2 className="text-white text-xl md:text-2xl font-black mt-1">
+                                            Ask Metria
+                                        </h2>
+
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setInterfaceMode(
+                                                "voice"
+                                            )
+                                        }
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/10 border border-purple-400/25 text-purple-300 text-[9px] uppercase tracking-[0.15em] font-black hover:bg-purple-500/20 transition-all"
+                                    >
+
+                                        <FiRadio
+                                            size={
+                                                12
+                                            }
+                                        />
+
+                                        Return to Talk
+
+                                    </button>
+
+                                </div>
 
                                 <div
-                                    className={`relative flex-1 overflow-y-auto pr-1 py-4 space-y-5 scrollbar-thin scrollbar-thumb-purple-500/20 ${
+                                    className={`relative flex-1 overflow-y-auto pr-2 py-4 space-y-5 scrollbar-thin scrollbar-thumb-purple-500/20 ${
                                         isExpanded
-                                            ? "min-h-[55vh] max-h-[calc(100vh-310px)]"
+                                            ? "min-h-0 max-h-[calc(100vh-270px)]"
                                             : "min-h-[350px] max-h-[580px]"
                                     }`}
                                 >
+
                                     {messages.map(
                                         (
                                             msg,
@@ -1900,12 +2389,6 @@ export const MetriaFollowUp = ({
                                             const isUser =
                                                 msg.sender ===
                                                 "user";
-
-                                            const isLastMetria =
-                                                !isUser &&
-                                                idx ===
-                                                    messages.length -
-                                                        1;
 
                                             return (
                                                 <div
@@ -1916,68 +2399,37 @@ export const MetriaFollowUp = ({
                                                         isUser
                                                             ? "justify-end"
                                                             : "justify-start"
-                                                    } animate-in fade-in slide-in-from-bottom-2 duration-500`}
+                                                    }`}
                                                 >
+
                                                     <div
-                                                        className={`relative max-w-[92%] md:max-w-[82%] ${
+                                                        className={`max-w-[92%] md:max-w-[82%] p-5 md:p-6 rounded-2xl ${
                                                             isUser
-                                                                ? ""
-                                                                : "flex gap-3"
+                                                                ? "bg-gradient-to-br from-purple-600 to-fuchsia-700 text-white rounded-br-md"
+                                                                : "bg-white/[0.035] border border-white/[0.09] text-slate-100 rounded-bl-md"
                                                         }`}
                                                     >
-                                                        {!isUser && (
-                                                            <div
-                                                                className={`mt-1 shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border ${
-                                                                    isLastMetria &&
-                                                                    isSpeaking
-                                                                        ? "bg-purple-500/20 border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.25)]"
-                                                                        : "bg-purple-500/[0.07] border-purple-500/20"
-                                                                }`}
-                                                            >
-                                                                <FiCpu
-                                                                    size={
-                                                                        14
-                                                                    }
-                                                                    className={`text-purple-400 ${
-                                                                        isLastMetria &&
-                                                                        isSpeaking
-                                                                            ? "animate-pulse"
-                                                                            : ""
-                                                                    }`}
-                                                                />
-                                                            </div>
-                                                        )}
 
-                                                        <div
-                                                            className={`p-5 md:p-6 rounded-2xl ${
+                                                        <span
+                                                            className={`block text-[9px] uppercase font-black tracking-[0.18em] mb-2 ${
                                                                 isUser
-                                                                    ? "bg-gradient-to-br from-purple-600 to-fuchsia-700 text-white rounded-br-md shadow-[0_15px_40px_rgba(126,34,206,0.2)]"
-                                                                    : "bg-white/[0.035] border border-white/[0.09] text-slate-100 rounded-bl-md backdrop-blur-xl"
+                                                                    ? "text-purple-100/70"
+                                                                    : "text-purple-400"
                                                             }`}
                                                         >
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <span
-                                                                    className={`text-[9px] uppercase font-black tracking-[0.18em] ${
-                                                                        isUser
-                                                                            ? "text-purple-100/70"
-                                                                            : "text-purple-400"
-                                                                    }`}
-                                                                >
-                                                                    {isUser
-                                                                        ? "You"
-                                                                        : isLastMetria &&
-                                                                            isSpeaking
-                                                                          ? "Metria • Speaking"
-                                                                          : "Metria • Analyst"}
-                                                                </span>
-                                                            </div>
+                                                            {isUser
+                                                                ? "You"
+                                                                : "Metria • Analyst"
+                                                            }
+                                                        </span>
 
-                                                            {formatMessageText(
-                                                                msg.text,
-                                                                msg.sender
-                                                            )}
-                                                        </div>
+                                                        {formatMessageText(
+                                                            msg.text,
+                                                            msg.sender
+                                                        )}
+
                                                     </div>
+
                                                 </div>
                                             );
                                         }
@@ -1985,32 +2437,22 @@ export const MetriaFollowUp = ({
 
                                     {isAnalyzing && (
                                         <div className="flex justify-start">
-                                            <div className="flex gap-3">
-                                                <div className="mt-1 w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-400/20 flex items-center justify-center">
-                                                    <FiCpu
-                                                        size={
-                                                            14
-                                                        }
-                                                        className="text-indigo-400 animate-spin"
-                                                    />
-                                                </div>
 
-                                                <div className="bg-white/[0.025] border border-white/[0.08] px-5 py-4 rounded-2xl rounded-bl-md">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" />
+                                            <div className="flex items-center gap-3 bg-white/[0.025] border border-white/[0.08] px-5 py-4 rounded-2xl">
 
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce [animation-delay:120ms]" />
+                                                <FiCpu
+                                                    className="text-indigo-400 animate-spin"
+                                                    size={
+                                                        14
+                                                    }
+                                                />
 
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce [animation-delay:240ms]" />
-                                                        </div>
+                                                <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400 font-bold">
+                                                    Working through the evidence
+                                                </span>
 
-                                                        <span className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold">
-                                                            Working through the evidence
-                                                        </span>
-                                                    </div>
-                                                </div>
                                             </div>
+
                                         </div>
                                     )}
 
@@ -2019,12 +2461,15 @@ export const MetriaFollowUp = ({
                                             conversationEndRef
                                         }
                                     />
+
                                 </div>
 
-                                {/* suggestions */}
+                                {/* CHAT INPUT */}
 
-                                <div className="pt-4 border-t border-white/[0.06]">
+                                <div className="pt-4 border-t border-white/[0.07]">
+
                                     <div className="flex flex-wrap gap-2 mb-4">
+
                                         {suggestedPrompts.map(
                                             (
                                                 promptText,
@@ -2051,9 +2496,8 @@ export const MetriaFollowUp = ({
                                                 </button>
                                             )
                                         )}
-                                    </div>
 
-                                    {/* input */}
+                                    </div>
 
                                     <form
                                         onSubmit={(
@@ -2064,25 +2508,15 @@ export const MetriaFollowUp = ({
                                             handleSend();
                                         }}
                                     >
-                                        <div
-                                            className={`relative flex items-center rounded-2xl border bg-black/50 transition-all ${
-                                                isListening
-                                                    ? "border-cyan-400/50 shadow-[0_0_30px_rgba(34,211,238,0.1)]"
-                                                    : "border-white/10 focus-within:border-purple-400/50"
-                                            }`}
-                                        >
-                                            <div className="pl-5">
-                                                <FiActivity
-                                                    size={
-                                                        14
-                                                    }
-                                                    className={
-                                                        isListening
-                                                            ? "text-cyan-400 animate-pulse"
-                                                            : "text-purple-500"
-                                                    }
-                                                />
-                                            </div>
+
+                                        <div className="relative flex items-center rounded-2xl border border-white/10 bg-black/50 focus-within:border-purple-400/50 transition-all">
+
+                                            <FiActivity
+                                                size={
+                                                    14
+                                                }
+                                                className="ml-5 text-purple-500"
+                                            />
 
                                             <input
                                                 type="text"
@@ -2100,13 +2534,11 @@ export const MetriaFollowUp = ({
                                                     )
                                                 }
                                                 placeholder={
-                                                    isListening
-                                                        ? "I'm listening..."
-                                                        : isMultiDataset
-                                                          ? `Ask Metria anything about these ${datasetsInContext.length} sources...`
-                                                          : `Ask Metria anything about ${primaryDataset?.name || "your data"}...`
+                                                    isMultiDataset
+                                                        ? `Ask about these ${datasetsInContext.length} sources...`
+                                                        : `Ask about ${primaryDataset?.name || "your data"}...`
                                                 }
-                                                className="flex-1 min-w-0 bg-transparent px-4 py-5 text-sm text-white focus:outline-none placeholder:text-slate-600 disabled:cursor-wait"
+                                                className="flex-1 min-w-0 bg-transparent px-4 py-5 text-sm text-white focus:outline-none placeholder:text-slate-600"
                                             />
 
                                             <button
@@ -2117,12 +2549,13 @@ export const MetriaFollowUp = ({
                                                 disabled={
                                                     isAnalyzing
                                                 }
-                                                className={`m-2 p-3 rounded-xl transition-all ${
+                                                className={`m-2 p-3 rounded-xl ${
                                                     isListening
-                                                        ? "bg-cyan-400 text-black shadow-[0_0_25px_rgba(34,211,238,0.35)]"
-                                                        : "bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08]"
-                                                } disabled:opacity-30`}
+                                                        ? "bg-cyan-400 text-black"
+                                                        : "bg-white/[0.04] text-slate-400 hover:text-white"
+                                                }`}
                                             >
+
                                                 {isListening ? (
                                                     <FiMicOff
                                                         size={
@@ -2136,6 +2569,7 @@ export const MetriaFollowUp = ({
                                                         }
                                                     />
                                                 )}
+
                                             </button>
 
                                             <button
@@ -2144,53 +2578,52 @@ export const MetriaFollowUp = ({
                                                     isAnalyzing ||
                                                     !inputQuery.trim()
                                                 }
-                                                className={`m-2 ml-0 h-12 px-5 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                                                className={`m-2 ml-0 h-12 px-5 rounded-xl ${
                                                     !isAnalyzing &&
                                                     inputQuery.trim()
-                                                        ? "bg-white text-black hover:bg-purple-100"
+                                                        ? "bg-white text-black"
                                                         : "bg-white/[0.06] text-slate-700 cursor-not-allowed"
                                                 }`}
                                             >
+
                                                 <FiSend
                                                     size={
                                                         15
                                                     }
                                                 />
+
                                             </button>
+
                                         </div>
+
                                     </form>
+
                                 </div>
+
                             </div>
                         )}
+
                     </div>
+
                 </div>
+
             </div>
 
             {/* ==================================================== */}
-            {/* LOCAL ANIMATIONS                                     */}
+            {/* ANIMATIONS                                           */}
             {/* ==================================================== */}
 
             <style>
                 {`
                     @keyframes metriaWave {
                         0% {
-                            transform: scaleY(0.25);
-                            opacity: 0.35;
+                            transform: scaleY(0.22);
+                            opacity: 0.3;
                         }
 
                         100% {
                             transform: scaleY(1);
                             opacity: 1;
-                        }
-                    }
-
-                    @keyframes metriaScan {
-                        0% {
-                            transform: translateX(-150%);
-                        }
-
-                        100% {
-                            transform: translateX(450%);
                         }
                     }
 
@@ -2214,52 +2647,43 @@ export const MetriaFollowUp = ({
                         }
                     }
 
-                    @keyframes metriaCoreSpin {
-                        from {
-                            transform: rotate(0deg);
+                    @keyframes metriaSpeechRing {
+                        0% {
+                            transform: scale(0.72);
+                            opacity: 0.55;
                         }
 
-                        to {
-                            transform: rotate(360deg);
+                        100% {
+                            transform: scale(1.5);
+                            opacity: 0;
                         }
                     }
 
                     @keyframes metriaParticle {
                         0%,
                         100% {
-                            transform: translateY(0px) scale(0.8);
-                            opacity: 0.25;
+                            transform: translateY(0px) scale(0.75);
+                            opacity: 0.18;
                         }
 
                         50% {
-                            transform: translateY(-14px) scale(1.2);
+                            transform: translateY(-16px) scale(1.3);
                             opacity: 0.8;
                         }
                     }
 
-                    @keyframes metriaSpeechRing {
+                    @keyframes metriaCoreSweep {
                         0% {
-                            transform: scale(0.82);
-                            opacity: 0.5;
+                            transform: translateX(-120%) rotate(25deg);
                         }
 
                         100% {
-                            transform: scale(1.45);
-                            opacity: 0;
-                        }
-                    }
-
-                    @keyframes metriaEyeTalk {
-                        0% {
-                            transform: scaleY(0.72);
-                        }
-
-                        100% {
-                            transform: scaleY(1.14);
+                            transform: translateX(120%) rotate(25deg);
                         }
                     }
                 `}
             </style>
+
         </div>
     );
 };
