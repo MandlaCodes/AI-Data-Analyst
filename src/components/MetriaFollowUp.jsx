@@ -102,6 +102,19 @@ export const MetriaFollowUp = ({
         setIsListening
     ] = useState(false);
 
+    /*
+     * Live speech transcript.
+     *
+     * We keep interim recognition text visible while the user speaks
+     * instead of immediately submitting the first phrase Chrome hears.
+     * This makes Talk mode feel much more conversational and greatly
+     * reduces clipped / half-heard questions.
+     */
+    const [
+        liveTranscript,
+        setLiveTranscript
+    ] = useState("");
+
     const [
         isSpeaking,
         setIsSpeaking
@@ -149,6 +162,25 @@ export const MetriaFollowUp = ({
 
     const recognitionRef =
         useRef(null);
+
+    /*
+     * Speech recognition bookkeeping.
+     *
+     * Chrome fires several interim recognition results while a person
+     * is still speaking. These refs let us collect the whole thought,
+     * wait for a natural pause, and submit only once.
+     */
+    const finalTranscriptRef =
+        useRef("");
+
+    const interimTranscriptRef =
+        useRef("");
+
+    const speechSilenceTimerRef =
+        useRef(null);
+
+    const shouldSubmitVoiceRef =
+        useRef(false);
 
     const conversationEndRef =
         useRef(null);
@@ -299,12 +331,10 @@ export const MetriaFollowUp = ({
             "I'm listening",
 
         thinking:
-            isMultiDataset
-                ? `Reasoning across ${datasetsInContext.length} connected sources`
-                : "Working through the evidence",
+            "Thinking about your question",
 
         speaking:
-            "Delivering analysis",
+            "Responding",
 
         ready:
             isMultiDataset
@@ -815,6 +845,13 @@ export const MetriaFollowUp = ({
             if (
                 recognitionRef.current
             ) {
+                /*
+                 * Component cleanup must never accidentally submit a
+                 * half-finished voice request.
+                 */
+                shouldSubmitVoiceRef.current =
+                    false;
+
                 try {
                     recognitionRef.current.stop();
                 } catch {
@@ -822,6 +859,17 @@ export const MetriaFollowUp = ({
                 }
 
                 recognitionRef.current =
+                    null;
+            }
+
+            if (
+                speechSilenceTimerRef.current
+            ) {
+                clearTimeout(
+                    speechSilenceTimerRef.current
+                );
+
+                speechSilenceTimerRef.current =
                     null;
             }
         };
@@ -975,19 +1023,23 @@ export const MetriaFollowUp = ({
                 stopVoice();
             }
 
+            /*
+             * If the user taps while already speaking, treat that tap
+             * as "I'm done". We stop recognition and submit everything
+             * captured so far instead of throwing the phrase away.
+             */
             if (
                 isListening
             ) {
+                shouldSubmitVoiceRef.current =
+                    true;
+
                 try {
                     recognitionRef.current
                         ?.stop();
                 } catch {
                     // no-op
                 }
-
-                setIsListening(
-                    false
-                );
 
                 return;
             }
@@ -998,17 +1050,80 @@ export const MetriaFollowUp = ({
             recognitionRef.current =
                 recognition;
 
-            recognition.lang =
+            /*
+             * Prefer the browser's own English locale so accents and
+             * vocabulary are interpreted more naturally. Fall back to
+             * English if the browser locale is not English.
+             */
+            const browserLanguage =
+                (
+                    typeof navigator !==
+                    "undefined"
+                        ? navigator.language
+                        : null
+                ) ||
                 "en-US";
 
+            recognition.lang =
+                browserLanguage
+                    .toLowerCase()
+                    .startsWith("en")
+                    ? browserLanguage
+                    : "en-US";
+
+            /*
+             * IMPORTANT:
+             *
+             * The old implementation submitted event.results[0] as
+             * soon as Chrome produced one final result. That can cut a
+             * natural sentence short. We now keep interim results,
+             * allow a longer spoken thought, then submit after a short
+             * pause.
+             */
             recognition.interimResults =
-                false;
+                true;
 
             recognition.maxAlternatives =
-                1;
+                3;
 
             recognition.continuous =
-                false;
+                true;
+
+            finalTranscriptRef.current =
+                "";
+
+            interimTranscriptRef.current =
+                "";
+
+            shouldSubmitVoiceRef.current =
+                true;
+
+            setLiveTranscript(
+                ""
+            );
+
+            const stopAfterNaturalPause =
+                () => {
+                    if (
+                        speechSilenceTimerRef.current
+                    ) {
+                        clearTimeout(
+                            speechSilenceTimerRef.current
+                        );
+                    }
+
+                    speechSilenceTimerRef.current =
+                        setTimeout(
+                            () => {
+                                try {
+                                    recognition.stop();
+                                } catch {
+                                    // no-op
+                                }
+                            },
+                            1500
+                        );
+                };
 
             recognition.onstart =
                 () => {
@@ -1021,51 +1136,187 @@ export const MetriaFollowUp = ({
                 (
                     event
                 ) => {
-                    const speechText =
-                        event
-                            .results[
-                                0
-                            ][0]
-                            .transcript;
+                    let interimText =
+                        "";
 
-                    setInputQuery(
-                        speechText
+                    for (
+                        let i =
+                            event.resultIndex;
+                        i <
+                        event.results.length;
+                        i++
+                    ) {
+                        const result =
+                            event.results[
+                                i
+                            ];
+
+                        const transcript =
+                            result[0]
+                                ?.transcript ||
+                            "";
+
+                        if (
+                            result.isFinal
+                        ) {
+                            finalTranscriptRef.current =
+                                `${
+                                    finalTranscriptRef.current
+                                } ${transcript}`
+                                    .replace(
+                                        /\s+/g,
+                                        " "
+                                    )
+                                    .trim();
+
+                            interimTranscriptRef.current =
+                                "";
+                        } else {
+                            interimText +=
+                                ` ${transcript}`;
+                        }
+                    }
+
+                    interimTranscriptRef.current =
+                        interimText.trim();
+
+                    const combinedTranscript =
+                        `${
+                            finalTranscriptRef.current
+                        } ${
+                            interimTranscriptRef.current
+                        }`
+                            .replace(
+                                /\s+/g,
+                                " "
+                            )
+                            .trim();
+
+                    setLiveTranscript(
+                        combinedTranscript
                     );
 
-                    setIsListening(
-                        false
-                    );
-
-                    handleSend(
-                        speechText
-                    );
+                    stopAfterNaturalPause();
                 };
 
             recognition.onerror =
                 (
                     event
                 ) => {
-                    console.warn(
-                        "Speech recognition error:",
-                        event.error
-                    );
+                    /*
+                     * "no-speech" simply means the user didn't say
+                     * anything. "aborted" is expected when we stop it
+                     * intentionally. Neither needs a scary console error.
+                     */
+                    if (
+                        event.error !==
+                            "no-speech" &&
+                        event.error !==
+                            "aborted"
+                    ) {
+                        console.warn(
+                            "Speech recognition error:",
+                            event.error
+                        );
+                    }
 
-                    setIsListening(
-                        false
-                    );
+                    if (
+                        event.error ===
+                        "not-allowed" ||
+                        event.error ===
+                        "service-not-allowed"
+                    ) {
+                        shouldSubmitVoiceRef.current =
+                            false;
+                    }
                 };
 
             recognition.onend =
                 () => {
+                    if (
+                        speechSilenceTimerRef.current
+                    ) {
+                        clearTimeout(
+                            speechSilenceTimerRef.current
+                        );
+
+                        speechSilenceTimerRef.current =
+                            null;
+                    }
+
                     setIsListening(
                         false
                     );
 
                     recognitionRef.current =
                         null;
+
+                    const transcriptToSend =
+                        `${
+                            finalTranscriptRef.current
+                        } ${
+                            interimTranscriptRef.current
+                        }`
+                            .replace(
+                                /\s+/g,
+                                " "
+                            )
+                            .trim();
+
+                    finalTranscriptRef.current =
+                        "";
+
+                    interimTranscriptRef.current =
+                        "";
+
+                    setLiveTranscript(
+                        ""
+                    );
+
+                    if (
+                        shouldSubmitVoiceRef.current &&
+                        transcriptToSend
+                    ) {
+                        shouldSubmitVoiceRef.current =
+                            false;
+
+                        setInputQuery(
+                            transcriptToSend
+                        );
+
+                        handleSend(
+                            transcriptToSend
+                        );
+                    } else {
+                        shouldSubmitVoiceRef.current =
+                            false;
+                    }
                 };
 
-            recognition.start();
+            try {
+                recognition.start();
+            } catch (
+                error
+            ) {
+                console.warn(
+                    "Unable to start speech recognition:",
+                    error
+                );
+
+                recognitionRef.current =
+                    null;
+
+                shouldSubmitVoiceRef.current =
+                    false;
+
+                setIsListening(
+                    false
+                );
+
+                setLiveTranscript(
+                    ""
+                );
+            }
         };
 
     // ============================================================
@@ -1278,6 +1529,100 @@ export const MetriaFollowUp = ({
     // MESSAGE FORMAT
     // ============================================================
 
+    const renderInlineMarkdown =
+        (
+            value
+        ) => {
+            const source =
+                String(
+                    value ||
+                        ""
+                );
+
+            /*
+             * Lightweight renderer for the formatting Metria already
+             * returns. No new package is required, so this does not
+             * disturb the current build.
+             *
+             * Supports:
+             * - **bold**
+             * - `inline code`
+             */
+            const tokens =
+                source.split(
+                    /(\*\*[^*]+\*\*|`[^`]+`)/g
+                );
+
+            return tokens.map(
+                (
+                    token,
+                    index
+                ) => {
+                    if (
+                        token.startsWith(
+                            "**"
+                        ) &&
+                        token.endsWith(
+                            "**"
+                        )
+                    ) {
+                        return (
+                            <strong
+                                key={
+                                    index
+                                }
+                                className="font-black text-white"
+                            >
+                                {
+                                    token.slice(
+                                        2,
+                                        -2
+                                    )
+                                }
+                            </strong>
+                        );
+                    }
+
+                    if (
+                        token.startsWith(
+                            "`"
+                        ) &&
+                        token.endsWith(
+                            "`"
+                        )
+                    ) {
+                        return (
+                            <code
+                                key={
+                                    index
+                                }
+                                className="px-1.5 py-0.5 rounded-md bg-white/[0.06] border border-white/[0.08] text-purple-200 font-mono text-[0.92em]"
+                            >
+                                {
+                                    token.slice(
+                                        1,
+                                        -1
+                                    )
+                                }
+                            </code>
+                        );
+                    }
+
+                    return (
+                        <React.Fragment
+                            key={
+                                index
+                            }
+                        >
+                            {
+                                token
+                            }
+                        </React.Fragment>
+                    );
+                }
+            );
+        };
+
     const formatMessageText =
         (
             text,
@@ -1302,30 +1647,143 @@ export const MetriaFollowUp = ({
                 );
             }
 
-            return (
-                <div className="space-y-4 text-sm md:text-base leading-relaxed text-slate-100 font-normal">
+            const lines =
+                safeText.split(
+                    "\n"
+                );
 
-                    {safeText
-                        .split(
-                            "\n\n"
-                        )
-                        .map(
-                            (
-                                paragraph,
-                                pIdx
-                            ) => (
+            return (
+                <div className="space-y-2.5 text-sm md:text-base leading-relaxed text-slate-100 font-normal">
+
+                    {lines.map(
+                        (
+                            rawLine,
+                            index
+                        ) => {
+                            const line =
+                                rawLine.trim();
+
+                            if (
+                                !line
+                            ) {
+                                return (
+                                    <div
+                                        key={
+                                            index
+                                        }
+                                        className="h-1.5"
+                                    />
+                                );
+                            }
+
+                            const headingMatch =
+                                line.match(
+                                    /^#{1,3}\s+(.+)$/
+                                );
+
+                            if (
+                                headingMatch
+                            ) {
+                                return (
+                                    <h4
+                                        key={
+                                            index
+                                        }
+                                        className="text-white font-black text-base md:text-lg pt-1"
+                                    >
+                                        {
+                                            renderInlineMarkdown(
+                                                headingMatch[
+                                                    1
+                                                ]
+                                            )
+                                        }
+                                    </h4>
+                                );
+                            }
+
+                            const numberedMatch =
+                                line.match(
+                                    /^(\d+)\.\s+(.+)$/
+                                );
+
+                            if (
+                                numberedMatch
+                            ) {
+                                return (
+                                    <div
+                                        key={
+                                            index
+                                        }
+                                        className="flex items-start gap-3 py-1"
+                                    >
+                                        <span className="shrink-0 mt-0.5 w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-400/20 text-purple-300 text-[10px] font-black flex items-center justify-center">
+                                            {
+                                                numberedMatch[
+                                                    1
+                                                ]
+                                            }
+                                        </span>
+
+                                        <p className="flex-1 tracking-wide">
+                                            {
+                                                renderInlineMarkdown(
+                                                    numberedMatch[
+                                                        2
+                                                    ]
+                                                )
+                                            }
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            const bulletMatch =
+                                line.match(
+                                    /^[-•]\s+(.+)$/
+                                );
+
+                            if (
+                                bulletMatch
+                            ) {
+                                return (
+                                    <div
+                                        key={
+                                            index
+                                        }
+                                        className="flex items-start gap-3 py-0.5"
+                                    >
+                                        <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+
+                                        <p className="flex-1 tracking-wide">
+                                            {
+                                                renderInlineMarkdown(
+                                                    bulletMatch[
+                                                        1
+                                                    ]
+                                                )
+                                            }
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            return (
                                 <p
                                     key={
-                                        pIdx
+                                        index
                                     }
                                     className="tracking-wide"
                                 >
                                     {
-                                        paragraph
+                                        renderInlineMarkdown(
+                                            line
+                                        )
                                     }
                                 </p>
-                            )
-                        )}
+                            );
+                        }
+                    )}
 
                 </div>
             );
@@ -2273,7 +2731,7 @@ export const MetriaFollowUp = ({
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
-                                                A quick introduction, then she's yours.
+                                                A quick introduction, then I'm ready when you are.
                                             </p>
                                         </>
                                     ) : isListening ? (
@@ -2287,17 +2745,25 @@ export const MetriaFollowUp = ({
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
-                                                Speak naturally. You don't need to phrase it like a prompt.
+                                                Speak naturally. Pause when you're finished.
                                             </p>
+
+                                            {liveTranscript && (
+                                                <div className="mt-5 max-w-2xl mx-auto px-5 py-3 rounded-2xl bg-cyan-500/[0.06] border border-cyan-300/15 backdrop-blur-xl">
+                                                    <p className="text-cyan-100/85 text-sm md:text-base leading-relaxed">
+                                                        “{liveTranscript}”
+                                                    </p>
+                                                </div>
+                                            )}
                                         </>
                                     ) : isAnalyzing ? (
                                         <>
                                             <p className="text-[10px] uppercase tracking-[0.35em] font-black text-indigo-300 mb-3">
-                                                Reasoning
+                                                Thinking
                                             </p>
 
                                             <h2 className="text-white text-3xl md:text-5xl font-black">
-                                                Let me look at that.
+                                                Thinking...
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
@@ -2305,6 +2771,18 @@ export const MetriaFollowUp = ({
                                                     stateSubtext
                                                 }
                                             </p>
+
+                                            {latestUserMessage && (
+                                                <div className="mt-5 max-w-2xl mx-auto px-5 py-3 rounded-2xl bg-white/[0.025] border border-white/[0.07]">
+                                                    <p className="text-[8px] uppercase tracking-[0.2em] font-black text-slate-600 mb-1.5">
+                                                        I heard
+                                                    </p>
+
+                                                    <p className="text-slate-300 text-sm md:text-base leading-relaxed">
+                                                        “{latestUserMessage}”
+                                                    </p>
+                                                </div>
+                                            )}
                                         </>
                                     ) : isSpeaking ? (
                                         <>
@@ -2313,7 +2791,7 @@ export const MetriaFollowUp = ({
                                             </p>
 
                                             <h2 className="text-white text-3xl md:text-5xl font-black">
-                                                Here's what I'm seeing.
+                                                Responding...
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
@@ -2627,7 +3105,7 @@ export const MetriaFollowUp = ({
                                                 />
 
                                                 <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400 font-bold">
-                                                    Working through the evidence
+                                                    Thinking...
                                                 </span>
 
                                             </div>
