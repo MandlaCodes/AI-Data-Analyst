@@ -102,13 +102,16 @@ export const MetriaFollowUp = ({
         setIsListening
     ] = useState(false);
 
+    const [
+        isTranscribing,
+        setIsTranscribing
+    ] = useState(false);
+
     /*
-     * Live speech transcript.
+     * Voice transcript/status shown in Talk mode.
      *
-     * We keep interim recognition text visible while the user speaks
-     * instead of immediately submitting the first phrase Chrome hears.
-     * This makes Talk mode feel much more conversational and greatly
-     * reduces clipped / half-heard questions.
+     * MediaRecorder captures the real audio first. Once the turn ends,
+     * /ai/transcribe returns the clean transcript before /ai/query runs.
      */
     const [
         liveTranscript,
@@ -160,27 +163,32 @@ export const MetriaFollowUp = ({
     const audioRef =
         useRef(null);
 
-    const recognitionRef =
+    const mediaRecorderRef =
         useRef(null);
 
-    /*
-     * Speech recognition bookkeeping.
-     *
-     * Chrome fires several interim recognition results while a person
-     * is still speaking. These refs let us collect the whole thought,
-     * wait for a natural pause, and submit only once.
-     */
-    const finalTranscriptRef =
-        useRef("");
-
-    const interimTranscriptRef =
-        useRef("");
-
-    const speechSilenceTimerRef =
+    const mediaStreamRef =
         useRef(null);
 
-    const shouldSubmitVoiceRef =
+    const audioChunksRef =
+        useRef([]);
+
+    const recordingMimeTypeRef =
+        useRef("audio/webm");
+
+    const audioContextRef =
+        useRef(null);
+
+    const voiceActivityFrameRef =
+        useRef(null);
+
+    const silenceStartedAtRef =
+        useRef(null);
+
+    const speechDetectedRef =
         useRef(false);
+
+    const maxRecordingTimerRef =
+        useRef(null);
 
     const conversationEndRef =
         useRef(null);
@@ -331,7 +339,9 @@ export const MetriaFollowUp = ({
             "I'm listening",
 
         thinking:
-            "Thinking about your question",
+            isTranscribing
+                ? "Understanding what you said"
+                : "Thinking about your question",
 
         speaking:
             "Responding",
@@ -833,44 +843,39 @@ export const MetriaFollowUp = ({
 
     useEffect(() => {
         return () => {
-            if (
-                audioRef.current
-            ) {
+            if (audioRef.current) {
                 audioRef.current.pause();
-
-                audioRef.current =
-                    null;
+                audioRef.current = null;
             }
 
-            if (
-                recognitionRef.current
-            ) {
-                /*
-                 * Component cleanup must never accidentally submit a
-                 * half-finished voice request.
-                 */
-                shouldSubmitVoiceRef.current =
-                    false;
-
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
                 try {
-                    recognitionRef.current.stop();
+                    mediaRecorderRef.current.stop();
                 } catch {
                     // no-op
                 }
-
-                recognitionRef.current =
-                    null;
             }
 
-            if (
-                speechSilenceTimerRef.current
-            ) {
-                clearTimeout(
-                    speechSilenceTimerRef.current
-                );
+            mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+            mediaStreamRef.current = null;
 
-                speechSilenceTimerRef.current =
-                    null;
+            if (voiceActivityFrameRef.current) {
+                cancelAnimationFrame(voiceActivityFrameRef.current);
+                voiceActivityFrameRef.current = null;
+            }
+
+            if (maxRecordingTimerRef.current) {
+                clearTimeout(maxRecordingTimerRef.current);
+                maxRecordingTimerRef.current = null;
+            }
+
+            if (audioContextRef.current) {
+                try {
+                    audioContextRef.current.close();
+                } catch {
+                    // no-op
+                }
+                audioContextRef.current = null;
             }
         };
     }, []);
@@ -968,356 +973,290 @@ export const MetriaFollowUp = ({
         };
 
     // ============================================================
-    // SPEECH RECOGNITION
+    // VOICE CAPTURE + OPENAI TRANSCRIPTION
     // ============================================================
 
-    const toggleVoiceListener =
-        () => {
-            /*
-             * First tap wakes Metria.
-             */
-            if (
-                !isActivated
-            ) {
-                activateMetria();
-
-                return;
+    const stopVoiceRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+            try {
+                mediaRecorderRef.current.stop();
+            } catch {
+                // no-op
             }
+        }
+    };
 
-            /*
-             * Do not start recognition during onboarding.
-             */
-            if (
-                isPlayingIntro
-            ) {
-                return;
-            }
+    const toggleVoiceListener = async () => {
+        if (!isActivated) {
+            await activateMetria();
+            return;
+        }
 
-            const SpeechRecognition =
-                window.SpeechRecognition ||
-                window.webkitSpeechRecognition;
+        if (isPlayingIntro || isAnalyzing || isTranscribing) {
+            return;
+        }
 
-            if (
-                !SpeechRecognition
-            ) {
-                alert(
-                    "Speech recognition isn't supported in this browser. Chrome provides the most reliable voice input."
-                );
+        if (isSpeaking) {
+            stopVoice();
+        }
 
-                return;
-            }
+        if (isListening) {
+            stopVoiceRecording();
+            return;
+        }
 
-            if (
-                isAnalyzing
-            ) {
-                return;
-            }
+        if (
+            typeof navigator === "undefined" ||
+            !navigator.mediaDevices?.getUserMedia ||
+            typeof MediaRecorder === "undefined"
+        ) {
+            alert(
+                "Voice recording isn't supported in this browser. Please use a current version of Chrome, Edge, or Safari."
+            );
+            return;
+        }
 
-            /*
-             * Tapping while Metria is speaking interrupts her,
-             * then immediately opens the mic.
-             */
-            if (
-                isSpeaking
-            ) {
-                stopVoice();
-            }
+        try {
+            setLiveTranscript("");
 
-            /*
-             * If the user taps while already speaking, treat that tap
-             * as "I'm done". We stop recognition and submit everything
-             * captured so far instead of throwing the phrase away.
-             */
-            if (
-                isListening
-            ) {
-                shouldSubmitVoiceRef.current =
-                    true;
-
-                try {
-                    recognitionRef.current
-                        ?.stop();
-                } catch {
-                    // no-op
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1
                 }
+            });
 
-                return;
-            }
+            mediaStreamRef.current = stream;
 
-            const recognition =
-                new SpeechRecognition();
+            const preferredMimeTypes = [
+                "audio/webm;codecs=opus",
+                "audio/webm",
+                "audio/mp4",
+                "audio/ogg;codecs=opus"
+            ];
 
-            recognitionRef.current =
-                recognition;
-
-            /*
-             * Prefer the browser's own English locale so accents and
-             * vocabulary are interpreted more naturally. Fall back to
-             * English if the browser locale is not English.
-             */
-            const browserLanguage =
-                (
-                    typeof navigator !==
-                    "undefined"
-                        ? navigator.language
-                        : null
-                ) ||
-                "en-US";
-
-            recognition.lang =
-                browserLanguage
-                    .toLowerCase()
-                    .startsWith("en")
-                    ? browserLanguage
-                    : "en-US";
-
-            /*
-             * IMPORTANT:
-             *
-             * The old implementation submitted event.results[0] as
-             * soon as Chrome produced one final result. That can cut a
-             * natural sentence short. We now keep interim results,
-             * allow a longer spoken thought, then submit after a short
-             * pause.
-             */
-            recognition.interimResults =
-                true;
-
-            recognition.maxAlternatives =
-                3;
-
-            recognition.continuous =
-                true;
-
-            finalTranscriptRef.current =
-                "";
-
-            interimTranscriptRef.current =
-                "";
-
-            shouldSubmitVoiceRef.current =
-                true;
-
-            setLiveTranscript(
-                ""
+            const supportedMimeType = preferredMimeTypes.find((type) =>
+                MediaRecorder.isTypeSupported(type)
             );
 
-            const stopAfterNaturalPause =
-                () => {
-                    if (
-                        speechSilenceTimerRef.current
-                    ) {
-                        clearTimeout(
-                            speechSilenceTimerRef.current
-                        );
-                    }
+            recordingMimeTypeRef.current = supportedMimeType || "audio/webm";
 
-                    speechSilenceTimerRef.current =
-                        setTimeout(
-                            () => {
-                                try {
-                                    recognition.stop();
-                                } catch {
-                                    // no-op
-                                }
-                            },
-                            1500
-                        );
-                };
+            const recorder = supportedMimeType
+                ? new MediaRecorder(stream, { mimeType: supportedMimeType })
+                : new MediaRecorder(stream);
 
-            recognition.onstart =
-                () => {
-                    setIsListening(
-                        true
-                    );
-                };
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+            speechDetectedRef.current = false;
+            silenceStartedAtRef.current = null;
 
-            recognition.onresult =
-                (
-                    event
-                ) => {
-                    let interimText =
-                        "";
-
-                    for (
-                        let i =
-                            event.resultIndex;
-                        i <
-                        event.results.length;
-                        i++
-                    ) {
-                        const result =
-                            event.results[
-                                i
-                            ];
-
-                        const transcript =
-                            result[0]
-                                ?.transcript ||
-                            "";
-
-                        if (
-                            result.isFinal
-                        ) {
-                            finalTranscriptRef.current =
-                                `${
-                                    finalTranscriptRef.current
-                                } ${transcript}`
-                                    .replace(
-                                        /\s+/g,
-                                        " "
-                                    )
-                                    .trim();
-
-                            interimTranscriptRef.current =
-                                "";
-                        } else {
-                            interimText +=
-                                ` ${transcript}`;
-                        }
-                    }
-
-                    interimTranscriptRef.current =
-                        interimText.trim();
-
-                    const combinedTranscript =
-                        `${
-                            finalTranscriptRef.current
-                        } ${
-                            interimTranscriptRef.current
-                        }`
-                            .replace(
-                                /\s+/g,
-                                " "
-                            )
-                            .trim();
-
-                    setLiveTranscript(
-                        combinedTranscript
-                    );
-
-                    stopAfterNaturalPause();
-                };
-
-            recognition.onerror =
-                (
-                    event
-                ) => {
-                    /*
-                     * "no-speech" simply means the user didn't say
-                     * anything. "aborted" is expected when we stop it
-                     * intentionally. Neither needs a scary console error.
-                     */
-                    if (
-                        event.error !==
-                            "no-speech" &&
-                        event.error !==
-                            "aborted"
-                    ) {
-                        console.warn(
-                            "Speech recognition error:",
-                            event.error
-                        );
-                    }
-
-                    if (
-                        event.error ===
-                        "not-allowed" ||
-                        event.error ===
-                        "service-not-allowed"
-                    ) {
-                        shouldSubmitVoiceRef.current =
-                            false;
-                    }
-                };
-
-            recognition.onend =
-                () => {
-                    if (
-                        speechSilenceTimerRef.current
-                    ) {
-                        clearTimeout(
-                            speechSilenceTimerRef.current
-                        );
-
-                        speechSilenceTimerRef.current =
-                            null;
-                    }
-
-                    setIsListening(
-                        false
-                    );
-
-                    recognitionRef.current =
-                        null;
-
-                    const transcriptToSend =
-                        `${
-                            finalTranscriptRef.current
-                        } ${
-                            interimTranscriptRef.current
-                        }`
-                            .replace(
-                                /\s+/g,
-                                " "
-                            )
-                            .trim();
-
-                    finalTranscriptRef.current =
-                        "";
-
-                    interimTranscriptRef.current =
-                        "";
-
-                    setLiveTranscript(
-                        ""
-                    );
-
-                    if (
-                        shouldSubmitVoiceRef.current &&
-                        transcriptToSend
-                    ) {
-                        shouldSubmitVoiceRef.current =
-                            false;
-
-                        setInputQuery(
-                            transcriptToSend
-                        );
-
-                        handleSend(
-                            transcriptToSend
-                        );
-                    } else {
-                        shouldSubmitVoiceRef.current =
-                            false;
-                    }
-                };
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
 
             try {
-                recognition.start();
-            } catch (
-                error
-            ) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+                if (AudioContextClass) {
+                    const audioContext = new AudioContextClass();
+                    audioContextRef.current = audioContext;
+
+                    const analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 1024;
+                    analyser.smoothingTimeConstant = 0.65;
+
+                    const source = audioContext.createMediaStreamSource(stream);
+                    source.connect(analyser);
+
+                    const dataArray = new Uint8Array(analyser.fftSize);
+
+                    const monitorVoice = () => {
+                        if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
+                            return;
+                        }
+
+                        analyser.getByteTimeDomainData(dataArray);
+
+                        let sumSquares = 0;
+                        for (let i = 0; i < dataArray.length; i++) {
+                            const normalized = (dataArray[i] - 128) / 128;
+                            sumSquares += normalized * normalized;
+                        }
+
+                        const rms = Math.sqrt(sumSquares / dataArray.length);
+                        const voicePresent = rms > 0.025;
+
+                        if (voicePresent) {
+                            speechDetectedRef.current = true;
+                            silenceStartedAtRef.current = null;
+                        } else if (speechDetectedRef.current) {
+                            if (!silenceStartedAtRef.current) {
+                                silenceStartedAtRef.current = Date.now();
+                            }
+
+                            if (Date.now() - silenceStartedAtRef.current > 1400) {
+                                stopVoiceRecording();
+                                return;
+                            }
+                        }
+
+                        voiceActivityFrameRef.current = requestAnimationFrame(monitorVoice);
+                    };
+
+                    monitorVoice();
+                }
+            } catch (voiceActivityError) {
                 console.warn(
-                    "Unable to start speech recognition:",
-                    error
-                );
-
-                recognitionRef.current =
-                    null;
-
-                shouldSubmitVoiceRef.current =
-                    false;
-
-                setIsListening(
-                    false
-                );
-
-                setLiveTranscript(
-                    ""
+                    "Voice activity detection unavailable:",
+                    voiceActivityError
                 );
             }
-        };
+
+            recorder.onstart = () => {
+                setIsListening(true);
+            };
+
+            recorder.onerror = (event) => {
+                console.error(
+                    "Metria microphone recording error:",
+                    event.error || event
+                );
+                setIsListening(false);
+            };
+
+            recorder.onstop = async () => {
+                setIsListening(false);
+
+                if (voiceActivityFrameRef.current) {
+                    cancelAnimationFrame(voiceActivityFrameRef.current);
+                    voiceActivityFrameRef.current = null;
+                }
+
+                if (maxRecordingTimerRef.current) {
+                    clearTimeout(maxRecordingTimerRef.current);
+                    maxRecordingTimerRef.current = null;
+                }
+
+                if (audioContextRef.current) {
+                    try {
+                        await audioContextRef.current.close();
+                    } catch {
+                        // no-op
+                    }
+                    audioContextRef.current = null;
+                }
+
+                mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+                mediaStreamRef.current = null;
+
+                const chunks = audioChunksRef.current;
+                audioChunksRef.current = [];
+                mediaRecorderRef.current = null;
+
+                if (!chunks.length) {
+                    setLiveTranscript("");
+                    return;
+                }
+
+                const mimeType =
+                    recordingMimeTypeRef.current ||
+                    chunks[0]?.type ||
+                    "audio/webm";
+
+                const audioBlob = new Blob(chunks, { type: mimeType });
+
+                if (audioBlob.size < 500) {
+                    setLiveTranscript("");
+                    return;
+                }
+
+                setIsTranscribing(true);
+                setLiveTranscript("Understanding...");
+
+                try {
+                    const extension = mimeType.includes("mp4")
+                        ? "m4a"
+                        : mimeType.includes("ogg")
+                          ? "ogg"
+                          : mimeType.includes("wav")
+                            ? "wav"
+                            : "webm";
+
+                    const formData = new FormData();
+                    formData.append(
+                        "audio",
+                        audioBlob,
+                        `metria-voice-${Date.now()}.${extension}`
+                    );
+
+                    const transcriptionResponse = await axios.post(
+                        `${API_BASE_URL}/ai/transcribe`,
+                        formData,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${authToken}`
+                            }
+                        }
+                    );
+
+                    const transcript = String(
+                        transcriptionResponse.data?.transcript || ""
+                    ).trim();
+
+                    if (!transcript) {
+                        throw new Error("No transcript returned.");
+                    }
+
+                    setLiveTranscript(transcript);
+                    setInputQuery(transcript);
+                    setIsTranscribing(false);
+
+                    await handleSend(transcript);
+                } catch (error) {
+                    console.error(
+                        "Metria transcription failed:",
+                        error.response?.data || error.message
+                    );
+
+                    setIsTranscribing(false);
+                    setLiveTranscript("");
+
+                    setMessages((prev) => [
+                        ...prev,
+                        {
+                            sender: "metria",
+                            text: "I couldn't make that out clearly. Tap me and say it again."
+                        }
+                    ]);
+                }
+            };
+
+            recorder.start(250);
+
+            maxRecordingTimerRef.current = setTimeout(() => {
+                stopVoiceRecording();
+            }, 30000);
+        } catch (error) {
+            console.error("Unable to access microphone:", error);
+
+            setIsListening(false);
+            setIsTranscribing(false);
+            setLiveTranscript("");
+
+            if (
+                error?.name === "NotAllowedError" ||
+                error?.name === "PermissionDeniedError"
+            ) {
+                alert(
+                    "Metria needs microphone permission for Talk mode. Allow microphone access in your browser and try again."
+                );
+            }
+        }
+    };
 
     // ============================================================
     // SEND QUERY
@@ -2326,6 +2265,7 @@ export const MetriaFollowUp = ({
                                     type="button"
                                     disabled={
                                         isAnalyzing ||
+                                        isTranscribing ||
                                         isPlayingIntro
                                     }
                                     onClick={
@@ -2756,6 +2696,20 @@ export const MetriaFollowUp = ({
                                                 </div>
                                             )}
                                         </>
+                                    ) : isTranscribing ? (
+                                        <>
+                                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-indigo-300 mb-3">
+                                                Thinking
+                                            </p>
+
+                                            <h2 className="text-white text-3xl md:text-5xl font-black">
+                                                Thinking...
+                                            </h2>
+
+                                            <p className="text-slate-500 text-xs md:text-sm mt-3">
+                                                Understanding what you said
+                                            </p>
+                                        </>
                                     ) : isAnalyzing ? (
                                         <>
                                             <p className="text-[10px] uppercase tracking-[0.35em] font-black text-indigo-300 mb-3">
@@ -2822,6 +2776,7 @@ export const MetriaFollowUp = ({
 
                                 {(isSpeaking ||
                                     isListening ||
+                                    isTranscribing ||
                                     isAnalyzing) && (
 
                                     <div className="w-full max-w-2xl mt-8 px-8">
@@ -3092,7 +3047,7 @@ export const MetriaFollowUp = ({
                                         }
                                     )}
 
-                                    {isAnalyzing && (
+                                    {(isAnalyzing || isTranscribing) && (
                                         <div className="flex justify-start">
 
                                             <div className="flex items-center gap-3 bg-white/[0.025] border border-white/[0.08] px-5 py-4 rounded-2xl">
@@ -3105,7 +3060,7 @@ export const MetriaFollowUp = ({
                                                 />
 
                                                 <span className="text-[10px] uppercase tracking-[0.16em] text-slate-400 font-bold">
-                                                    Thinking...
+                                                    {isTranscribing ? "Understanding..." : "Thinking..."}
                                                 </span>
 
                                             </div>
@@ -3181,7 +3136,8 @@ export const MetriaFollowUp = ({
                                                     inputQuery
                                                 }
                                                 disabled={
-                                                    isAnalyzing
+                                                    isAnalyzing ||
+                                                    isTranscribing
                                                 }
                                                 onChange={(
                                                     e
@@ -3233,10 +3189,12 @@ export const MetriaFollowUp = ({
                                                 type="submit"
                                                 disabled={
                                                     isAnalyzing ||
+                                                    isTranscribing ||
                                                     !inputQuery.trim()
                                                 }
                                                 className={`m-2 ml-0 h-12 px-5 rounded-xl ${
                                                     !isAnalyzing &&
+                                                    !isTranscribing &&
                                                     inputQuery.trim()
                                                         ? "bg-white text-black"
                                                         : "bg-white/[0.06] text-slate-700 cursor-not-allowed"
