@@ -163,35 +163,43 @@ export const MetriaFollowUp = ({
     const audioRef =
         useRef(null);
 
-    const mediaRecorderRef =
+    /*
+     * Realtime transcription connection.
+     *
+     * OpenAI Realtime is now Metria's primary listening layer.
+     * The user's normal OpenAI key never reaches the browser;
+     * the backend returns only a short-lived client secret.
+     */
+    const realtimePeerRef =
         useRef(null);
 
-    const mediaStreamRef =
+    const realtimeDataChannelRef =
         useRef(null);
 
-    const audioChunksRef =
-        useRef([]);
-
-    const recordingMimeTypeRef =
-        useRef("audio/webm");
-
-    const audioContextRef =
+    const realtimeMicStreamRef =
         useRef(null);
 
-    const voiceActivityFrameRef =
-        useRef(null);
-
-    const silenceStartedAtRef =
-        useRef(null);
-
-    const speechDetectedRef =
+    const realtimeConnectingRef =
         useRef(false);
 
-    const maxRecordingTimerRef =
-        useRef(null);
+    const realtimeConnectedRef =
+        useRef(false);
 
-    const noSpeechTimerRef =
-        useRef(null);
+    /*
+     * gpt-live-transcribe can emit multiple transcript delta
+     * events before the final completed event. We keep one
+     * buffer per Realtime conversation item so partial text
+     * remains correctly associated with its turn.
+     */
+    const realtimeTranscriptBuffersRef =
+        useRef(new Map());
+
+    /*
+     * Prevent duplicate /ai/query calls if another audio turn
+     * completes while Metria is still processing the previous one.
+     */
+    const queryInFlightRef =
+        useRef(false);
 
     const conversationEndRef =
         useRef(null);
@@ -844,49 +852,110 @@ export const MetriaFollowUp = ({
     // CLEANUP
     // ============================================================
 
+    const closeRealtimeSession = ({
+        resetUi = true
+    } = {}) => {
+        realtimeConnectedRef.current =
+            false;
+
+        realtimeConnectingRef.current =
+            false;
+
+        if (
+            realtimeDataChannelRef.current
+        ) {
+            try {
+                realtimeDataChannelRef.current.close();
+            } catch {
+                // no-op
+            }
+
+            realtimeDataChannelRef.current =
+                null;
+        }
+
+        if (
+            realtimePeerRef.current
+        ) {
+            try {
+                realtimePeerRef.current.close();
+            } catch {
+                // no-op
+            }
+
+            realtimePeerRef.current =
+                null;
+        }
+
+        if (
+            realtimeMicStreamRef.current
+        ) {
+            realtimeMicStreamRef.current
+                .getTracks()
+                .forEach(
+                    (track) =>
+                        track.stop()
+                );
+
+            realtimeMicStreamRef.current =
+                null;
+        }
+
+        realtimeTranscriptBuffersRef.current.clear();
+
+        if (
+            resetUi
+        ) {
+            setIsListening(
+                false
+            );
+
+            setIsTranscribing(
+                false
+            );
+
+            setLiveTranscript(
+                ""
+            );
+        }
+    };
+
     useEffect(() => {
         return () => {
-            if (audioRef.current) {
+            if (
+                audioRef.current
+            ) {
                 audioRef.current.pause();
-                audioRef.current = null;
+                audioRef.current =
+                    null;
             }
 
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-                try {
-                    mediaRecorderRef.current.stop();
-                } catch {
-                    // no-op
-                }
-            }
-
-            mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-            mediaStreamRef.current = null;
-
-            if (voiceActivityFrameRef.current) {
-                cancelAnimationFrame(voiceActivityFrameRef.current);
-                voiceActivityFrameRef.current = null;
-            }
-
-            if (maxRecordingTimerRef.current) {
-                clearTimeout(maxRecordingTimerRef.current);
-                maxRecordingTimerRef.current = null;
-            }
-
-            if (noSpeechTimerRef.current) {
-                clearTimeout(noSpeechTimerRef.current);
-                noSpeechTimerRef.current = null;
-            }
-
-            if (audioContextRef.current) {
-                try {
-                    audioContextRef.current.close();
-                } catch {
-                    // no-op
-                }
-                audioContextRef.current = null;
-            }
+            closeRealtimeSession({
+                resetUi:
+                    false
+            });
         };
+
+        // Cleanup intentionally runs on unmount only.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    /*
+     * Chat mode should never leave the microphone running
+     * invisibly in the background.
+     */
+    useEffect(() => {
+        if (
+            interfaceMode ===
+            "chat"
+        ) {
+            closeRealtimeSession();
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        interfaceMode
+    ]);
 
     // ============================================================
     // HISTORY
@@ -981,325 +1050,822 @@ export const MetriaFollowUp = ({
         };
 
     // ============================================================
-    // VOICE CAPTURE + OPENAI TRANSCRIPTION
+    // REALTIME VOICE CAPTURE + TRANSCRIPTION
     // ============================================================
 
-    const stopVoiceRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-            try {
-                mediaRecorderRef.current.stop();
-            } catch {
-                // no-op
-            }
-        }
-    };
+    /*
+     * Pull useful vocabulary from the active datasets so
+     * transcription is business-aware instead of generic.
+     *
+     * The backend also has its own default Metria vocabulary.
+     * These hints add the actual file names, column names and
+     * representative literal values from the current analysis.
+     */
+    const buildRealtimeVocabulary =
+        () => {
+            const columns =
+                [];
 
-    const toggleVoiceListener = async () => {
-        if (!isActivated) {
-            await activateMetria();
-            return;
-        }
+            const keywords =
+                [];
 
-        if (isPlayingIntro || isAnalyzing || isTranscribing) {
-            return;
-        }
+            const columnSeen =
+                new Set();
 
-        if (isSpeaking) {
-            stopVoice();
-        }
+            const keywordSeen =
+                new Set();
 
-        if (isListening) {
-            // Talk mode is hands-free once recording starts.
-            // The voice-activity detector ends the turn automatically
-            // after the user finishes speaking.
-            return;
-        }
+            const pushColumn =
+                (value) => {
+                    const cleaned =
+                        String(
+                            value ??
+                                ""
+                        )
+                            .replace(
+                                /[\r\n<>]/g,
+                                " "
+                            )
+                            .trim();
 
-        if (
-            typeof navigator === "undefined" ||
-            !navigator.mediaDevices?.getUserMedia ||
-            typeof MediaRecorder === "undefined"
-        ) {
-            alert(
-                "Voice recording isn't supported in this browser. Please use a current version of Chrome, Edge, or Safari."
-            );
-            return;
-        }
+                    if (
+                        !cleaned ||
+                        columnSeen.has(
+                            cleaned
+                        )
+                    ) {
+                        return;
+                    }
 
-        try {
-            setLiveTranscript("");
+                    columnSeen.add(
+                        cleaned
+                    );
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    channelCount: 1
-                }
-            });
+                    columns.push(
+                        cleaned
+                    );
+                };
 
-            mediaStreamRef.current = stream;
+            const pushKeyword =
+                (value) => {
+                    const cleaned =
+                        String(
+                            value ??
+                                ""
+                        )
+                            .replace(
+                                /[\r\n<>]/g,
+                                " "
+                            )
+                            .replace(
+                                /\s+/g,
+                                " "
+                            )
+                            .trim();
 
-            const preferredMimeTypes = [
-                "audio/webm;codecs=opus",
-                "audio/webm",
-                "audio/mp4",
-                "audio/ogg;codecs=opus"
-            ];
+                    if (
+                        !cleaned ||
+                        cleaned.length <
+                            2 ||
+                        cleaned.length >
+                            80 ||
+                        keywordSeen.has(
+                            cleaned
+                        )
+                    ) {
+                        return;
+                    }
 
-            const supportedMimeType = preferredMimeTypes.find((type) =>
-                MediaRecorder.isTypeSupported(type)
-            );
+                    /*
+                     * Pure numbers are not useful vocabulary hints.
+                     */
+                    if (
+                        /^[-+]?[\d\s,.$%]+$/.test(
+                            cleaned
+                        )
+                    ) {
+                        return;
+                    }
 
-            recordingMimeTypeRef.current = supportedMimeType || "audio/webm";
+                    keywordSeen.add(
+                        cleaned
+                    );
 
-            const recorder = supportedMimeType
-                ? new MediaRecorder(stream, { mimeType: supportedMimeType })
-                : new MediaRecorder(stream);
+                    keywords.push(
+                        cleaned
+                    );
+                };
 
-            mediaRecorderRef.current = recorder;
-            audioChunksRef.current = [];
-            speechDetectedRef.current = false;
-            silenceStartedAtRef.current = null;
+            datasetsInContext.forEach(
+                (dataset) => {
+                    pushKeyword(
+                        dataset?.name
+                    );
 
-            recorder.ondataavailable = (event) => {
-                if (event.data && event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
+                    const rows =
+                        Array.isArray(
+                            dataset?.data
+                        )
+                            ? dataset.data
+                            : [];
 
-            try {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (
+                        Array.isArray(
+                            rows[0]
+                        )
+                    ) {
+                        rows[0].forEach(
+                            (
+                                header
+                            ) => {
+                                pushColumn(
+                                    header
+                                );
 
-                if (AudioContextClass) {
-                    const audioContext = new AudioContextClass();
-                    audioContextRef.current = audioContext;
+                                pushKeyword(
+                                    header
+                                );
+                            }
+                        );
+                    }
 
-                    const analyser = audioContext.createAnalyser();
-                    analyser.fftSize = 1024;
-                    analyser.smoothingTimeConstant = 0.65;
-
-                    const source = audioContext.createMediaStreamSource(stream);
-                    source.connect(analyser);
-
-                    const dataArray = new Uint8Array(analyser.fftSize);
-
-                    const monitorVoice = () => {
-                        if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
-                            return;
-                        }
-
-                        analyser.getByteTimeDomainData(dataArray);
-
-                        let sumSquares = 0;
-                        for (let i = 0; i < dataArray.length; i++) {
-                            const normalized = (dataArray[i] - 128) / 128;
-                            sumSquares += normalized * normalized;
-                        }
-
-                        const rms = Math.sqrt(sumSquares / dataArray.length);
-
-                        // Slightly forgiving threshold so normal speech,
-                        // softer voices and laptop microphones register reliably.
-                        const voicePresent = rms > 0.02;
-
-                        if (voicePresent) {
-                            if (!speechDetectedRef.current) {
-                                speechDetectedRef.current = true;
-
-                                // Once real speech has started, the separate
-                                // "no speech" timeout is no longer needed.
-                                if (noSpeechTimerRef.current) {
-                                    clearTimeout(noSpeechTimerRef.current);
-                                    noSpeechTimerRef.current = null;
+                    /*
+                     * Sample real literal values so names such as
+                     * product/SKU/company labels can be recognized.
+                     * Keep this deliberately capped.
+                     */
+                    rows
+                        .slice(
+                            1,
+                            70
+                        )
+                        .forEach(
+                            (row) => {
+                                if (
+                                    !Array.isArray(
+                                        row
+                                    )
+                                ) {
+                                    return;
                                 }
+
+                                row.forEach(
+                                    (
+                                        cell
+                                    ) => {
+                                        if (
+                                            typeof cell ===
+                                            "string"
+                                        ) {
+                                            pushKeyword(
+                                                cell
+                                            );
+                                        }
+                                    }
+                                );
                             }
-
-                            silenceStartedAtRef.current = null;
-                        } else if (speechDetectedRef.current) {
-                            if (!silenceStartedAtRef.current) {
-                                silenceStartedAtRef.current = Date.now();
-                            }
-
-                            // End the user's turn automatically after a natural
-                            // pause. No second tap is required.
-                            if (Date.now() - silenceStartedAtRef.current > 1600) {
-                                stopVoiceRecording();
-                                return;
-                            }
-                        }
-
-                        voiceActivityFrameRef.current = requestAnimationFrame(monitorVoice);
-                    };
-
-                    monitorVoice();
+                        );
                 }
-            } catch (voiceActivityError) {
-                console.warn(
-                    "Voice activity detection unavailable:",
-                    voiceActivityError
-                );
+            );
+
+            return {
+                datasetColumns:
+                    columns.slice(
+                        0,
+                        50
+                    ),
+
+                keywords:
+                    keywords.slice(
+                        0,
+                        90
+                    )
+            };
+        };
+
+    /*
+     * Realtime event handler.
+     *
+     * Important events:
+     * - speech_started: user began speaking
+     * - speech_stopped: semantic VAD believes the turn ended
+     * - transcription.delta: live partial transcript
+     * - transcription.completed: final transcript sent to Metria
+     */
+    const handleRealtimeEvent =
+        async (
+            event
+        ) => {
+            if (
+                !event ||
+                !event.type
+            ) {
+                return;
             }
-
-            recorder.onstart = () => {
-                setIsListening(true);
-            };
-
-            recorder.onerror = (event) => {
-                console.error(
-                    "Metria microphone recording error:",
-                    event.error || event
-                );
-                setIsListening(false);
-            };
-
-            recorder.onstop = async () => {
-                setIsListening(false);
-
-                if (voiceActivityFrameRef.current) {
-                    cancelAnimationFrame(voiceActivityFrameRef.current);
-                    voiceActivityFrameRef.current = null;
-                }
-
-                if (maxRecordingTimerRef.current) {
-                    clearTimeout(maxRecordingTimerRef.current);
-                    maxRecordingTimerRef.current = null;
-                }
-
-                if (noSpeechTimerRef.current) {
-                    clearTimeout(noSpeechTimerRef.current);
-                    noSpeechTimerRef.current = null;
-                }
-
-                if (audioContextRef.current) {
-                    try {
-                        await audioContextRef.current.close();
-                    } catch {
-                        // no-op
-                    }
-                    audioContextRef.current = null;
-                }
-
-                mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-                mediaStreamRef.current = null;
-
-                const chunks = audioChunksRef.current;
-                audioChunksRef.current = [];
-                mediaRecorderRef.current = null;
-
-                if (!chunks.length) {
-                    setLiveTranscript("");
-                    return;
-                }
-
-                const mimeType =
-                    recordingMimeTypeRef.current ||
-                    chunks[0]?.type ||
-                    "audio/webm";
-
-                const audioBlob = new Blob(chunks, { type: mimeType });
-
-                if (audioBlob.size < 500) {
-                    setLiveTranscript("");
-                    return;
-                }
-
-                setIsTranscribing(true);
-                setLiveTranscript("Understanding...");
-
-                try {
-                    const extension = mimeType.includes("mp4")
-                        ? "m4a"
-                        : mimeType.includes("ogg")
-                          ? "ogg"
-                          : mimeType.includes("wav")
-                            ? "wav"
-                            : "webm";
-
-                    const formData = new FormData();
-                    formData.append(
-                        "audio",
-                        audioBlob,
-                        `metria-voice-${Date.now()}.${extension}`
-                    );
-
-                    const transcriptionResponse = await axios.post(
-                        `${API_BASE_URL}/ai/transcribe`,
-                        formData,
-                        {
-                            headers: {
-                                Authorization: `Bearer ${authToken}`
-                            }
-                        }
-                    );
-
-                    const transcript = String(
-                        transcriptionResponse.data?.transcript || ""
-                    ).trim();
-
-                    if (!transcript) {
-                        throw new Error("No transcript returned.");
-                    }
-
-                    setLiveTranscript(transcript);
-                    setInputQuery(transcript);
-                    setIsTranscribing(false);
-
-                    await handleSend(transcript);
-                } catch (error) {
-                    console.error(
-                        "Metria transcription failed:",
-                        error.response?.data || error.message
-                    );
-
-                    setIsTranscribing(false);
-                    setLiveTranscript("");
-
-                    setMessages((prev) => [
-                        ...prev,
-                        {
-                            sender: "metria",
-                            text: "I couldn't make that out clearly. Tap me and say it again."
-                        }
-                    ]);
-                }
-            };
-
-            recorder.start(250);
-
-            // If the user taps Talk but never speaks, close the microphone
-            // automatically instead of leaving Metria listening indefinitely.
-            noSpeechTimerRef.current = setTimeout(() => {
-                if (
-                    mediaRecorderRef.current &&
-                    mediaRecorderRef.current.state !== "inactive" &&
-                    !speechDetectedRef.current
-                ) {
-                    stopVoiceRecording();
-                }
-            }, 8000);
-
-            // Hard ceiling for unusually long turns.
-            maxRecordingTimerRef.current = setTimeout(() => {
-                stopVoiceRecording();
-            }, 30000);
-        } catch (error) {
-            console.error("Unable to access microphone:", error);
-
-            setIsListening(false);
-            setIsTranscribing(false);
-            setLiveTranscript("");
 
             if (
-                error?.name === "NotAllowedError" ||
-                error?.name === "PermissionDeniedError"
+                event.type ===
+                "input_audio_buffer.speech_started"
             ) {
-                alert(
-                    "Metria needs microphone permission for Talk mode. Allow microphone access in your browser and try again."
+                /*
+                 * Barge-in:
+                 * if the user starts talking while ElevenLabs
+                 * is speaking, stop Metria immediately.
+                 */
+                if (
+                    audioRef.current
+                ) {
+                    stopVoice();
+                }
+
+                setIsListening(
+                    true
+                );
+
+                setIsTranscribing(
+                    false
+                );
+
+                setLiveTranscript(
+                    "Listening..."
+                );
+
+                return;
+            }
+
+            if (
+                event.type ===
+                "input_audio_buffer.speech_stopped"
+            ) {
+                setIsListening(
+                    false
+                );
+
+                setIsTranscribing(
+                    true
+                );
+
+                setLiveTranscript(
+                    (
+                        current
+                    ) =>
+                        current &&
+                        current !==
+                            "Listening..."
+                            ? current
+                            : "Understanding..."
+                );
+
+                return;
+            }
+
+            if (
+                event.type ===
+                "conversation.item.input_audio_transcription.delta"
+            ) {
+                const itemId =
+                    event.item_id ||
+                    "current";
+
+                const previous =
+                    realtimeTranscriptBuffersRef.current.get(
+                        itemId
+                    ) || "";
+
+                const next =
+                    `${previous}${event.delta || ""}`;
+
+                realtimeTranscriptBuffersRef.current.set(
+                    itemId,
+                    next
+                );
+
+                setLiveTranscript(
+                    next.trim() ||
+                        "Listening..."
+                );
+
+                return;
+            }
+
+            if (
+                event.type ===
+                "conversation.item.input_audio_transcription.completed"
+            ) {
+                const itemId =
+                    event.item_id ||
+                    "current";
+
+                const buffered =
+                    realtimeTranscriptBuffersRef.current.get(
+                        itemId
+                    ) || "";
+
+                realtimeTranscriptBuffersRef.current.delete(
+                    itemId
+                );
+
+                const transcript =
+                    String(
+                        event.transcript ||
+                            buffered ||
+                            ""
+                    ).trim();
+
+                setIsListening(
+                    false
+                );
+
+                setIsTranscribing(
+                    false
+                );
+
+                if (
+                    !transcript
+                ) {
+                    setLiveTranscript(
+                        ""
+                    );
+
+                    return;
+                }
+
+                setLiveTranscript(
+                    transcript
+                );
+
+                setInputQuery(
+                    transcript
+                );
+
+                /*
+                 * Ignore accidental duplicate turns while Metria
+                 * is still processing the previous question.
+                 */
+                if (
+                    queryInFlightRef.current
+                ) {
+                    return;
+                }
+
+                await handleSend(
+                    transcript
+                );
+
+                return;
+            }
+
+            if (
+                event.type ===
+                "conversation.item.input_audio_transcription.failed"
+            ) {
+                console.error(
+                    "Realtime transcription failed:",
+                    event
+                );
+
+                setIsListening(
+                    false
+                );
+
+                setIsTranscribing(
+                    false
+                );
+
+                setLiveTranscript(
+                    ""
+                );
+
+                setMessages(
+                    (
+                        prev
+                    ) => [
+                        ...prev,
+                        {
+                            sender:
+                                "metria",
+
+                            text:
+                                "I couldn't make that out clearly. Try saying it again."
+                        }
+                    ]
+                );
+
+                return;
+            }
+
+            if (
+                event.type ===
+                    "error" ||
+                event.type ===
+                    "session.error"
+            ) {
+                console.error(
+                    "Metria Realtime error:",
+                    event
                 );
             }
-        }
-    };
+        };
+
+    const startRealtimeVoiceSession =
+        async () => {
+            if (
+                realtimeConnectedRef.current
+            ) {
+                return;
+            }
+
+            if (
+                realtimeConnectingRef.current
+            ) {
+                return;
+            }
+
+            if (
+                typeof window ===
+                    "undefined" ||
+                typeof RTCPeerConnection ===
+                    "undefined" ||
+                !navigator.mediaDevices
+                    ?.getUserMedia
+            ) {
+                throw new Error(
+                    "Realtime voice is not supported in this browser."
+                );
+            }
+
+            realtimeConnectingRef.current =
+                true;
+
+            setLiveTranscript(
+                "Connecting..."
+            );
+
+            try {
+                const {
+                    datasetColumns,
+                    keywords
+                } =
+                    buildRealtimeVocabulary();
+
+                // ================================================
+                // 1 — GET SHORT-LIVED OPENAI CLIENT SECRET
+                // ================================================
+
+                const tokenResponse =
+                    await axios.post(
+                        `${API_BASE_URL}/ai/realtime/session`,
+                        {
+                            dataset_names:
+                                datasetNames,
+
+                            dataset_columns:
+                                datasetColumns,
+
+                            keywords
+                        },
+                        {
+                            headers: {
+                                Authorization:
+                                    `Bearer ${authToken}`
+                            }
+                        }
+                    );
+
+                /*
+                 * OpenAI currently returns the ephemeral secret
+                 * as `value`. These fallbacks keep the frontend
+                 * tolerant if the backend wraps the response.
+                 */
+                const ephemeralKey =
+                    tokenResponse.data
+                        ?.value ||
+                    tokenResponse.data
+                        ?.client_secret
+                        ?.value ||
+                    tokenResponse.data
+                        ?.secret
+                        ?.value ||
+                    tokenResponse.data
+                        ?.client_secret;
+
+                if (
+                    !ephemeralKey ||
+                    typeof ephemeralKey !==
+                        "string"
+                ) {
+                    throw new Error(
+                        "Realtime session did not return a client secret."
+                    );
+                }
+
+                // ================================================
+                // 2 — OPEN MICROPHONE
+                // ================================================
+
+                const micStream =
+                    await navigator
+                        .mediaDevices
+                        .getUserMedia({
+                            audio: {
+                                echoCancellation:
+                                    true,
+
+                                noiseSuppression:
+                                    true,
+
+                                autoGainControl:
+                                    true,
+
+                                channelCount:
+                                    1
+                            }
+                        });
+
+                realtimeMicStreamRef.current =
+                    micStream;
+
+                // ================================================
+                // 3 — CREATE WEBRTC PEER
+                // ================================================
+
+                const peer =
+                    new RTCPeerConnection();
+
+                realtimePeerRef.current =
+                    peer;
+
+                micStream
+                    .getAudioTracks()
+                    .forEach(
+                        (
+                            track
+                        ) => {
+                            peer.addTrack(
+                                track,
+                                micStream
+                            );
+                        }
+                    );
+
+                // ================================================
+                // 4 — OPEN REALTIME EVENT CHANNEL
+                // ================================================
+
+                const dataChannel =
+                    peer.createDataChannel(
+                        "oai-events"
+                    );
+
+                realtimeDataChannelRef.current =
+                    dataChannel;
+
+                dataChannel.addEventListener(
+                    "message",
+                    (
+                        messageEvent
+                    ) => {
+                        try {
+                            const event =
+                                JSON.parse(
+                                    messageEvent.data
+                                );
+
+                            handleRealtimeEvent(
+                                event
+                            );
+                        } catch (
+                            parseError
+                        ) {
+                            console.warn(
+                                "Unable to parse Realtime event:",
+                                parseError
+                            );
+                        }
+                    }
+                );
+
+                dataChannel.addEventListener(
+                    "open",
+                    () => {
+                        realtimeConnectedRef.current =
+                            true;
+
+                        realtimeConnectingRef.current =
+                            false;
+
+                        setIsListening(
+                            false
+                        );
+
+                        setIsTranscribing(
+                            false
+                        );
+
+                        setLiveTranscript(
+                            "Ready — speak naturally"
+                        );
+                    }
+                );
+
+                dataChannel.addEventListener(
+                    "close",
+                    () => {
+                        realtimeConnectedRef.current =
+                            false;
+
+                        realtimeConnectingRef.current =
+                            false;
+
+                        setIsListening(
+                            false
+                        );
+
+                        setIsTranscribing(
+                            false
+                        );
+                    }
+                );
+
+                peer.addEventListener(
+                    "connectionstatechange",
+                    () => {
+                        const state =
+                            peer.connectionState;
+
+                        if (
+                            state ===
+                                "failed" ||
+                            state ===
+                                "closed"
+                        ) {
+                            closeRealtimeSession();
+                        }
+                    }
+                );
+
+                // ================================================
+                // 5 — NEGOTIATE DIRECTLY WITH OPENAI REALTIME
+                // ================================================
+
+                const offer =
+                    await peer.createOffer();
+
+                await peer.setLocalDescription(
+                    offer
+                );
+
+                const sdpResponse =
+                    await fetch(
+                        "https://api.openai.com/v1/realtime/calls",
+                        {
+                            method:
+                                "POST",
+
+                            body:
+                                offer.sdp,
+
+                            headers: {
+                                Authorization:
+                                    `Bearer ${ephemeralKey}`,
+
+                                "Content-Type":
+                                    "application/sdp"
+                            }
+                        }
+                    );
+
+                if (
+                    !sdpResponse.ok
+                ) {
+                    const errorText =
+                        await sdpResponse.text();
+
+                    throw new Error(
+                        `Realtime connection failed (${sdpResponse.status}): ${errorText}`
+                    );
+                }
+
+                const answerSdp =
+                    await sdpResponse.text();
+
+                await peer.setRemoteDescription({
+                    type:
+                        "answer",
+
+                    sdp:
+                        answerSdp
+                });
+
+                /*
+                 * The microphone track stays connected.
+                 * OpenAI semantic VAD determines each turn
+                 * automatically; there is no manual stop gesture.
+                 */
+            } catch (
+                error
+            ) {
+                realtimeConnectingRef.current =
+                    false;
+
+                closeRealtimeSession();
+
+                throw error;
+            }
+        };
+
+    /*
+     * Primary Talk interaction.
+     *
+     * One tap starts a persistent Realtime listening session.
+     * After that, semantic VAD handles natural turn boundaries:
+     *
+     * speak -> pause naturally -> transcript finalizes ->
+     * /ai/query -> ElevenLabs -> speak again
+     */
+    const toggleVoiceListener =
+        async () => {
+            if (
+                !isActivated
+            ) {
+                await activateMetria();
+
+                return;
+            }
+
+            if (
+                isPlayingIntro ||
+                isAnalyzing ||
+                isTranscribing
+            ) {
+                return;
+            }
+
+            /*
+             * No "tap to stop" behavior.
+             * Once Realtime is connected, Metria simply waits
+             * for the next natural speech turn.
+             */
+            if (
+                realtimeConnectedRef.current ||
+                realtimeConnectingRef.current
+            ) {
+                return;
+            }
+
+            try {
+                await startRealtimeVoiceSession();
+            } catch (
+                error
+            ) {
+                console.error(
+                    "Unable to start Metria Realtime voice:",
+                    error.response?.data ||
+                        error.message ||
+                        error
+                );
+
+                setIsListening(
+                    false
+                );
+
+                setIsTranscribing(
+                    false
+                );
+
+                setLiveTranscript(
+                    ""
+                );
+
+                if (
+                    error?.name ===
+                        "NotAllowedError" ||
+                    error?.name ===
+                        "PermissionDeniedError"
+                ) {
+                    alert(
+                        "Metria needs microphone permission for Talk mode. Allow microphone access in your browser and try again."
+                    );
+
+                    return;
+                }
+
+                setMessages(
+                    (
+                        prev
+                    ) => [
+                        ...prev,
+                        {
+                            sender:
+                                "metria",
+
+                            text:
+                                "I couldn't open the live voice connection. You can switch to Chat, or try Talk again."
+                        }
+                    ]
+                );
+            }
+        };
 
     // ============================================================
     // SEND QUERY
@@ -1320,7 +1886,8 @@ export const MetriaFollowUp = ({
                 !textToSend ||
                 datasetsInContext.length ===
                     0 ||
-                isAnalyzing
+                isAnalyzing ||
+                queryInFlightRef.current
             ) {
                 return;
             }
@@ -1355,6 +1922,9 @@ export const MetriaFollowUp = ({
             setInputQuery(
                 ""
             );
+
+            queryInFlightRef.current =
+                true;
 
             setIsAnalyzing(
                 true
@@ -1472,6 +2042,24 @@ export const MetriaFollowUp = ({
                         audioBase64
                     );
                 }
+
+                queryInFlightRef.current =
+                    false;
+
+                /*
+                 * Realtime remains connected after the answer.
+                 * The mic is still live and semantic VAD will
+                 * detect the next natural user turn automatically.
+                 */
+                if (
+                    interfaceMode ===
+                        "voice" &&
+                    realtimeConnectedRef.current
+                ) {
+                    setLiveTranscript(
+                        "Ready — speak naturally"
+                    );
+                }
             } catch (
                 err
             ) {
@@ -1485,6 +2073,9 @@ export const MetriaFollowUp = ({
                 setIsAnalyzing(
                     false
                 );
+
+                queryInFlightRef.current =
+                    false;
 
                 const errorText =
                     "I lost the connection for a moment. Send that again and I'll pick it up.";
