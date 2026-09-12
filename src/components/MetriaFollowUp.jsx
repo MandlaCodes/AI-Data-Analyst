@@ -215,30 +215,6 @@ export const MetriaFollowUp = ({
     const conversationEndRef =
         useRef(null);
 
-    /*
-     * Talk-mode response stream.
-     *
-     * /ai/voice streams GPT text and ElevenLabs MP3 chunks
-     * progressively. AbortController lets any new user turn
-     * cancel the current answer immediately.
-     */
-    const voiceResponseAbortRef =
-        useRef(null);
-
-    /*
-     * MediaSource lets the browser begin playing ElevenLabs
-     * audio before the complete response exists. The queue stores
-     * chunks that arrive while SourceBuffer is busy appending.
-     */
-    const streamingAudioRef =
-        useRef({
-            mediaSource: null,
-            sourceBuffer: null,
-            objectUrl: null,
-            queue: [],
-            streamEnded: false
-        });
-
     // ============================================================
     // DATASET CONTEXT
     // ============================================================
@@ -453,77 +429,18 @@ export const MetriaFollowUp = ({
     // AUDIO
     // ============================================================
 
-    const cleanupStreamingAudio = () => {
-        const state =
-            streamingAudioRef.current;
-
-        if (
-            state?.sourceBuffer
-        ) {
-            try {
-                state.sourceBuffer.onupdateend =
-                    null;
-            } catch {
-                // no-op
-            }
-        }
-
-        if (
-            state?.objectUrl
-        ) {
-            try {
-                URL.revokeObjectURL(
-                    state.objectUrl
-                );
-            } catch {
-                // no-op
-            }
-        }
-
-        streamingAudioRef.current = {
-            mediaSource: null,
-            sourceBuffer: null,
-            objectUrl: null,
-            queue: [],
-            streamEnded: false
-        };
-    };
-
     const stopVoice = () => {
-        /*
-         * If Talk mode is currently streaming a response, abort
-         * both the HTTP stream and the corresponding backend work.
-         * This makes barge-in repeatable, not a one-time gesture.
-         */
-        if (
-            voiceResponseAbortRef.current
-        ) {
-            try {
-                voiceResponseAbortRef.current.abort();
-            } catch {
-                // no-op
-            }
-
-            voiceResponseAbortRef.current =
-                null;
-        }
-
         if (
             audioRef.current
         ) {
-            try {
-                audioRef.current.pause();
-                audioRef.current.currentTime =
-                    0;
-            } catch {
-                // no-op
-            }
+            audioRef.current.pause();
+
+            audioRef.current.currentTime =
+                0;
 
             audioRef.current =
                 null;
         }
-
-        cleanupStreamingAudio();
 
         setIsSpeaking(
             false
@@ -532,250 +449,6 @@ export const MetriaFollowUp = ({
         setIsPlayingIntro(
             false
         );
-    };
-
-    const base64ToUint8Array =
-        (base64Value) => {
-            const binary =
-                window.atob(
-                    base64Value
-                );
-
-            const bytes =
-                new Uint8Array(
-                    binary.length
-                );
-
-            for (
-                let index = 0;
-                index < binary.length;
-                index++
-            ) {
-                bytes[index] =
-                    binary.charCodeAt(
-                        index
-                    );
-            }
-
-            return bytes;
-        };
-
-    const pumpStreamingAudio = () => {
-        const state =
-            streamingAudioRef.current;
-
-        if (
-            !state?.sourceBuffer ||
-            state.sourceBuffer.updating
-        ) {
-            return;
-        }
-
-        if (
-            state.queue.length > 0
-        ) {
-            const nextChunk =
-                state.queue.shift();
-
-            try {
-                state.sourceBuffer.appendBuffer(
-                    nextChunk
-                );
-            } catch (error) {
-                console.error(
-                    "Unable to append Metria audio chunk:",
-                    error
-                );
-            }
-
-            return;
-        }
-
-        if (
-            state.streamEnded &&
-            state.mediaSource?.readyState ===
-                "open"
-        ) {
-            try {
-                state.mediaSource.endOfStream();
-            } catch {
-                // MediaSource may already be closing.
-            }
-        }
-    };
-
-    const ensureStreamingAudioPlayer =
-        async () => {
-            const existing =
-                streamingAudioRef.current;
-
-            if (
-                existing?.mediaSource &&
-                audioRef.current
-            ) {
-                return;
-            }
-
-            cleanupStreamingAudio();
-
-            if (
-                typeof MediaSource ===
-                    "undefined" ||
-                !MediaSource.isTypeSupported(
-                    "audio/mpeg"
-                )
-            ) {
-                throw new Error(
-                    "This browser cannot stream Metria's MP3 audio."
-                );
-            }
-
-            const mediaSource =
-                new MediaSource();
-
-            const objectUrl =
-                URL.createObjectURL(
-                    mediaSource
-                );
-
-            const audio =
-                new Audio();
-
-            audio.preload =
-                "auto";
-
-            audio.src =
-                objectUrl;
-
-            audioRef.current =
-                audio;
-
-            streamingAudioRef.current = {
-                mediaSource,
-                sourceBuffer: null,
-                objectUrl,
-                queue: [],
-                streamEnded: false
-            };
-
-            audio.onplay =
-                () => {
-                    setIsSpeaking(
-                        true
-                    );
-
-                    setIsAnalyzing(
-                        false
-                    );
-                };
-
-            audio.onended =
-                () => {
-                    setIsSpeaking(
-                        false
-                    );
-
-                    if (
-                        interfaceMode ===
-                        "voice"
-                    ) {
-                        setLiveTranscript(
-                            ""
-                        );
-                    }
-                };
-
-            await new Promise(
-                (resolve, reject) => {
-                    const handleOpen =
-                        () => {
-                            try {
-                                const sourceBuffer =
-                                    mediaSource.addSourceBuffer(
-                                        "audio/mpeg"
-                                    );
-
-                                sourceBuffer.mode =
-                                    "sequence";
-
-                                streamingAudioRef.current.sourceBuffer =
-                                    sourceBuffer;
-
-                                sourceBuffer.onupdateend =
-                                    pumpStreamingAudio;
-
-                                resolve();
-                            } catch (error) {
-                                reject(
-                                    error
-                                );
-                            }
-                        };
-
-                    if (
-                        mediaSource.readyState ===
-                        "open"
-                    ) {
-                        handleOpen();
-                    } else {
-                        mediaSource.addEventListener(
-                            "sourceopen",
-                            handleOpen,
-                            { once: true }
-                        );
-                    }
-                }
-            );
-        };
-
-    const appendStreamingAudio =
-        async (audioBase64) => {
-            if (
-                !voiceEnabled ||
-                !audioBase64
-            ) {
-                return;
-            }
-
-            await ensureStreamingAudioPlayer();
-
-            const state =
-                streamingAudioRef.current;
-
-            state.queue.push(
-                base64ToUint8Array(
-                    audioBase64
-                )
-            );
-
-            pumpStreamingAudio();
-
-            if (
-                audioRef.current?.paused
-            ) {
-                try {
-                    await audioRef.current.play();
-                } catch (error) {
-                    console.warn(
-                        "Browser delayed streamed Metria playback:",
-                        error
-                    );
-                }
-            }
-        };
-
-    const finishStreamingAudio = () => {
-        const state =
-            streamingAudioRef.current;
-
-        if (!state) {
-            return;
-        }
-
-        state.streamEnded =
-            true;
-
-        pumpStreamingAudio();
     };
 
     const playResponseAudio =
@@ -2409,431 +2082,69 @@ export const MetriaFollowUp = ({
                 true
             );
 
-            setRealtimeMicArmed(
-                false
-            );
-
-            const datasetsPayload =
-                datasetsInContext.map(
-                    (
-                        dataset
-                    ) => ({
-                        id:
-                            dataset?.id,
-
-                        name:
-                            dataset?.name ||
-                            "Unnamed Dataset",
-
-                        metrics:
-                            dataset?.metrics ||
-                            {},
-
-                        data_sample:
-                            dataset?.data ||
-                            dataset?.rows ||
-                            []
-                    })
-                );
-
-            const requestPayload = {
-                query:
-                    textToSend,
-
-                datasets:
-                    datasetsPayload,
-
-                dataset_name:
-                    primaryDataset?.name ||
-                    "Dataset",
-
-                metrics:
-                    primaryDataset?.metrics ||
-                    {},
-
-                data_sample:
-                    primaryDataset?.data ||
-                    primaryDataset?.rows ||
-                    [],
-
-                // History BEFORE this question.
-                messages,
-
-                analysis_mode:
-                    analysisMode,
-
-                cross_analysis:
-                    crossAnalysis
-            };
-
-            // ====================================================
-            // TALK MODE — TRUE STREAMING RESPONSE
-            // ====================================================
-
-            if (
-                interfaceMode ===
-                "voice"
-            ) {
-                const controller =
-                    new AbortController();
-
-                voiceResponseAbortRef.current =
-                    controller;
-
-                let streamedAnswer =
-                    "";
-
-                let receivedAudio =
-                    false;
-
-                try {
-                    const response =
-                        await fetch(
-                            `${API_BASE_URL}/ai/voice`,
-                            {
-                                method:
-                                    "POST",
-
-                                headers: {
-                                    Authorization:
-                                        `Bearer ${authToken}`,
-
-                                    "Content-Type":
-                                        "application/json",
-
-                                    Accept:
-                                        "application/x-ndjson"
-                                },
-
-                                body:
-                                    JSON.stringify(
-                                        requestPayload
-                                    ),
-
-                                signal:
-                                    controller.signal
-                            }
-                        );
-
-                    if (
-                        !response.ok
-                    ) {
-                        const errorText =
-                            await response.text();
-
-                        throw new Error(
-                            `Voice response failed (${response.status}): ${errorText}`
-                        );
-                    }
-
-                    if (
-                        !response.body
-                    ) {
-                        throw new Error(
-                            "Metria voice stream returned no body."
-                        );
-                    }
-
-                    const reader =
-                        response.body.getReader();
-
-                    const decoder =
-                        new TextDecoder();
-
-                    let pendingText =
-                        "";
-
-                    const processEvent =
-                        async (event) => {
-                            if (
-                                !event ||
-                                !event.type
-                            ) {
-                                return;
-                            }
-
-                            if (
-                                event.type ===
-                                "started"
-                            ) {
-                                setLiveTranscript(
-                                    "Thinking..."
-                                );
-
-                                return;
-                            }
-
-                            if (
-                                event.type ===
-                                "text_delta"
-                            ) {
-                                streamedAnswer +=
-                                    event.text ||
-                                    "";
-
-                                /*
-                                 * Show the answer growing in Chat mode/history
-                                 * while the same text is already feeding TTS.
-                                 */
-                                setMessages([
-                                    ...newMessages,
-                                    {
-                                        sender:
-                                            "metria",
-
-                                        text:
-                                            streamedAnswer
-                                    }
-                                ]);
-
-                                return;
-                            }
-
-                            if (
-                                event.type ===
-                                "audio" &&
-                                event.audio
-                            ) {
-                                if (
-                                    !receivedAudio
-                                ) {
-                                    receivedAudio =
-                                        true;
-
-                                    setIsAnalyzing(
-                                        false
-                                    );
-
-                                    setLiveTranscript(
-                                        "Responding..."
-                                    );
-                                }
-
-                                await appendStreamingAudio(
-                                    event.audio
-                                );
-
-                                return;
-                            }
-
-                            if (
-                                event.type ===
-                                "done"
-                            ) {
-                                const finalAnswer =
-                                    String(
-                                        event.answer ||
-                                            streamedAnswer ||
-                                            ""
-                                    );
-
-                                const finalMessages =
-                                    Array.isArray(
-                                        event.messages
-                                    )
-                                        ? event.messages
-                                        : [
-                                              ...newMessages,
-                                              {
-                                                  sender:
-                                                      "metria",
-
-                                                  text:
-                                                      finalAnswer
-                                              }
-                                          ];
-
-                                setMessages(
-                                    finalMessages
-                                );
-
-                                setIsAnalyzing(
-                                    false
-                                );
-
-                                finishStreamingAudio();
-
-                                return;
-                            }
-
-                            if (
-                                event.type ===
-                                    "error" ||
-                                event.type ===
-                                    "tts_error"
-                            ) {
-                                console.error(
-                                    "Metria voice stream event:",
-                                    event
-                                );
-
-                                if (
-                                    event.type ===
-                                    "error"
-                                ) {
-                                    throw new Error(
-                                        event.message ||
-                                            "Metria voice generation failed."
-                                    );
-                                }
-                            }
-                        };
-
-                    while (true) {
-                        const {
-                            value,
-                            done
-                        } =
-                            await reader.read();
-
-                        if (done) {
-                            break;
-                        }
-
-                        pendingText +=
-                            decoder.decode(
-                                value,
-                                {
-                                    stream:
-                                        true
-                                }
-                            );
-
-                        const lines =
-                            pendingText.split(
-                                "\n"
-                            );
-
-                        pendingText =
-                            lines.pop() ||
-                            "";
-
-                        for (
-                            const line of lines
-                        ) {
-                            const trimmed =
-                                line.trim();
-
-                            if (!trimmed) {
-                                continue;
-                            }
-
-                            await processEvent(
-                                JSON.parse(
-                                    trimmed
-                                )
-                            );
-                        }
-                    }
-
-                    const tail =
-                        `${pendingText}${decoder.decode()}`.trim();
-
-                    if (tail) {
-                        await processEvent(
-                            JSON.parse(
-                                tail
-                            )
-                        );
-                    }
-
-                    finishStreamingAudio();
-
-                    setIsAnalyzing(
-                        false
-                    );
-
-                    if (
-                        !receivedAudio &&
-                        interfaceMode ===
-                            "voice"
-                    ) {
-                        setLiveTranscript(
-                            ""
-                        );
-                    }
-                } catch (error) {
-                    if (
-                        error?.name ===
-                        "AbortError"
-                    ) {
-                        /*
-                         * Interruption is intentional. A new user turn
-                         * immediately replaces the previous answer.
-                         */
-                        setIsAnalyzing(
-                            false
-                        );
-
-                        setIsSpeaking(
-                            false
-                        );
-
-                        return;
-                    }
-
-                    console.error(
-                        "Metria live voice failed:",
-                        error
-                    );
-
-                    setIsAnalyzing(
-                        false
-                    );
-
-                    setIsSpeaking(
-                        false
-                    );
-
-                    setLiveTranscript(
-                        ""
-                    );
-
-                    setMessages(
-                        (prev) => [
-                            ...prev,
-                            {
-                                sender:
-                                    "metria",
-
-                                text:
-                                    "I lost the live voice connection for a moment. Ask that again and I'll pick it up."
-                            }
-                        ]
-                    );
-                } finally {
-                    if (
-                        voiceResponseAbortRef.current ===
-                        controller
-                    ) {
-                        voiceResponseAbortRef.current =
-                            null;
-                    }
-
-                    queryInFlightRef.current =
-                        false;
-
-                    setIsAnalyzing(
-                        false
-                    );
-                }
-
-                return;
-            }
-
-            // ====================================================
-            // CHAT MODE — EXISTING /ai/query FLOW
-            // ====================================================
-
             try {
+                const datasetsPayload =
+                    datasetsInContext.map(
+                        (
+                            dataset
+                        ) => ({
+                            id:
+                                dataset?.id,
+
+                            name:
+                                dataset?.name ||
+                                "Unnamed Dataset",
+
+                            metrics:
+                                dataset?.metrics ||
+                                {},
+
+                            data_sample:
+                                dataset?.data ||
+                                dataset?.rows ||
+                                []
+                        })
+                    );
+
                 const res =
                     await axios.post(
                         `${API_BASE_URL}/ai/query`,
                         {
-                            ...requestPayload,
+                            query:
+                                textToSend,
 
+                            // Normal analyst conversation.
                             intro_only:
-                                false
+                                false,
+
+                            datasets:
+                                datasetsPayload,
+
+                            dataset_name:
+                                primaryDataset?.name ||
+                                "Dataset",
+
+                            metrics:
+                                primaryDataset?.metrics ||
+                                {},
+
+                            data_sample:
+                                primaryDataset?.data ||
+                                primaryDataset?.rows ||
+                                [],
+
+                            // Send the history BEFORE this new question.
+                            // The backend appends the current user question
+                            // and Metria response itself. This prevents the
+                            // user's latest question from appearing twice.
+                            messages:
+                                messages,
+
+                            analysis_mode:
+                                analysisMode,
+
+                            cross_analysis:
+                                crossAnalysis
                         },
                         {
                             headers: {
@@ -2848,11 +2159,16 @@ export const MetriaFollowUp = ({
                         .answer ||
                     "I wasn't able to generate an analysis.";
 
+                const audioBase64 =
+                    res.data
+                        .audio_base64;
+
                 const finalMessages =
                     res.data
                         .messages ||
                     [
                         ...newMessages,
+
                         {
                             sender:
                                 "metria",
@@ -2869,10 +2185,54 @@ export const MetriaFollowUp = ({
                 setIsAnalyzing(
                     false
                 );
-            } catch (err) {
+
+                queryInFlightRef.current =
+                    false;
+
+                /*
+                 * Keep the mic muted while Metria speaks.
+                 * When the response finishes, we return to the
+                 * explicit Tap to speak state.
+                 */
+                setRealtimeMicArmed(
+                    false
+                );
+
+                if (
+                    voiceEnabled &&
+                    audioBase64
+                ) {
+                    await playResponseAudio(
+                        audioBase64,
+                        {
+                            onFinished:
+                                () => {
+                                    if (
+                                        interfaceMode ===
+                                            "voice"
+                                    ) {
+                                        setLiveTranscript(
+                                            ""
+                                        );
+                                    }
+                                }
+                        }
+                    );
+                } else if (
+                    interfaceMode ===
+                    "voice"
+                ) {
+                    setLiveTranscript(
+                        ""
+                    );
+                }
+            } catch (
+                err
+            ) {
                 console.error(
                     "Metria query failed:",
-                    err.response?.data ||
+                    err.response
+                        ?.data ||
                         err.message
                 );
 
@@ -2880,21 +2240,27 @@ export const MetriaFollowUp = ({
                     false
                 );
 
+                queryInFlightRef.current =
+                    false;
+
+                const errorText =
+                    "I lost the connection for a moment. Send that again and I'll pick it up.";
+
                 setMessages(
-                    (prev) => [
+                    (
+                        prev
+                    ) => [
                         ...prev,
+
                         {
                             sender:
                                 "metria",
 
                             text:
-                                "I lost the connection for a moment. Send that again and I'll pick it up."
+                                errorText
                         }
                     ]
                 );
-            } finally {
-                queryInFlightRef.current =
-                    false;
             }
         };
 
