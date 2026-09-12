@@ -290,7 +290,7 @@ export const MetriaFollowUp = ({
 
     const stateSubtext = {
         dormant:
-            "Tap the core to activate Metria",
+            "Tap Metria to activate",
 
         introducing:
             "Metria is coming online",
@@ -1976,77 +1976,256 @@ export const MetriaFollowUp = ({
                                     )}
 
                                     {/* ===================================== */}
-                                    {/* METRIA SIGNATURE CORE                  */}
+                                    {/* METRIA ROBOT AVATAR                    */}
                                     {/* ===================================== */}
 
                                     <div
-                                        className={`relative w-[190px] h-[190px] md:w-[245px] md:h-[245px] transition-all duration-700 ${
+                                        className={`relative w-[210px] h-[220px] md:w-[270px] md:h-[285px] transition-all duration-700 ${
                                             !isActivated
-                                                ? "group-hover:scale-[1.06]"
+                                                ? "group-hover:scale-[1.045] group-hover:-translate-y-1"
                                                 : isSpeaking
-                                                  ? "scale-[1.07]"
+                                                  ? "scale-[1.055] -translate-y-1"
                                                   : isListening
-                                                    ? "scale-[1.06]"
-                                                    : ""
+                                                    ? "scale-[1.045]"
+                                                    : isAnalyzing
+                                                      ? "scale-[1.025]"
+                                                      : ""
                                         }`}
                                     >
-
-                                        {/* four diamond wings */}
-
                                         <div
-                                            className={`absolute inset-[13%] rotate-45 rounded-[32px] border transition-all duration-500 ${
-                                                isListening
-                                                    ? "border-cyan-300/45 bg-cyan-400/[0.05]"
-                                                    : isSpeaking
-                                                      ? "border-purple-300/50 bg-purple-500/[0.08]"
-                                                      : "border-purple-400/30 bg-purple-500/[0.05]"
-                                            } shadow-[0_0_70px_rgba(126,34,206,0.25)]`}
-                                        />
-
-                                        <div
-                                            className={`absolute inset-[24%] rotate-45 rounded-[22px] border transition-all duration-500 ${
-                                                isListening
-                                                    ? "border-cyan-300/60"
-                                                    : "border-indigo-300/40"
-                                            } bg-[#090411] shadow-[inset_0_0_45px_rgba(124,58,237,0.22)]`}
-                                        />
-
-                                        {/* central aperture */}
-
-                                        <div
-                                            className={`absolute inset-[34%] rotate-45 rounded-[14px] overflow-hidden border transition-all duration-500 ${
+                                            className={`absolute left-1/2 bottom-[2%] -translate-x-1/2 w-[54%] h-[9%] rounded-full blur-xl transition-all duration-700 ${
                                                 !isActivated
-                                                    ? "border-slate-700 bg-[#09070d]"
+                                                    ? "bg-purple-500/10 opacity-40"
                                                     : isListening
-                                                      ? "border-cyan-200/80 bg-cyan-400/20 shadow-[0_0_40px_rgba(34,211,238,0.5)]"
+                                                      ? "bg-cyan-400/25 opacity-80 scale-110"
                                                       : isSpeaking
-                                                        ? "border-purple-200/80 bg-purple-400/30 shadow-[0_0_45px_rgba(192,132,252,0.65)]"
+                                                        ? "bg-purple-400/30 opacity-100 scale-125"
                                                         : isAnalyzing
-                                                          ? "border-indigo-200/70 bg-indigo-500/20 shadow-[0_0_40px_rgba(99,102,241,0.5)]"
-                                                          : "border-purple-300/60 bg-purple-500/20 shadow-[0_0_35px_rgba(147,51,234,0.4)]"
+                                                          ? "bg-indigo-400/25 opacity-90 scale-110"
+                                                          : "bg-purple-500/20 opacity-70"
+                                            }`}
+                                        />
+
+                                        <div
+                                            className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ${
+                                                isSpeaking
+                                                    ? "animate-[metriaRobotSpeak_1.2s_ease-in-out_infinite]"
+                                                    : isListening
+                                                      ? "animate-[metriaRobotListen_1.7s_ease-in-out_infinite]"
+                                                      : isAnalyzing
+                                                        ? "animate-[metriaRobotThink_2s_ease-in-out_infinite]"
+                                                        : isActivated
+                                                          ? "animate-[metriaRobotIdle_3.6s_ease-in-out_infinite]"
+                                                          : ""
                                             }`}
                                         >
+                                            <div className="relative z-30 mb-[-5px] flex flex-col items-center">
+                                                <span
+                                                    className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full border transition-all duration-500 ${
+                                                        !isActivated
+                                                            ? "bg-slate-800 border-slate-700"
+                                                            : isListening
+                                                              ? "bg-cyan-200 border-cyan-100 shadow-[0_0_22px_rgba(103,232,249,1)]"
+                                                              : isSpeaking
+                                                                ? "bg-purple-200 border-purple-100 shadow-[0_0_24px_rgba(216,180,254,1)]"
+                                                                : isAnalyzing
+                                                                  ? "bg-indigo-200 border-indigo-100 shadow-[0_0_22px_rgba(165,180,252,1)]"
+                                                                  : "bg-purple-300 border-purple-200 shadow-[0_0_16px_rgba(192,132,252,0.9)]"
+                                                    }`}
+                                                />
+                                                <span
+                                                    className={`w-[2px] h-4 md:h-5 transition-colors ${
+                                                        !isActivated
+                                                            ? "bg-slate-800"
+                                                            : "bg-gradient-to-b from-purple-300/80 to-purple-500/20"
+                                                    }`}
+                                                />
+                                            </div>
+
+                                            <div className="relative z-20 w-[76%] h-[43%]">
+                                                <div
+                                                    className={`absolute -left-[8%] top-[28%] w-[17%] h-[42%] rounded-[45%] border flex items-center justify-center transition-all duration-500 ${
+                                                        !isActivated
+                                                            ? "border-slate-700 bg-[#0d0d12]"
+                                                            : isListening
+                                                              ? "border-cyan-300/60 bg-cyan-500/10 shadow-[0_0_24px_rgba(34,211,238,0.24)]"
+                                                              : "border-purple-300/45 bg-purple-500/10 shadow-[0_0_22px_rgba(147,51,234,0.22)]"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`w-[42%] h-[56%] rounded-full border ${
+                                                            !isActivated
+                                                                ? "border-slate-700"
+                                                                : isListening
+                                                                  ? "border-cyan-200/70 shadow-[inset_0_0_10px_rgba(34,211,238,0.35)]"
+                                                                  : "border-purple-200/60 shadow-[inset_0_0_10px_rgba(192,132,252,0.35)]"
+                                                        }`}
+                                                    />
+                                                </div>
+
+                                                <div
+                                                    className={`absolute -right-[8%] top-[28%] w-[17%] h-[42%] rounded-[45%] border flex items-center justify-center transition-all duration-500 ${
+                                                        !isActivated
+                                                            ? "border-slate-700 bg-[#0d0d12]"
+                                                            : isListening
+                                                              ? "border-cyan-300/60 bg-cyan-500/10 shadow-[0_0_24px_rgba(34,211,238,0.24)]"
+                                                              : "border-purple-300/45 bg-purple-500/10 shadow-[0_0_22px_rgba(147,51,234,0.22)]"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`w-[42%] h-[56%] rounded-full border ${
+                                                            !isActivated
+                                                                ? "border-slate-700"
+                                                                : isListening
+                                                                  ? "border-cyan-200/70 shadow-[inset_0_0_10px_rgba(34,211,238,0.35)]"
+                                                                  : "border-purple-200/60 shadow-[inset_0_0_10px_rgba(192,132,252,0.35)]"
+                                                        }`}
+                                                    />
+                                                </div>
+
+                                                <div
+                                                    className={`absolute inset-0 rounded-[42%_42%_36%_36%/45%_45%_34%_34%] border overflow-hidden transition-all duration-500 ${
+                                                        !isActivated
+                                                            ? "border-slate-700 bg-gradient-to-br from-[#181820] via-[#0f0f15] to-[#08080c]"
+                                                            : isListening
+                                                              ? "border-cyan-200/65 bg-gradient-to-br from-[#293047] via-[#15192a] to-[#080b12] shadow-[0_0_46px_rgba(34,211,238,0.20)]"
+                                                              : isSpeaking
+                                                                ? "border-purple-200/70 bg-gradient-to-br from-[#352b48] via-[#171225] to-[#09070f] shadow-[0_0_54px_rgba(168,85,247,0.26)]"
+                                                                : "border-purple-300/45 bg-gradient-to-br from-[#302945] via-[#171321] to-[#09080e] shadow-[0_0_40px_rgba(126,34,206,0.20)]"
+                                                    }`}
+                                                >
+                                                    <div className="absolute inset-x-[8%] top-[6%] h-[19%] rounded-full bg-gradient-to-b from-white/20 via-white/[0.04] to-transparent blur-[1px]" />
+                                                    <div
+                                                        className={`absolute left-1/2 top-[9%] -translate-x-1/2 w-[21%] h-[4px] rounded-full transition-all ${
+                                                            !isActivated
+                                                                ? "bg-slate-700"
+                                                                : isListening
+                                                                  ? "bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)]"
+                                                                  : "bg-purple-400 shadow-[0_0_12px_rgba(192,132,252,0.9)]"
+                                                        }`}
+                                                    />
+
+                                                    <div
+                                                        className={`absolute left-[10%] right-[10%] top-[22%] bottom-[14%] rounded-[38%_38%_34%_34%/48%_48%_38%_38%] border overflow-hidden transition-all duration-500 ${
+                                                            !isActivated
+                                                                ? "border-slate-700 bg-[#050507]"
+                                                                : isListening
+                                                                  ? "border-cyan-300/55 bg-[#02070a] shadow-[inset_0_0_38px_rgba(34,211,238,0.08)]"
+                                                                  : isSpeaking
+                                                                    ? "border-purple-300/60 bg-[#050208] shadow-[inset_0_0_42px_rgba(147,51,234,0.10)]"
+                                                                    : "border-purple-400/35 bg-[#030206] shadow-[inset_0_0_35px_rgba(126,34,206,0.08)]"
+                                                        }`}
+                                                    >
+                                                        <div
+                                                            className={`absolute -inset-y-1/2 -left-1/2 w-[55%] rotate-[18deg] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent ${
+                                                                isActivated
+                                                                    ? "animate-[metriaFaceSweep_4.5s_ease-in-out_infinite]"
+                                                                    : ""
+                                                            }`}
+                                                        />
+
+                                                        <div className="absolute inset-0 flex items-center justify-center gap-[22%]">
+                                                            {[0, 1].map((eye) => (
+                                                                <span
+                                                                    key={eye}
+                                                                    className={`block w-[8%] h-[35%] rounded-full transition-all duration-300 ${
+                                                                        !isActivated
+                                                                            ? "bg-slate-700"
+                                                                            : isListening
+                                                                              ? "bg-cyan-100 shadow-[0_0_18px_rgba(103,232,249,1)] animate-[metriaEyeListen_0.75s_ease-in-out_infinite_alternate]"
+                                                                              : isSpeaking
+                                                                                ? "bg-purple-100 shadow-[0_0_18px_rgba(216,180,254,1)] animate-[metriaEyeSpeak_0.65s_ease-in-out_infinite_alternate]"
+                                                                                : isAnalyzing
+                                                                                  ? `bg-indigo-100 shadow-[0_0_17px_rgba(199,210,254,1)] animate-[metriaEyeThink_1.1s_ease-in-out_infinite] ${eye === 1 ? "[animation-delay:180ms]" : ""}`
+                                                                                  : "bg-purple-100 shadow-[0_0_16px_rgba(216,180,254,0.95)]"
+                                                                    }`}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
 
                                             <div
-                                                className={`absolute -inset-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent ${
-                                                    isActivated
-                                                        ? "animate-[metriaCoreSweep_2.8s_linear_infinite]"
-                                                        : ""
+                                                className={`relative z-10 w-[20%] h-[8%] -mt-[1%] rounded-b-xl border-x transition-all ${
+                                                    !isActivated
+                                                        ? "border-slate-700 bg-[#111116]"
+                                                        : "border-purple-400/30 bg-gradient-to-b from-[#181320] to-[#0c0a10]"
                                                 }`}
                                             />
 
+                                            <div className="relative z-20 w-[54%] h-[34%] -mt-[1%]">
+                                                <div
+                                                    className={`absolute -left-[13%] top-[12%] w-[28%] h-[48%] rounded-full border transition-all ${
+                                                        !isActivated
+                                                            ? "border-slate-700 bg-[#111116]"
+                                                            : isListening
+                                                              ? "border-cyan-300/35 bg-[#151a24]"
+                                                              : "border-purple-300/35 bg-[#17131f]"
+                                                    }`}
+                                                />
+                                                <div
+                                                    className={`absolute -right-[13%] top-[12%] w-[28%] h-[48%] rounded-full border transition-all ${
+                                                        !isActivated
+                                                            ? "border-slate-700 bg-[#111116]"
+                                                            : isListening
+                                                              ? "border-cyan-300/35 bg-[#151a24]"
+                                                              : "border-purple-300/35 bg-[#17131f]"
+                                                    }`}
+                                                />
+
+                                                <div
+                                                    className={`absolute inset-0 rounded-[36%_36%_46%_46%/24%_24%_62%_62%] border overflow-hidden transition-all duration-500 ${
+                                                        !isActivated
+                                                            ? "border-slate-700 bg-gradient-to-b from-[#17171d] to-[#0a0a0e]"
+                                                            : isListening
+                                                              ? "border-cyan-300/45 bg-gradient-to-b from-[#232a3a] via-[#121721] to-[#080b10]"
+                                                              : isSpeaking
+                                                                ? "border-purple-300/50 bg-gradient-to-b from-[#2a2238] via-[#15111d] to-[#09080c]"
+                                                                : "border-purple-300/35 bg-gradient-to-b from-[#282237] via-[#15121c] to-[#09080d]"
+                                                    }`}
+                                                >
+                                                    <div className="absolute inset-x-[12%] top-[8%] h-[18%] rounded-full bg-gradient-to-b from-white/[0.14] to-transparent" />
+                                                    <div
+                                                        className={`absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 w-[31%] aspect-square rotate-45 rounded-[28%] border transition-all duration-500 ${
+                                                            !isActivated
+                                                                ? "border-slate-700 bg-slate-900"
+                                                                : isListening
+                                                                  ? "border-cyan-200/75 bg-cyan-400/10 shadow-[0_0_22px_rgba(34,211,238,0.4)]"
+                                                                  : isSpeaking
+                                                                    ? "border-purple-200/80 bg-purple-400/15 shadow-[0_0_24px_rgba(192,132,252,0.5)]"
+                                                                    : "border-purple-300/60 bg-purple-500/10 shadow-[0_0_18px_rgba(147,51,234,0.35)]"
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className={`absolute inset-[29%] rounded-full transition-all ${
+                                                                !isActivated
+                                                                    ? "bg-slate-700"
+                                                                    : isListening
+                                                                      ? "bg-cyan-200 shadow-[0_0_14px_rgba(103,232,249,1)]"
+                                                                      : "bg-purple-200 shadow-[0_0_14px_rgba(216,180,254,1)]"
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                    <div className="absolute left-[27%] right-[27%] bottom-[15%] flex gap-1.5 justify-center">
+                                                        {[0, 1, 2].map((node) => (
+                                                            <span
+                                                                key={node}
+                                                                className={`w-1.5 h-1.5 rounded-full ${
+                                                                    !isActivated
+                                                                        ? "bg-slate-800"
+                                                                        : node === 1
+                                                                          ? isListening
+                                                                              ? "bg-cyan-300"
+                                                                              : "bg-purple-300"
+                                                                          : "bg-white/20"
+                                                                }`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-
-                                        {/* energy nodes */}
-
-                                        <span className="absolute top-[12%] left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-purple-300 shadow-[0_0_18px_rgba(216,180,254,1)]" />
-
-                                        <span className="absolute bottom-[12%] left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-indigo-300 shadow-[0_0_18px_rgba(165,180,252,1)]" />
-
-                                        <span className="absolute left-[12%] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-fuchsia-300 shadow-[0_0_18px_rgba(240,171,252,1)]" />
-
-                                        <span className="absolute right-[12%] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,1)]" />
-
                                     </div>
 
                                 </button>
@@ -2079,7 +2258,7 @@ export const MetriaFollowUp = ({
                                                     }
                                                 />
 
-                                                Tap the intelligence core
+                                                Tap Metria to activate
 
                                             </div>
                                         </>
@@ -2138,7 +2317,7 @@ export const MetriaFollowUp = ({
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
-                                                Tap the core if you want to interrupt and ask something else.
+                                                Tap Metria if you want to interrupt and ask something else.
                                             </p>
                                         </>
                                     ) : (
@@ -2670,6 +2849,47 @@ export const MetriaFollowUp = ({
                             transform: translateY(-16px) scale(1.3);
                             opacity: 0.8;
                         }
+                    }
+
+                    @keyframes metriaRobotIdle {
+                        0%, 100% { transform: translateY(0px) rotate(0deg); }
+                        50% { transform: translateY(-7px) rotate(0.4deg); }
+                    }
+
+                    @keyframes metriaRobotListen {
+                        0%, 100% { transform: translateY(-2px) scale(1); }
+                        50% { transform: translateY(-8px) scale(1.018); }
+                    }
+
+                    @keyframes metriaRobotSpeak {
+                        0%, 100% { transform: translateY(-3px) rotate(-0.5deg); }
+                        50% { transform: translateY(-8px) rotate(0.5deg); }
+                    }
+
+                    @keyframes metriaRobotThink {
+                        0%, 100% { transform: translateY(-2px) rotate(-0.8deg); }
+                        50% { transform: translateY(-6px) rotate(0.8deg); }
+                    }
+
+                    @keyframes metriaFaceSweep {
+                        0%, 20% { transform: translateX(-50%) rotate(18deg); opacity: 0; }
+                        45% { opacity: 1; }
+                        70%, 100% { transform: translateX(320%) rotate(18deg); opacity: 0; }
+                    }
+
+                    @keyframes metriaEyeListen {
+                        from { transform: scaleY(0.82); opacity: 0.72; }
+                        to { transform: scaleY(1.15); opacity: 1; }
+                    }
+
+                    @keyframes metriaEyeSpeak {
+                        from { transform: scaleY(0.75); filter: brightness(0.9); }
+                        to { transform: scaleY(1.2); filter: brightness(1.35); }
+                    }
+
+                    @keyframes metriaEyeThink {
+                        0%, 100% { transform: translateY(0); opacity: 0.7; }
+                        50% { transform: translateY(-3px); opacity: 1; }
                     }
 
                     @keyframes metriaCoreSweep {
