@@ -1,4 +1,4 @@
-import React, {
+ import React, {
     useState,
     useEffect,
     useRef
@@ -91,7 +91,7 @@ export const MetriaFollowUp = ({
         setHasPlayedIntro
     ] = useState(() => {
         return (
-            localStorage.getItem(
+            sessionStorage.getItem(
                 INTRO_STORAGE_KEY
             ) === "true"
         );
@@ -110,8 +110,9 @@ export const MetriaFollowUp = ({
     /*
      * Voice transcript/status shown in Talk mode.
      *
-     * MediaRecorder captures the real audio first. Once the turn ends,
-     * /ai/transcribe returns the clean transcript before /ai/query runs.
+     * OpenAI Realtime streams microphone audio live. Semantic VAD
+     * ends the turn automatically, then the final transcript is sent
+     * into the existing /ai/query reasoning pipeline.
      */
     const [
         liveTranscript,
@@ -183,6 +184,16 @@ export const MetriaFollowUp = ({
         useRef(false);
 
     const realtimeConnectedRef =
+        useRef(false);
+
+    /*
+     * The WebRTC microphone stays attached to the session, but
+     * its track is disabled between user turns. This gives Metria
+     * a true "Tap to speak" interaction, prevents Metria's own
+     * ElevenLabs voice from being picked up by the microphone,
+     * and still lets the user interrupt at any time by tapping.
+     */
+    const realtimeMicArmedRef =
         useRef(false);
 
     /*
@@ -358,9 +369,7 @@ export const MetriaFollowUp = ({
             "Responding",
 
         ready:
-            isMultiDataset
-                ? `${datasetsInContext.length} sources are in context`
-                : `${primaryDataset?.name || "Dataset"} is in context`
+            "Tap to speak when you're ready"
     }[
         metriaState
     ];
@@ -759,9 +768,13 @@ export const MetriaFollowUp = ({
                                         true
                                     );
 
-                                    localStorage.setItem(
+                                    sessionStorage.setItem(
                                         INTRO_STORAGE_KEY,
                                         "true"
+                                    );
+
+                                    setLiveTranscript(
+                                        ""
                                     );
                                 }
                         }
@@ -842,10 +855,61 @@ export const MetriaFollowUp = ({
                 true
             );
 
-            localStorage.setItem(
+            sessionStorage.setItem(
                 INTRO_STORAGE_KEY,
                 "true"
             );
+
+            setLiveTranscript(
+                ""
+            );
+        };
+
+    // ============================================================
+    // REALTIME MICROPHONE ARMING
+    // ============================================================
+
+    const setRealtimeMicArmed =
+        (enabled) => {
+            const stream =
+                realtimeMicStreamRef.current;
+
+            if (!stream) {
+                realtimeMicArmedRef.current =
+                    false;
+
+                return;
+            }
+
+            stream
+                .getAudioTracks()
+                .forEach(
+                    (track) => {
+                        track.enabled =
+                            Boolean(enabled);
+                    }
+                );
+
+            realtimeMicArmedRef.current =
+                Boolean(enabled);
+
+            if (enabled) {
+                setIsListening(
+                    true
+                );
+
+                setIsTranscribing(
+                    false
+                );
+
+                setLiveTranscript(
+                    "Listening..."
+                );
+            } else {
+                setIsListening(
+                    false
+                );
+            }
         };
 
     // ============================================================
@@ -859,6 +923,9 @@ export const MetriaFollowUp = ({
             false;
 
         realtimeConnectingRef.current =
+            false;
+
+        realtimeMicArmedRef.current =
             false;
 
         if (
@@ -1268,9 +1335,9 @@ export const MetriaFollowUp = ({
                 "input_audio_buffer.speech_started"
             ) {
                 /*
-                 * Barge-in:
-                 * if the user starts talking while ElevenLabs
-                 * is speaking, stop Metria immediately.
+                 * Unlimited barge-in:
+                 * every time the user starts a new armed turn,
+                 * Metria's current ElevenLabs response stops.
                  */
                 if (
                     audioRef.current
@@ -1297,7 +1364,13 @@ export const MetriaFollowUp = ({
                 event.type ===
                 "input_audio_buffer.speech_stopped"
             ) {
-                setIsListening(
+                /*
+                 * Semantic VAD has decided the user's turn ended.
+                 * Mute the attached track immediately so the mic
+                 * cannot pick up another accidental turn while
+                 * Metria is transcribing, thinking or speaking.
+                 */
+                setRealtimeMicArmed(
                     false
                 );
 
@@ -1434,6 +1507,10 @@ export const MetriaFollowUp = ({
 
                 setLiveTranscript(
                     ""
+                );
+
+                setRealtimeMicArmed(
+                    false
                 );
 
                 setMessages(
@@ -1585,6 +1662,23 @@ export const MetriaFollowUp = ({
                 realtimeMicStreamRef.current =
                     micStream;
 
+                /*
+                 * Keep the microphone physically connected to the
+                 * Realtime session, but do not transmit user audio
+                 * until the explicit Tap to speak action arms it.
+                 */
+                micStream
+                    .getAudioTracks()
+                    .forEach(
+                        (track) => {
+                            track.enabled =
+                                false;
+                        }
+                    );
+
+                realtimeMicArmedRef.current =
+                    false;
+
                 // ================================================
                 // 3 — CREATE WEBRTC PEER
                 // ================================================
@@ -1654,16 +1748,13 @@ export const MetriaFollowUp = ({
                         realtimeConnectingRef.current =
                             false;
 
-                        setIsListening(
-                            false
-                        );
-
-                        setIsTranscribing(
-                            false
-                        );
-
-                        setLiveTranscript(
-                            "Ready — speak naturally"
+                        /*
+                         * The user explicitly tapped to speak, so
+                         * the very first moment the channel opens
+                         * the microphone becomes live immediately.
+                         */
+                        setRealtimeMicArmed(
+                            true
                         );
                     }
                 );
@@ -1758,9 +1849,10 @@ export const MetriaFollowUp = ({
                 });
 
                 /*
-                 * The microphone track stays connected.
-                 * OpenAI semantic VAD determines each turn
-                 * automatically; there is no manual stop gesture.
+                 * The track stays attached to WebRTC but is only
+                 * enabled during an explicit user speaking turn.
+                 * Semantic VAD automatically decides when that
+                 * turn is finished; there is never a tap-to-stop.
                  */
             } catch (
                 error
@@ -1785,6 +1877,12 @@ export const MetriaFollowUp = ({
      */
     const toggleVoiceListener =
         async () => {
+            /*
+             * First interaction = activate Metria and play the intro.
+             * We deliberately DO NOT open the microphone here.
+             * Once the intro finishes, the UI exposes a clear
+             * "Tap to speak" control.
+             */
             if (
                 !isActivated
             ) {
@@ -1802,16 +1900,66 @@ export const MetriaFollowUp = ({
             }
 
             /*
-             * No "tap to stop" behavior.
-             * Once Realtime is connected, Metria simply waits
-             * for the next natural speech turn.
+             * If Metria is currently talking, tapping the core is
+             * an unlimited interruption gesture:
+             *
+             * stop voice -> arm microphone -> listen immediately.
              */
             if (
-                realtimeConnectedRef.current ||
-                realtimeConnectingRef.current
+                isSpeaking ||
+                audioRef.current
             ) {
+                stopVoice();
+            }
+
+            /*
+             * Realtime is already established after the first turn.
+             * Re-arm the existing microphone track instantly instead
+             * of negotiating another WebRTC connection.
+             */
+            if (
+                realtimeConnectedRef.current
+            ) {
+                setRealtimeMicArmed(
+                    true
+                );
+
                 return;
             }
+
+            /*
+             * Ignore accidental double-clicks while the initial
+             * session is still being negotiated.
+             */
+            if (
+                realtimeConnectingRef.current
+            ) {
+                setIsListening(
+                    true
+                );
+
+                setLiveTranscript(
+                    "Opening microphone..."
+                );
+
+                return;
+            }
+
+            /*
+             * Give immediate visual feedback BEFORE network/session
+             * negotiation so Tap to speak never feels broken.
+             */
+            setIsListening(
+                true
+            );
+
+            setIsTranscribing(
+                false
+            );
+
+            setLiveTranscript(
+                "Opening microphone..."
+            );
 
             try {
                 await startRealtimeVoiceSession();
@@ -1823,6 +1971,10 @@ export const MetriaFollowUp = ({
                     error.response?.data ||
                         error.message ||
                         error
+                );
+
+                setRealtimeMicArmed(
+                    false
                 );
 
                 setIsListening(
@@ -2034,30 +2186,44 @@ export const MetriaFollowUp = ({
                     false
                 );
 
+                queryInFlightRef.current =
+                    false;
+
+                /*
+                 * Keep the mic muted while Metria speaks.
+                 * When the response finishes, we return to the
+                 * explicit Tap to speak state.
+                 */
+                setRealtimeMicArmed(
+                    false
+                );
+
                 if (
                     voiceEnabled &&
                     audioBase64
                 ) {
                     await playResponseAudio(
-                        audioBase64
+                        audioBase64,
+                        {
+                            onFinished:
+                                () => {
+                                    if (
+                                        interfaceMode ===
+                                            "voice"
+                                    ) {
+                                        setLiveTranscript(
+                                            ""
+                                        );
+                                    }
+                                }
+                        }
                     );
-                }
-
-                queryInFlightRef.current =
-                    false;
-
-                /*
-                 * Realtime remains connected after the answer.
-                 * The mic is still live and semantic VAD will
-                 * detect the next natural user turn automatically.
-                 */
-                if (
+                } else if (
                     interfaceMode ===
-                        "voice" &&
-                    realtimeConnectedRef.current
+                    "voice"
                 ) {
                     setLiveTranscript(
-                        "Ready — speak naturally"
+                        ""
                     );
                 }
             } catch (
@@ -3384,8 +3550,24 @@ export const MetriaFollowUp = ({
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
-                                                Tap Metria if you want to interrupt and ask something else.
+                                                Want to jump in? Tap the core at any time. Metria will stop and listen immediately.
                                             </p>
+
+                                            <button
+                                                type="button"
+                                                onClick={
+                                                    toggleVoiceListener
+                                                }
+                                                className="mt-6 inline-flex items-center justify-center gap-3 px-7 py-3.5 rounded-full bg-purple-500/12 border border-purple-300/30 text-purple-100 hover:bg-purple-500/20 hover:border-purple-200/50 transition-all text-[10px] uppercase tracking-[0.2em] font-black shadow-[0_0_30px_rgba(147,51,234,0.12)]"
+                                            >
+                                                <FiMic
+                                                    size={
+                                                        14
+                                                    }
+                                                />
+
+                                                Interrupt & speak
+                                            </button>
                                         </>
                                     ) : (
                                         <>
@@ -3394,12 +3576,28 @@ export const MetriaFollowUp = ({
                                             </p>
 
                                             <h2 className="text-white text-3xl md:text-5xl font-black">
-                                                Tap to talk.
+                                                Ready when you are.
                                             </h2>
 
                                             <p className="text-slate-500 text-xs md:text-sm mt-3">
                                                 Ask why. Challenge a finding. Trace a number. Ask what happens next.
                                             </p>
+
+                                            <button
+                                                type="button"
+                                                onClick={
+                                                    toggleVoiceListener
+                                                }
+                                                className="mt-7 inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white border border-purple-300/40 hover:scale-[1.03] active:scale-[0.98] transition-all text-[10px] uppercase tracking-[0.22em] font-black shadow-[0_0_40px_rgba(147,51,234,0.28)]"
+                                            >
+                                                <FiMic
+                                                    size={
+                                                        15
+                                                    }
+                                                />
+
+                                                Tap to speak
+                                            </button>
                                         </>
                                     )}
 
