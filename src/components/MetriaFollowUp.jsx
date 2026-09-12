@@ -190,6 +190,9 @@ export const MetriaFollowUp = ({
     const maxRecordingTimerRef =
         useRef(null);
 
+    const noSpeechTimerRef =
+        useRef(null);
+
     const conversationEndRef =
         useRef(null);
 
@@ -869,6 +872,11 @@ export const MetriaFollowUp = ({
                 maxRecordingTimerRef.current = null;
             }
 
+            if (noSpeechTimerRef.current) {
+                clearTimeout(noSpeechTimerRef.current);
+                noSpeechTimerRef.current = null;
+            }
+
             if (audioContextRef.current) {
                 try {
                     audioContextRef.current.close();
@@ -1001,7 +1009,9 @@ export const MetriaFollowUp = ({
         }
 
         if (isListening) {
-            stopVoiceRecording();
+            // Talk mode is hands-free once recording starts.
+            // The voice-activity detector ends the turn automatically
+            // after the user finishes speaking.
             return;
         }
 
@@ -1088,17 +1098,32 @@ export const MetriaFollowUp = ({
                         }
 
                         const rms = Math.sqrt(sumSquares / dataArray.length);
-                        const voicePresent = rms > 0.025;
+
+                        // Slightly forgiving threshold so normal speech,
+                        // softer voices and laptop microphones register reliably.
+                        const voicePresent = rms > 0.02;
 
                         if (voicePresent) {
-                            speechDetectedRef.current = true;
+                            if (!speechDetectedRef.current) {
+                                speechDetectedRef.current = true;
+
+                                // Once real speech has started, the separate
+                                // "no speech" timeout is no longer needed.
+                                if (noSpeechTimerRef.current) {
+                                    clearTimeout(noSpeechTimerRef.current);
+                                    noSpeechTimerRef.current = null;
+                                }
+                            }
+
                             silenceStartedAtRef.current = null;
                         } else if (speechDetectedRef.current) {
                             if (!silenceStartedAtRef.current) {
                                 silenceStartedAtRef.current = Date.now();
                             }
 
-                            if (Date.now() - silenceStartedAtRef.current > 1400) {
+                            // End the user's turn automatically after a natural
+                            // pause. No second tap is required.
+                            if (Date.now() - silenceStartedAtRef.current > 1600) {
                                 stopVoiceRecording();
                                 return;
                             }
@@ -1139,6 +1164,11 @@ export const MetriaFollowUp = ({
                 if (maxRecordingTimerRef.current) {
                     clearTimeout(maxRecordingTimerRef.current);
                     maxRecordingTimerRef.current = null;
+                }
+
+                if (noSpeechTimerRef.current) {
+                    clearTimeout(noSpeechTimerRef.current);
+                    noSpeechTimerRef.current = null;
                 }
 
                 if (audioContextRef.current) {
@@ -1237,6 +1267,19 @@ export const MetriaFollowUp = ({
 
             recorder.start(250);
 
+            // If the user taps Talk but never speaks, close the microphone
+            // automatically instead of leaving Metria listening indefinitely.
+            noSpeechTimerRef.current = setTimeout(() => {
+                if (
+                    mediaRecorderRef.current &&
+                    mediaRecorderRef.current.state !== "inactive" &&
+                    !speechDetectedRef.current
+                ) {
+                    stopVoiceRecording();
+                }
+            }, 8000);
+
+            // Hard ceiling for unusually long turns.
             maxRecordingTimerRef.current = setTimeout(() => {
                 stopVoiceRecording();
             }, 30000);
@@ -2266,7 +2309,8 @@ export const MetriaFollowUp = ({
                                     disabled={
                                         isAnalyzing ||
                                         isTranscribing ||
-                                        isPlayingIntro
+                                        isPlayingIntro ||
+                                        isListening
                                     }
                                     onClick={
                                         toggleVoiceListener
@@ -3160,7 +3204,9 @@ export const MetriaFollowUp = ({
                                                     toggleVoiceListener
                                                 }
                                                 disabled={
-                                                    isAnalyzing
+                                                    isAnalyzing ||
+                                                    isTranscribing ||
+                                                    isListening
                                                 }
                                                 className={`m-2 p-3 rounded-xl ${
                                                     isListening
@@ -3169,19 +3215,16 @@ export const MetriaFollowUp = ({
                                                 }`}
                                             >
 
-                                                {isListening ? (
-                                                    <FiMicOff
-                                                        size={
-                                                            17
-                                                        }
-                                                    />
-                                                ) : (
-                                                    <FiMic
-                                                        size={
-                                                            17
-                                                        }
-                                                    />
-                                                )}
+                                                <FiMic
+                                                    size={
+                                                        17
+                                                    }
+                                                    className={
+                                                        isListening
+                                                            ? "animate-pulse"
+                                                            : ""
+                                                    }
+                                                />
 
                                             </button>
 
