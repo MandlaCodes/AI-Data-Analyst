@@ -461,6 +461,190 @@ export default function Analytics() {
         return metrics;
     };
 
+    /**
+     * Normalises spreadsheet API responses into worksheet objects.
+     *
+     * New production routes may return every worksheet in `sheets`,
+     * while older routes return one legacy `values` array. Supporting
+     * both shapes keeps existing imports working during deployment.
+     */
+    const normalizeWorkbookSheets = (
+        responseData,
+        fallbackName = "Spreadsheet"
+    ) => {
+        const payload = responseData || {};
+
+        const returnedSheets =
+            Array.isArray(payload.sheets)
+                ? payload.sheets
+                : Array.isArray(payload.worksheets)
+                  ? payload.worksheets
+                  : [];
+
+        const normalizedSheets = returnedSheets
+            .map((sheet, index) => {
+                if (Array.isArray(sheet)) {
+                    return {
+                        name: `Sheet ${index + 1}`,
+                        values: sheet
+                    };
+                }
+
+                const values =
+                    sheet?.values ||
+                    sheet?.data ||
+                    sheet?.rows ||
+                    [];
+
+                return {
+                    name:
+                        sheet?.name ||
+                        sheet?.title ||
+                        sheet?.sheet_name ||
+                        sheet?.worksheet_name ||
+                        `Sheet ${index + 1}`,
+                    values:
+                        Array.isArray(values)
+                            ? values
+                            : []
+                };
+            })
+            .filter(
+                (sheet) =>
+                    Array.isArray(sheet.values) &&
+                    sheet.values.length > 0
+            );
+
+        if (normalizedSheets.length > 0) {
+            return normalizedSheets;
+        }
+
+        if (
+            Array.isArray(payload.values) &&
+            payload.values.length > 0
+        ) {
+            return [
+                {
+                    name:
+                        payload.sheet_name ||
+                        payload.worksheet_name ||
+                        fallbackName,
+                    values: payload.values
+                }
+            ];
+        }
+
+        return [];
+    };
+
+    const buildImportedDataset = ({
+        values,
+        name,
+        id,
+        color,
+        sourceType,
+        sourceId,
+        sheetName,
+        workbookName
+    }) => {
+        if (
+            !Array.isArray(values) ||
+            values.length === 0
+        ) {
+            return null;
+        }
+
+        const maxColumns = Math.max(
+            0,
+            ...values.map((row) =>
+                Array.isArray(row)
+                    ? row.length
+                    : 0
+            )
+        );
+
+        if (maxColumns === 0) {
+            return null;
+        }
+
+        const rectangular = values.map((row) => {
+            const safeRow = Array.isArray(row)
+                ? [...row]
+                : [];
+
+            while (safeRow.length < maxColumns) {
+                safeRow.push("");
+            }
+
+            return safeRow;
+        });
+
+        while (
+            rectangular.length > 0 &&
+            rectangular[
+                rectangular.length - 1
+            ].every(
+                (cell) =>
+                    cell === "" ||
+                    cell === null ||
+                    cell === undefined
+            )
+        ) {
+            rectangular.pop();
+        }
+
+        if (rectangular.length === 0) {
+            return null;
+        }
+
+        const cleaned = rectangular.map(
+            (row, rowIndex) =>
+                rowIndex === 0
+                    ? row.map((cell) =>
+                          cell === null ||
+                          cell === undefined
+                              ? ""
+                              : String(cell).trim()
+                      )
+                    : row.map(
+                          sanitizeCellValue
+                      )
+        );
+
+        const numeric =
+            detectNumericColumns(cleaned);
+
+        const category =
+            detectCategoryColumn(
+                cleaned,
+                numeric
+            );
+
+        return {
+            id,
+            name,
+            color,
+            rows: Math.max(
+                cleaned.length - 1,
+                0
+            ),
+            cols:
+                cleaned[0]?.length || 0,
+            data: cleaned,
+            numericCols: numeric,
+            metrics: computeMetrics(
+                cleaned,
+                numeric
+            ),
+            categoryCol: category,
+            aiStorage: null,
+            sourceType,
+            sourceId,
+            sheetName,
+            workbookName
+        };
+    };
+
     // ============================================================
     // PAGE STATE FACTORY
     // ============================================================
@@ -519,24 +703,26 @@ export default function Analytics() {
                 await Promise.all(
                     activeDatasets.map(
                         async (ds) => {
+                            const remoteSourceId =
+                                ds.sourceId || null;
+
+                            const remoteSourceType =
+                                ds.sourceType || null;
+
                             if (
+                                remoteSourceId &&
                                 (
-                                    ds.id &&
-                                    typeof ds.id ===
-                                        "string"
-                                ) ||
-                                ds.id > 1000
+                                    remoteSourceType ===
+                                        "google_sheets" ||
+                                    remoteSourceType ===
+                                        "excel"
+                                )
                             ) {
                                 const endpoint =
-                                    ds.name?.includes(
-                                        "Excel"
-                                    ) ||
-                                    String(
-                                        ds.id
-                                    ).length >
-                                        10
-                                        ? `${API_BASE_URL}/excel/sheets/${ds.id}`
-                                        : `${API_BASE_URL}/google/sheets/${ds.id}`;
+                                    remoteSourceType ===
+                                    "excel"
+                                        ? `${API_BASE_URL}/excel/sheets/${remoteSourceId}`
+                                        : `${API_BASE_URL}/google/sheets/${remoteSourceId}`;
 
                                 const res =
                                     await axios.get(
@@ -550,13 +736,27 @@ export default function Analytics() {
                                         }
                                     );
 
+                                const workbookSheets =
+                                    normalizeWorkbookSheets(
+                                        res.data,
+                                        ds.workbookName ||
+                                            ds.name ||
+                                            "Spreadsheet"
+                                    );
+
+                                const matchingSheet =
+                                    workbookSheets.find(
+                                        (sheet) =>
+                                            sheet.name ===
+                                            ds.sheetName
+                                    ) ||
+                                    workbookSheets[0];
+
                                 if (
-                                    res.data
-                                        ?.values
+                                    matchingSheet?.values
                                 ) {
                                     const importedRows =
-                                        res.data
-                                            .values;
+                                        matchingSheet.values;
 
                                     const cleaned =
                                         importedRows.map(
@@ -1253,299 +1453,223 @@ export default function Analytics() {
         manualIds = [],
         manualNames = []
     ) => {
-        setIsImporting(
-            true
-        );
+        setIsImporting(true);
 
         try {
+            let newDatasets = [];
+
             // ====================================================
-            // GOOGLE SHEETS
+            // GOOGLE SHEETS / EXCEL FILES IN GOOGLE DRIVE
+            // ====================================================
+            // The backend can now return every worksheet. Each
+            // worksheet becomes its own Metria dataset so tables do
+            // not get flattened together or silently ignored.
             // ====================================================
 
             if (
                 selectedApps.includes(
                     "google_sheets"
                 ) &&
-                Array.isArray(
-                    manualIds
-                )
+                Array.isArray(manualIds)
             ) {
-                const importPromises =
-                    manualIds.map(
-                        async (
-                            id,
-                            index
-                        ) => {
-                            const res =
-                                await axios.get(
-                                    `${API_BASE_URL}/google/sheets/${id}`,
-                                    {
-                                        headers:
-                                            {
+                const workbookResults =
+                    await Promise.all(
+                        manualIds.map(
+                            async (
+                                sourceId,
+                                workbookIndex
+                            ) => {
+                                const res =
+                                    await axios.get(
+                                        `${API_BASE_URL}/google/sheets/${sourceId}`,
+                                        {
+                                            headers: {
                                                 Authorization:
                                                     `Bearer ${userToken}`
                                             }
-                                    }
-                                );
+                                        }
+                                    );
 
-                            if (
-                                res.data
-                                    ?.values
-                            ) {
-                                const importedRows =
-                                    res.data
-                                        .values;
-
-                                const sourceName =
+                                const workbookName =
                                     manualNames[
-                                        index
+                                        workbookIndex
                                     ] ||
-                                    res.data
-                                        .title ||
-                                    "Neural Stream";
+                                    res.data?.title ||
+                                    "Google Spreadsheet";
 
-                                const cleaned =
-                                    importedRows.map(
-                                        (
-                                            row,
-                                            idx
-                                        ) =>
-                                            idx ===
-                                            0
-                                                ? row
-                                                : row.map(
-                                                      sanitizeCellValue
-                                                  )
+                                const sheets =
+                                    normalizeWorkbookSheets(
+                                        res.data,
+                                        workbookName
                                     );
 
-                                const numeric =
-                                    detectNumericColumns(
-                                        cleaned
-                                    );
-
-                                const category =
-                                    detectCategoryColumn(
-                                        cleaned,
-                                        numeric
-                                    );
-
-                                return {
-                                    id:
-                                        Date.now() +
-                                        index,
-
-                                    name:
-                                        sourceName,
-
-                                    color:
-                                        datasetColors[
-                                            (
-                                                allDatasets.length +
-                                                index
-                                            ) %
-                                                datasetColors.length
-                                        ],
-
-                                    rows:
-                                        cleaned.length -
-                                        1,
-
-                                    cols:
-                                        cleaned[0]
-                                            ?.length ||
-                                        0,
-
-                                    data:
-                                        cleaned,
-
-                                    numericCols:
-                                        numeric,
-
-                                    metrics:
-                                        computeMetrics(
-                                            cleaned,
-                                            numeric
-                                        ),
-
-                                    categoryCol:
-                                        category,
-
-                                    aiStorage:
-                                        null
-                                };
+                                return sheets.map(
+                                    (
+                                        sheet,
+                                        sheetIndex
+                                    ) => ({
+                                        sourceId,
+                                        workbookName,
+                                        sheet,
+                                        workbookIndex,
+                                        sheetIndex
+                                    })
+                                );
                             }
-
-                            return null;
-                        }
-                    );
-
-                const newDatasets =
-                    (
-                        await Promise.all(
-                            importPromises
                         )
-                    ).filter(
-                        (ds) =>
-                            ds !== null
                     );
 
-                setAllDatasets(
-                    (prev) => [
-                        ...prev,
-                        ...newDatasets
-                    ]
-                );
+                const flattened =
+                    workbookResults.flat();
 
-                setActiveDatasets(
-                    (prev) => [
-                        ...prev,
-                        ...newDatasets
-                    ]
-                );
+                newDatasets = flattened
+                    .map((entry, index) => {
+                        const multipleSheets =
+                            flattened.filter(
+                                (item) =>
+                                    item.sourceId ===
+                                    entry.sourceId
+                            ).length > 1;
+
+                        const displayName =
+                            multipleSheets
+                                ? `${entry.workbookName} — ${entry.sheet.name}`
+                                : entry.workbookName;
+
+                        return buildImportedDataset(
+                            {
+                                values:
+                                    entry.sheet
+                                        .values,
+                                name:
+                                    displayName,
+                                id:
+                                    `google:${entry.sourceId}:${entry.sheet.name}:${Date.now()}:${index}`,
+                                color:
+                                    datasetColors[
+                                        (
+                                            allDatasets.length +
+                                            index
+                                        ) %
+                                            datasetColors.length
+                                    ],
+                                sourceType:
+                                    "google_sheets",
+                                sourceId:
+                                    entry.sourceId,
+                                sheetName:
+                                    entry.sheet.name,
+                                workbookName:
+                                    entry.workbookName
+                            }
+                        );
+                    })
+                    .filter(Boolean);
             }
 
             // ====================================================
-            // EXCEL
+            // MICROSOFT EXCEL / ONEDRIVE
             // ====================================================
 
             else if (
                 selectedApps.includes(
                     "excel"
                 ) &&
-                Array.isArray(
-                    manualIds
-                )
+                Array.isArray(manualIds)
             ) {
-                const importPromises =
-                    manualIds.map(
-                        async (
-                            id,
-                            index
-                        ) => {
-                            const res =
-                                await axios.get(
-                                    `${API_BASE_URL}/excel/sheets/${id}`,
-                                    {
-                                        headers:
-                                            {
+                const workbookResults =
+                    await Promise.all(
+                        manualIds.map(
+                            async (
+                                sourceId,
+                                workbookIndex
+                            ) => {
+                                const res =
+                                    await axios.get(
+                                        `${API_BASE_URL}/excel/sheets/${sourceId}`,
+                                        {
+                                            headers: {
                                                 Authorization:
                                                     `Bearer ${userToken}`
                                             }
-                                    }
-                                );
+                                        }
+                                    );
 
-                            if (
-                                res.data
-                                    ?.values
-                            ) {
-                                const importedRows =
-                                    res.data
-                                        .values;
-
-                                const sourceName =
+                                const workbookName =
                                     manualNames[
-                                        index
+                                        workbookIndex
                                     ] ||
-                                    "Excel Stream";
+                                    res.data?.title ||
+                                    "Excel Workbook";
 
-                                const cleaned =
-                                    importedRows.map(
-                                        (
-                                            row,
-                                            idx
-                                        ) =>
-                                            idx ===
-                                            0
-                                                ? row
-                                                : row.map(
-                                                      sanitizeCellValue
-                                                  )
+                                const sheets =
+                                    normalizeWorkbookSheets(
+                                        res.data,
+                                        workbookName
                                     );
 
-                                const numeric =
-                                    detectNumericColumns(
-                                        cleaned
-                                    );
-
-                                const category =
-                                    detectCategoryColumn(
-                                        cleaned,
-                                        numeric
-                                    );
-
-                                return {
-                                    id:
-                                        Date.now() +
-                                        index,
-
-                                    name:
-                                        sourceName,
-
-                                    color:
-                                        datasetColors[
-                                            (
-                                                allDatasets.length +
-                                                index
-                                            ) %
-                                                datasetColors.length
-                                        ],
-
-                                    rows:
-                                        cleaned.length -
-                                        1,
-
-                                    cols:
-                                        cleaned[0]
-                                            ?.length ||
-                                        0,
-
-                                    data:
-                                        cleaned,
-
-                                    numericCols:
-                                        numeric,
-
-                                    metrics:
-                                        computeMetrics(
-                                            cleaned,
-                                            numeric
-                                        ),
-
-                                    categoryCol:
-                                        category,
-
-                                    aiStorage:
-                                        null
-                                };
+                                return sheets.map(
+                                    (
+                                        sheet,
+                                        sheetIndex
+                                    ) => ({
+                                        sourceId,
+                                        workbookName,
+                                        sheet,
+                                        workbookIndex,
+                                        sheetIndex
+                                    })
+                                );
                             }
-
-                            return null;
-                        }
-                    );
-
-                const newDatasets =
-                    (
-                        await Promise.all(
-                            importPromises
                         )
-                    ).filter(
-                        (ds) =>
-                            ds !== null
                     );
 
-                setAllDatasets(
-                    (prev) => [
-                        ...prev,
-                        ...newDatasets
-                    ]
-                );
+                const flattened =
+                    workbookResults.flat();
 
-                setActiveDatasets(
-                    (prev) => [
-                        ...prev,
-                        ...newDatasets
-                    ]
-                );
+                newDatasets = flattened
+                    .map((entry, index) => {
+                        const multipleSheets =
+                            flattened.filter(
+                                (item) =>
+                                    item.sourceId ===
+                                    entry.sourceId
+                            ).length > 1;
+
+                        const displayName =
+                            multipleSheets
+                                ? `${entry.workbookName} — ${entry.sheet.name}`
+                                : entry.workbookName;
+
+                        return buildImportedDataset(
+                            {
+                                values:
+                                    entry.sheet
+                                        .values,
+                                name:
+                                    displayName,
+                                id:
+                                    `excel:${entry.sourceId}:${entry.sheet.name}:${Date.now()}:${index}`,
+                                color:
+                                    datasetColors[
+                                        (
+                                            allDatasets.length +
+                                            index
+                                        ) %
+                                            datasetColors.length
+                                    ],
+                                sourceType:
+                                    "excel",
+                                sourceId:
+                                    entry.sourceId,
+                                sheetName:
+                                    entry.sheet.name,
+                                workbookName:
+                                    entry.workbookName
+                            }
+                        );
+                    })
+                    .filter(Boolean);
             }
 
             // ====================================================
@@ -1569,131 +1693,76 @@ export default function Analytics() {
                         csvToImport
                     );
 
-                if (
-                    importedRows.length >
-                    0
-                ) {
-                    const cleaned =
-                        importedRows.map(
-                            (
-                                row,
-                                idx
-                            ) =>
-                                idx === 0
-                                    ? row
-                                    : row.map(
-                                          sanitizeCellValue
-                                      )
-                        );
-
-                    const numeric =
-                        detectNumericColumns(
-                            cleaned
-                        );
-
-                    const category =
-                        detectCategoryColumn(
-                            cleaned,
-                            numeric
-                        );
-
-                    const newDataset = {
-                        id:
-                            Date.now(),
-
-                        name:
-                            sourceName,
-
+                const newDataset =
+                    buildImportedDataset({
+                        values: importedRows,
+                        name: sourceName,
+                        id: Date.now(),
                         color:
                             datasetColors[
                                 allDatasets.length %
                                     datasetColors.length
                             ],
+                        sourceType: "csv",
+                        sourceId: null,
+                        sheetName: null,
+                        workbookName:
+                            sourceName
+                    });
 
-                        rows:
-                            cleaned.length -
-                            1,
-
-                        cols:
-                            cleaned[0]
-                                ?.length ||
-                            0,
-
-                        data:
-                            cleaned,
-
-                        numericCols:
-                            numeric,
-
-                        metrics:
-                            computeMetrics(
-                                cleaned,
-                                numeric
-                            ),
-
-                        categoryCol:
-                            category,
-
-                        aiStorage:
-                            null
-                    };
-
-                    setAllDatasets(
-                        (prev) => [
-                            ...prev,
-                            newDataset
-                        ]
-                    );
-
-                    setActiveDatasets(
-                        (prev) => [
-                            ...prev,
-                            newDataset
-                        ]
-                    );
+                if (newDataset) {
+                    newDatasets = [
+                        newDataset
+                    ];
                 }
+            }
+
+            if (newDatasets.length > 0) {
+                setAllDatasets(
+                    (prev) => [
+                        ...prev,
+                        ...newDatasets
+                    ]
+                );
+
+                setActiveDatasets(
+                    (prev) => [
+                        ...prev,
+                        ...newDatasets
+                    ]
+                );
             }
 
             /**
              * New imported data changes the actual business context,
              * so the previous cross analysis should no longer unlock.
              */
-            setCrossAnalysis(
-                null
-            );
-
-            setActiveDatasetIndex(
-                0
-            );
-
-            setShowModal(
-                false
-            );
+            setCrossAnalysis(null);
+            setActiveDatasetIndex(0);
+            setShowModal(false);
         } catch (e) {
             console.error(
                 "Import error:",
                 e
             );
 
-            alert(
-                "Import failed."
-            );
+            const backendDetail =
+                e?.response?.data?.detail;
+
+            const message =
+                typeof backendDetail ===
+                "string"
+                    ? backendDetail
+                    : backendDetail
+                          ?.message ||
+                      "Import failed.";
+
+            alert(message);
         } finally {
-            setIsImporting(
-                false
-            );
-
-            setSelectedApps(
-                []
-            );
-
-            setCsvToImport(
-                null
-            );
-
-            setSelectedSheet(
-                ""
-            );
+            setIsImporting(false);
+            setSelectedApps([]);
+            setCsvToImport(null);
+            setSelectedSheet("");
         }
     };
 
