@@ -283,6 +283,113 @@ export const MetriaFollowUp = ({
             .join("|");
 
     // ============================================================
+    // FULL DATASET / WORKBOOK PAYLOAD
+    // ============================================================
+
+    const buildDatasetPayload = (dataset) => {
+        const sheets = Array.isArray(dataset?.sheets)
+            ? dataset.sheets
+            : Array.isArray(dataset?.worksheets)
+              ? dataset.worksheets
+              : [];
+
+        const detectedTables = Array.isArray(dataset?.detected_tables)
+            ? dataset.detected_tables
+            : Array.isArray(dataset?.detectedTables)
+              ? dataset.detectedTables
+              : Array.isArray(dataset?.tables)
+                ? dataset.tables
+                : [];
+
+        const availableSheets = Array.isArray(dataset?.available_sheets)
+            ? dataset.available_sheets
+            : Array.isArray(dataset?.availableSheets)
+              ? dataset.availableSheets
+              : sheets.map((sheet) => sheet?.name).filter(Boolean);
+
+        const workbook =
+            dataset?.workbook ||
+            dataset?.workbook_summary ||
+            {};
+
+        const dataSample =
+            dataset?.data_sample ||
+            dataset?.data ||
+            dataset?.rows ||
+            [];
+
+        const sheetCount =
+            dataset?.sheetCount ??
+            dataset?.sheet_count ??
+            workbook?.sheet_count ??
+            sheets.length;
+
+        const tableCount =
+            dataset?.tableCount ??
+            dataset?.table_count ??
+            workbook?.table_count ??
+            detectedTables.length;
+
+        const isWorkbook = Boolean(
+            dataset?.isWorkbook ||
+            dataset?.is_workbook ||
+            dataset?.workbook ||
+            dataset?.workbook_summary ||
+            sheets.length > 0 ||
+            detectedTables.length > 0
+        );
+
+        const name =
+            dataset?.name ||
+            dataset?.dataset_name ||
+            dataset?.workbook_name ||
+            dataset?.workbookName ||
+            "Unnamed Dataset";
+
+        return {
+            id: dataset?.id,
+            name,
+            dataset_name: dataset?.dataset_name || name,
+            metrics: dataset?.metrics || {},
+            data_sample: dataSample,
+            data: dataset?.data || dataSample,
+            rows: dataset?.rows || dataSample,
+
+            sourceType: dataset?.sourceType || dataset?.source_type,
+            source_type: dataset?.source_type || dataset?.sourceType,
+            sourceId: dataset?.sourceId || dataset?.source_id || dataset?.id,
+            source_id: dataset?.source_id || dataset?.sourceId || dataset?.id,
+
+            isWorkbook,
+            is_workbook: isWorkbook,
+
+            workbookName: dataset?.workbookName || dataset?.workbook_name || name,
+            workbook_name: dataset?.workbook_name || dataset?.workbookName || name,
+            workbook,
+            workbook_summary: dataset?.workbook_summary || workbook,
+
+            sheets,
+            worksheets: Array.isArray(dataset?.worksheets)
+                ? dataset.worksheets
+                : sheets,
+
+            detected_tables: detectedTables,
+            detectedTables,
+            tables: Array.isArray(dataset?.tables)
+                ? dataset.tables
+                : detectedTables,
+
+            available_sheets: availableSheets,
+            availableSheets,
+
+            sheetCount,
+            sheet_count: sheetCount,
+            tableCount,
+            table_count: tableCount
+        };
+    };
+
+    // ============================================================
     // VOICE PREFERENCE
     // ============================================================
 
@@ -1001,25 +1108,7 @@ export const MetriaFollowUp = ({
             try {
                 const datasetsPayload =
                     datasetsInContext.map(
-                        (
-                            dataset
-                        ) => ({
-                            id:
-                                dataset?.id,
-
-                            name:
-                                dataset?.name ||
-                                "Unnamed Dataset",
-
-                            metrics:
-                                dataset?.metrics ||
-                                {},
-
-                            data_sample:
-                                dataset?.data ||
-                                dataset?.rows ||
-                                []
-                        })
+                        buildDatasetPayload
                     );
 
                 const res =
@@ -2415,25 +2504,7 @@ export const MetriaFollowUp = ({
 
             const datasetsPayload =
                 datasetsInContext.map(
-                    (
-                        dataset
-                    ) => ({
-                        id:
-                            dataset?.id,
-
-                        name:
-                            dataset?.name ||
-                            "Unnamed Dataset",
-
-                        metrics:
-                            dataset?.metrics ||
-                            {},
-
-                        data_sample:
-                            dataset?.data ||
-                            dataset?.rows ||
-                            []
-                    })
+                    buildDatasetPayload
                 );
 
             const requestPayload = {
