@@ -1081,49 +1081,51 @@ export const MetriaFollowUp = ({
      * That means the intro comes back through the exact same
      * ElevenLabs voice pipeline as every other Metria response.
      */
-    const playMetriaIntroduction =
-        async () => {
-            if (
-                isPlayingIntro
-            ) {
-                return;
-            }
+        const playMetriaIntroduction = async () => {
+        if (isPlayingIntro) {
+            return;
+        }
 
-            setIsPlayingIntro(
-                true
-            );
+        setIsPlayingIntro(true);
 
-            const introScript =
-                isMultiDataset
-                    ? `Hello there. I'm Metria, your interactive business analyst. I've already reviewed the ${datasetsInContext.length} data sources connected to this analysis. You don't need to use special commands with me. Just tap my core, speak naturally, and ask me anything you would ask a real analyst — why something happened, where the risk is, how the data connects, or what I think you should do next. If you'd rather type, you can switch to Chat at any time.`
-                    : `Hello there. I'm Metria, your interactive business analyst. I've already reviewed ${primaryDataset?.name || "your data"} and I have the analysis and underlying records in context. You don't need to use special commands with me. Just tap my core, speak naturally, and ask me anything you would ask a real analyst — why something happened, what stands out, where the risk is, or what I think you should do next. If you'd rather type, you can switch to Chat at any time.`;
+        const introScript = isMultiDataset
+            ? `Hello there. I'm Metria, your interactive business analyst. I've already reviewed the ${datasetsInContext.length} data sources connected to this analysis. You don't need to use special commands with me. Just tap my core, speak naturally, and ask me anything you would ask a real analyst — why something happened, where the risk is, how the data connects, or what I think you should do next. If you'd rather type, you can switch to Chat at any time.`
+            : `Hello there. I'm Metria, your interactive business analyst. I've already reviewed ${primaryDataset?.name || "your data"} and I have the analysis and underlying records in context. You don't need to use special commands with me. Just tap my core, speak naturally, and ask me anything you would ask a real analyst — why something happened, what stands out, where the risk is, or what I think you should do next. If you'd rather type, you can switch to Chat at any time.`;
 
-            /*
-             * Ask /ai/query to speak the controlled intro.
-             *
-             * We intentionally ignore the returned messages
-             * so this hidden onboarding request does not replace
-             * the visible analyst conversation.
-             */
-            try {
-                const datasetsPayload =
-                    datasetsInContext.map(
-                        buildDatasetPayload
-                    );
+        try {
+            stopVoice();
 
-                const res =
-                    await axios.post(
-                        `${API_BASE_URL}/ai/query`,
-                        {
+            setIsPlayingIntro(true);
+
+            const datasetsPayload =
+                datasetsInContext.map(
+                    buildDatasetPayload
+                );
+
+            const controller =
+                new AbortController();
+
+            voiceResponseAbortRef.current =
+                controller;
+
+            const response =
+                await fetch(
+                    `${API_BASE_URL}/ai/voice`,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+
+                            Authorization:
+                                `Bearer ${authToken}`
+                        },
+
+                        body: JSON.stringify({
                             query:
                                 `Say exactly the following introduction and nothing else:\n\n${introScript}`,
 
-                            // IMPORTANT:
-                            // This is Metria's activation/onboarding request.
-                            // The backend still generates the normal OpenAI
-                            // response and ElevenLabs voice, but does not save
-                            // this hidden intro as a chat session or append it
-                            // to the user's conversation history.
                             intro_only:
                                 true,
 
@@ -1151,89 +1153,198 @@ export const MetriaFollowUp = ({
 
                             cross_analysis:
                                 crossAnalysis
-                        },
-                        {
-                            headers: {
-                                Authorization:
-                                    `Bearer ${authToken}`
-                            }
-                        }
-                    );
+                        }),
 
-                const audioBase64 =
-                    res.data
-                        ?.audio_base64;
-
-                /*
-                 * Even if voice has been manually switched off,
-                 * activation still succeeds.
-                 */
-                if (
-                    audioBase64 &&
-                    voiceEnabled
-                ) {
-                    await playResponseAudio(
-                        audioBase64,
-                        {
-                            isIntro:
-                                true,
-
-                            onFinished:
-                                () => {
-                                    setHasPlayedIntro(
-                                        true
-                                    );
-
-                                    sessionStorage.setItem(
-                                        INTRO_STORAGE_KEY,
-                                        "true"
-                                    );
-
-                                    setLiveTranscript(
-                                        ""
-                                    );
-                                }
-                        }
-                    );
-                } else {
-                    setIsPlayingIntro(
-                        false
-                    );
-
-                    setHasPlayedIntro(
-                        true
-                    );
-
-                    localStorage.setItem(
-                        INTRO_STORAGE_KEY,
-                        "true"
-                    );
-                }
-            } catch (
-                error
-            ) {
-                console.error(
-                    "Metria introduction failed:",
-                    error.response
-                        ?.data ||
-                        error.message
+                        signal:
+                            controller.signal
+                    }
                 );
 
-                setIsPlayingIntro(
-                    false
-                );
+            if (!response.ok) {
+                const errorText =
+                    await response.text();
 
-                setHasPlayedIntro(
-                    true
-                );
-
-                localStorage.setItem(
-                    INTRO_STORAGE_KEY,
-                    "true"
+                throw new Error(
+                    errorText ||
+                    `Intro request failed with ${response.status}`
                 );
             }
-        };
 
+            if (!response.body) {
+                throw new Error(
+                    "Metria intro stream returned no body."
+                );
+            }
+
+            const reader =
+                response.body.getReader();
+
+            const decoder =
+                new TextDecoder();
+
+            let buffer = "";
+
+            let receivedAudio = false;
+
+            while (true) {
+                const {
+                    value,
+                    done
+                } = await reader.read();
+
+                if (done) {
+                    break;
+                }
+
+                buffer += decoder.decode(
+                    value,
+                    {
+                        stream: true
+                    }
+                );
+
+                const lines =
+                    buffer.split("\n");
+
+                buffer =
+                    lines.pop() || "";
+
+                for (const line of lines) {
+                    const trimmed =
+                        line.trim();
+
+                    if (!trimmed) {
+                        continue;
+                    }
+
+                    let event;
+
+                    try {
+                        event =
+                            JSON.parse(
+                                trimmed
+                            );
+                    } catch (error) {
+                        console.warn(
+                            "Unable to parse Metria intro stream event:",
+                            trimmed
+                        );
+
+                        continue;
+                    }
+
+                    if (
+                        event.type ===
+                            "audio" &&
+                        event.audio &&
+                        voiceEnabled
+                    ) {
+                        receivedAudio =
+                            true;
+
+                        await appendStreamingAudio(
+                            event.audio
+                        );
+                    }
+
+                    if (
+                        event.type ===
+                        "tts_error"
+                    ) {
+                        console.error(
+                            "Metria intro TTS error:",
+                            event.message
+                        );
+                    }
+
+                    if (
+                        event.type ===
+                        "error"
+                    ) {
+                        throw new Error(
+                            event.message ||
+                            "Metria intro generation failed."
+                        );
+                    }
+                }
+            }
+
+            buffer += decoder.decode();
+
+            if (buffer.trim()) {
+                try {
+                    const event =
+                        JSON.parse(
+                            buffer.trim()
+                        );
+
+                    if (
+                        event.type ===
+                            "audio" &&
+                        event.audio &&
+                        voiceEnabled
+                    ) {
+                        receivedAudio =
+                            true;
+
+                        await appendStreamingAudio(
+                            event.audio
+                        );
+                    }
+                } catch (error) {
+                    console.warn(
+                        "Unable to parse final Metria intro stream event:",
+                        error
+                    );
+                }
+            }
+
+            if (
+                receivedAudio &&
+                voiceEnabled
+            ) {
+                finishStreamingAudio();
+            } else {
+                setIsPlayingIntro(false);
+            }
+
+            setHasPlayedIntro(true);
+
+            sessionStorage.setItem(
+                INTRO_STORAGE_KEY,
+                "true"
+            );
+
+            setLiveTranscript("");
+
+        } catch (error) {
+            if (
+                error?.name ===
+                "AbortError"
+            ) {
+                return;
+            }
+
+            console.error(
+                "Metria introduction failed:",
+                error
+            );
+
+            setIsPlayingIntro(false);
+
+            // Don't mark the intro as played when it failed.
+            // That allows activation to retry it.
+            setHasPlayedIntro(false);
+
+            sessionStorage.removeItem(
+                INTRO_STORAGE_KEY
+            );
+
+        } finally {
+            voiceResponseAbortRef.current =
+                null;
+        }
+    };
     // ============================================================
     // ACTIVATE METRIA
     // ============================================================
