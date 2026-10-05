@@ -667,49 +667,49 @@ export const MetriaFollowUp = ({
             return bytes;
         };
 
-    const pumpStreamingAudio = () => {
-        const state =
-            streamingAudioRef.current;
+const pumpStreamingAudio = () => {
+    const state =
+        streamingAudioRef.current;
 
-        if (
-            !state?.sourceBuffer ||
-            state.sourceBuffer.updating
-        ) {
-            return;
+    if (
+        !state?.sourceBuffer ||
+        state.sourceBuffer.updating
+    ) {
+        return;
+    }
+
+    if (state.queue.length > 0) {
+        const nextChunk =
+            state.queue.shift();
+
+        try {
+            state.sourceBuffer.appendBuffer(
+                nextChunk
+            );
+        } catch (error) {
+            console.error(
+                "Unable to append Metria audio chunk:",
+                error
+            );
         }
 
-        if (
-            state.queue.length > 0
-        ) {
-            const nextChunk =
-                state.queue.shift();
+        return;
+    }
 
-            try {
-                state.sourceBuffer.appendBuffer(
-                    nextChunk
-                );
-            } catch (error) {
-                console.error(
-                    "Unable to append Metria audio chunk:",
-                    error
-                );
-            }
-
-            return;
+    if (
+        state.streamEnded &&
+        state.mediaSource?.readyState === "open"
+    ) {
+        try {
+            state.mediaSource.endOfStream();
+        } catch (error) {
+            console.warn(
+                "Unable to close Metria MediaSource:",
+                error
+            );
         }
-
-        if (
-            state.streamEnded &&
-            state.mediaSource?.readyState ===
-                "open"
-        ) {
-            try {
-                state.mediaSource.endOfStream();
-            } catch {
-                // MediaSource may already be closing.
-            }
-        }
-    };
+    }
+};
 
     const ensureStreamingAudioPlayer =
         async () => {
@@ -765,32 +765,31 @@ export const MetriaFollowUp = ({
                 streamEnded: false
             };
 
-            audio.onplay =
-                () => {
-                    setIsSpeaking(
-                        true
-                    );
+            audio.onplay = () => {
+    setIsSpeaking(true);
+    setIsAnalyzing(false);
+};
 
-                    setIsAnalyzing(
-                        false
-                    );
-                };
+const handleStreamingAudioFinished = () => {
+    setIsSpeaking(false);
+    setIsAnalyzing(false);
 
-            audio.onended =
-                () => {
-                    setIsSpeaking(
-                        false
-                    );
+    if (interfaceMode === "voice") {
+        setLiveTranscript("");
+    }
 
-                    if (
-                        interfaceMode ===
-                        "voice"
-                    ) {
-                        setLiveTranscript(
-                            ""
-                        );
-                    }
-                };
+    audioRef.current = null;
+};
+
+audio.onended = handleStreamingAudioFinished;
+
+audio.onerror = () => {
+    console.warn(
+        "Metria streaming audio ended with an audio error."
+    );
+
+    handleStreamingAudioFinished();
+};
 
             await new Promise(
                 (resolve, reject) => {
@@ -871,19 +870,84 @@ export const MetriaFollowUp = ({
             }
         };
 
-    const finishStreamingAudio = () => {
-        const state =
-            streamingAudioRef.current;
+const finishStreamingAudio = () => {
+    const state =
+        streamingAudioRef.current;
 
-        if (!state) {
+    if (!state) {
+        return;
+    }
+
+    state.streamEnded = true;
+
+    pumpStreamingAudio();
+
+    /*
+     * The backend finishing the stream does not necessarily mean
+     * the browser has finished playing the buffered audio.
+     *
+     * Wait until playback itself reaches the end before changing
+     * Metria from "Speaking" back to the idle/listening state.
+     */
+    const audio =
+        audioRef.current;
+
+    if (!audio) {
+        setIsSpeaking(false);
+        setIsAnalyzing(false);
+
+        if (interfaceMode === "voice") {
+            setLiveTranscript("");
+        }
+
+        return;
+    }
+
+    const checkPlaybackFinished = () => {
+        /*
+         * If another audio object has replaced this one,
+         * this watcher belongs to an old response.
+         */
+        if (audioRef.current !== audio) {
             return;
         }
 
-        state.streamEnded =
-            true;
+        const duration =
+            Number(audio.duration);
 
-        pumpStreamingAudio();
+        const currentTime =
+            Number(audio.currentTime);
+
+        const hasReachedEnd =
+            Number.isFinite(duration) &&
+            duration > 0 &&
+            currentTime >= duration - 0.08;
+
+        if (
+            audio.ended ||
+            hasReachedEnd
+        ) {
+            setIsSpeaking(false);
+            setIsAnalyzing(false);
+
+            if (interfaceMode === "voice") {
+                setLiveTranscript("");
+            }
+
+            return;
+        }
+
+        window.setTimeout(
+            checkPlaybackFinished,
+            100
+        );
     };
+
+    window.setTimeout(
+        checkPlaybackFinished,
+        100
+    );
+};
 
     const playResponseAudio =
         async (

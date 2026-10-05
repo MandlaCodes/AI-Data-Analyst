@@ -1,50 +1,47 @@
-
-
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 import {
-Chart as ChartJS,
-CategoryScale,
-LinearScale,
-BarElement,
-PointElement,
-LineElement,
-ArcElement,
-Title,
-Tooltip,
-Legend,
-Filler
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
 } from "chart.js";
 
 import { FaSpinner } from "react-icons/fa";
 
 import {
-MdOutlineAnalytics,
-MdOutlineTableChart
+    MdOutlineAnalytics,
+    MdOutlineTableChart
 } from "react-icons/md";
 
 import {
-FiTrash2,
-FiPlus
+    FiTrash2,
+    FiPlus
 } from "react-icons/fi";
 
 import { WorkbenchHeader } from "../components/WorkbenchHeader";
 import { Visualizer } from "../components/Visualizer";
 import { ImportModal } from "../components/ImportModal";
-import { MetriaFollowUp } from "../components/MetriaFollowUp";
 
 ChartJS.register(
-CategoryScale,
-LinearScale,
-BarElement,
-PointElement,
-LineElement,
-ArcElement,
-Title,
-Tooltip,
-Legend,
-Filler
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
 );
 
 const API_BASE_URL =
@@ -1900,120 +1897,23 @@ return (
                     {/* VISUALIZER                                */}
                     {/* ========================================= */}
 
-                    <div className="px-6 lg:px-10 pb-12">
-
-                        <Visualizer
-                            activeDatasets={
-                                activeDatasets
-                            }
-
-                            readyDatasets={
-                                readyToVisualize
-                            }
-
-                            chartType={
-                                chartType
-                            }
-
-                            chartTypeSet={
-                                setChartType
-                            }
-
-                            authToken={
-                                userToken
-                            }
-
-                            onAIUpdate={
-                                handleAIUpdate
-                            }
-
-                            // ---------------------------------
-                            // AI ANALYSIS MODE
-                            // ---------------------------------
-
-                            analysisMode={
-                                analysisMode
-                            }
-
-                            setAnalysisMode={
-                                handleAnalysisModeChange
-                            }
-
-                            // ---------------------------------
-                            // INDIVIDUAL ANALYSIS
-                            // ---------------------------------
-
-                            activeDatasetIndex={
-                                activeDatasetIndex
-                            }
-
-                            setActiveDatasetIndex={
-                                handleActiveDatasetChange
-                            }
-
-                            // ---------------------------------
-                            // CROSS ANALYSIS
-                            // ---------------------------------
-
-                            crossAnalysis={
-                                crossAnalysis
-                            }
-
-                            /**
-                             * CRITICAL:
-                             *
-                             * KEEP THIS AS THE REAL REACT SETTER.
-                             *
-                             * Do not replace this with an async
-                             * persistence function.
-                             */
-                            setCrossAnalysis={
-                                setCrossAnalysis
-                            }
-                        />
-
-                    </div>
-
-                    {/* ========================================= */}
-                    {/* INTERACTIVE METRIA ANALYST                */}
-                    {/* ========================================= */}
-
-                    {metriaAnalystReady && (
-                        <MetriaFollowUp
-                            activeDatasets={
-                                activeDatasets
-                            }
-
-                            activeDataset={
-                                analysisMode ===
-                                "cross"
-                                    ? null
-                                    : activeDatasets[
-                                          activeDatasetIndex
-                                      ] ||
-                                      activeDatasets[
-                                          activeDatasets.length -
-                                              1
-                                      ]
-                            }
-
-                            analysisMode={
-                                analysisMode
-                            }
-
-                            crossAnalysis={
-                                crossAnalysis
-                            }
-
-                            authToken={
-                                userToken
-                            }
-
-                            aiAnalysisReady={
-                                metriaAnalystReady
-                            }
-                        />
-                    )}
+                  <div className="px-6 lg:px-10 pb-12">
+                    <Visualizer
+                        activeDatasets={activeDatasets}
+                        readyDatasets={readyToVisualize}
+                        chartType={chartType}
+                        chartTypeSet={setChartType}
+                        authToken={userToken}
+                        onAIUpdate={handleAIUpdate}
+                        analysisMode={analysisMode}
+                        setAnalysisMode={handleAnalysisModeChange}
+                        activeDatasetIndex={activeDatasetIndex}
+                        setActiveDatasetIndex={handleActiveDatasetChange}
+                        crossAnalysis={crossAnalysis}
+                        setCrossAnalysis={setCrossAnalysis}
+                        interactiveAnalystReady={metriaAnalystReady}
+                    />
+                </div>
 
                 </div>
 
