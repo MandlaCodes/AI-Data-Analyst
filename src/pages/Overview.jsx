@@ -19,7 +19,6 @@ import {
   Database,
   Gauge,
   Lightbulb,
-  Loader2,
   MessageSquareText,
   RefreshCw,
   ShieldAlert,
@@ -34,16 +33,21 @@ import { useNavigate } from "react-router-dom";
    CONFIG
 ============================================================ */
 
-const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
+const API_BASE_URL =
+  "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 /*
-  Change these two routes only if your project uses different
-  frontend route names.
+  Metria lives inside the Analytics experience.
 
-  Nothing in the backend contract dictates frontend routes.
+  Ask Metria therefore DOES NOT navigate to a separate
+  /ask-metria page.
+
+  Instead, Overview navigates to Analytics and passes a launch
+  request through React Router state.
+
+  Analytics.jsx -> Visualizer.jsx -> MetriaFollowUp.jsx
 */
 const ANALYTICS_ROUTE = "/analytics";
-const ASK_METRIA_ROUTE = "/ask-metria";
 
 /* ============================================================
    HELPERS
@@ -55,9 +59,15 @@ const getToken = () =>
   "";
 
 const safeString = (value, fallback = "") => {
-  if (value === null || value === undefined) return fallback;
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return fallback;
+  }
 
-  const stringValue = String(value).trim();
+  const stringValue =
+    String(value).trim();
 
   return stringValue || fallback;
 };
@@ -65,13 +75,20 @@ const safeString = (value, fallback = "") => {
 const sentenceCase = (value) => {
   const text = safeString(value);
 
-  if (!text) return "";
+  if (!text) {
+    return "";
+  }
 
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  return (
+    text.charAt(0).toUpperCase() +
+    text.slice(1)
+  );
 };
 
 const formatGeneratedTime = (value) => {
-  if (!value) return "Just now";
+  if (!value) {
+    return "Just now";
+  }
 
   const date = new Date(value);
 
@@ -79,115 +96,158 @@ const formatGeneratedTime = (value) => {
     return "Recently";
   }
 
-  const diff = Date.now() - date.getTime();
+  const diff =
+    Date.now() - date.getTime();
 
   if (diff < 0) {
     return date.toLocaleString();
   }
 
-  const minutes = Math.floor(diff / 60000);
+  const minutes =
+    Math.floor(diff / 60000);
 
-  if (minutes < 1) return "Just now";
-  if (minutes === 1) return "1 min ago";
-  if (minutes < 60) return `${minutes} mins ago`;
+  if (minutes < 1) {
+    return "Just now";
+  }
 
-  const hours = Math.floor(minutes / 60);
+  if (minutes === 1) {
+    return "1 min ago";
+  }
 
-  if (hours === 1) return "1 hour ago";
-  if (hours < 24) return `${hours} hours ago`;
+  if (minutes < 60) {
+    return `${minutes} mins ago`;
+  }
 
-  const days = Math.floor(hours / 24);
+  const hours =
+    Math.floor(minutes / 60);
 
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
+  if (hours === 1) {
+    return "1 hour ago";
+  }
 
-  return date.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  if (hours < 24) {
+    return `${hours} hours ago`;
+  }
+
+  const days =
+    Math.floor(hours / 24);
+
+  if (days === 1) {
+    return "Yesterday";
+  }
+
+  if (days < 7) {
+    return `${days} days ago`;
+  }
+
+  return date.toLocaleDateString(
+    undefined,
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }
+  );
 };
 
 const getHealthConfig = (status) => {
-  switch (safeString(status).toLowerCase()) {
+  switch (
+    safeString(status).toLowerCase()
+  ) {
     case "strong":
       return {
         label: "Strong",
-        className: "overview-status overview-status--strong",
+        className:
+          "overview-status overview-status--strong",
         icon: CheckCircle2,
       };
 
     case "stable":
       return {
         label: "Stable",
-        className: "overview-status overview-status--stable",
+        className:
+          "overview-status overview-status--stable",
         icon: Activity,
       };
 
     case "watch":
       return {
         label: "Needs attention",
-        className: "overview-status overview-status--watch",
+        className:
+          "overview-status overview-status--watch",
         icon: CircleAlert,
       };
 
     case "critical":
       return {
         label: "Critical",
-        className: "overview-status overview-status--critical",
+        className:
+          "overview-status overview-status--critical",
         icon: AlertTriangle,
       };
 
     default:
       return {
         label: "Insufficient signal",
-        className: "overview-status overview-status--unknown",
+        className:
+          "overview-status overview-status--unknown",
         icon: Gauge,
       };
   }
 };
 
-const getDirectionConfig = (direction) => {
-  switch (safeString(direction).toLowerCase()) {
+const getDirectionConfig = (
+  direction
+) => {
+  switch (
+    safeString(direction).toLowerCase()
+  ) {
     case "up":
       return {
         label: "Moving up",
         icon: ArrowUpRight,
-        className: "signal-direction signal-direction--up",
+        className:
+          "signal-direction signal-direction--up",
       };
 
     case "down":
       return {
         label: "Moving down",
         icon: ArrowDownRight,
-        className: "signal-direction signal-direction--down",
+        className:
+          "signal-direction signal-direction--down",
       };
 
     case "mixed":
       return {
         label: "Mixed movement",
         icon: Activity,
-        className: "signal-direction signal-direction--mixed",
+        className:
+          "signal-direction signal-direction--mixed",
       };
 
     case "flat":
       return {
         label: "Mostly flat",
         icon: ArrowRight,
-        className: "signal-direction signal-direction--flat",
+        className:
+          "signal-direction signal-direction--flat",
       };
 
     default:
       return {
         label: "Direction unknown",
         icon: Activity,
-        className: "signal-direction signal-direction--unknown",
+        className:
+          "signal-direction signal-direction--unknown",
       };
   }
 };
 
 const getRiskClass = (severity) => {
-  switch (safeString(severity).toLowerCase()) {
+  switch (
+    safeString(severity).toLowerCase()
+  ) {
     case "high":
       return "risk-badge risk-badge--high";
 
@@ -202,22 +262,52 @@ const getRiskClass = (severity) => {
   }
 };
 
-const normaliseQuestions = (questions) => {
-  if (!Array.isArray(questions)) return [];
+const normaliseQuestions = (
+  questions
+) => {
+  if (!Array.isArray(questions)) {
+    return [];
+  }
 
   return questions
-    .filter((question) => typeof question === "string")
-    .map((question) => question.trim())
+    .filter(
+      (question) =>
+        typeof question === "string"
+    )
+    .map((question) =>
+      question.trim()
+    )
     .filter(Boolean)
     .slice(0, 3);
 };
 
-const normaliseWatchlist = (watchlist) => {
-  if (!Array.isArray(watchlist)) return [];
+const normaliseWatchlist = (
+  watchlist
+) => {
+  if (!Array.isArray(watchlist)) {
+    return [];
+  }
 
   return watchlist
-    .filter((item) => item && typeof item === "object")
+    .filter(
+      (item) =>
+        item &&
+        typeof item === "object"
+    )
     .slice(0, 4);
+};
+
+/*
+  Generates a unique launch ID every time Overview opens Metria.
+
+  This matters because the same suggested question may be clicked
+  more than once. MetriaFollowUp can use this ID to distinguish
+  one launch request from another.
+*/
+const createMetriaLaunchId = () => {
+  return `overview-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 9)}`;
 };
 
 /* ============================================================
@@ -236,13 +326,18 @@ function SectionHeading({
       <div className="overview-section-heading__left">
         {Icon ? (
           <div className="overview-section-heading__icon">
-            <Icon size={17} strokeWidth={2} />
+            <Icon
+              size={17}
+              strokeWidth={2}
+            />
           </div>
         ) : null}
 
         <div>
           {eyebrow ? (
-            <div className="overview-eyebrow">{eyebrow}</div>
+            <div className="overview-eyebrow">
+              {eyebrow}
+            </div>
           ) : null}
 
           <h2>{title}</h2>
@@ -276,13 +371,19 @@ function IntelligenceCard({
     >
       <div className="intelligence-card__top">
         <div className="intelligence-card__icon">
-          <Icon size={18} strokeWidth={2} />
+          <Icon
+            size={18}
+            strokeWidth={2}
+          />
         </div>
 
         <span>{eyebrow}</span>
       </div>
 
-      <h3>{title || "Not enough information yet"}</h3>
+      <h3>
+        {title ||
+          "Not enough information yet"}
+      </h3>
 
       <p>
         {body ||
@@ -302,15 +403,22 @@ function LoadingOverview() {
   return (
     <div className="overview-loading">
       <div className="overview-loading__orb">
-        <Brain size={30} strokeWidth={1.8} />
+        <Brain
+          size={30}
+          strokeWidth={1.8}
+        />
+
         <span className="overview-loading__pulse" />
       </div>
 
-      <h2>Metria is reading your business</h2>
+      <h2>
+        Metria is reading your business
+      </h2>
 
       <p>
-        Reviewing your latest analysis, business signals and
-        relevant Ask Metria context.
+        Reviewing your latest analysis,
+        business signals and relevant Ask
+        Metria context.
       </p>
 
       <div className="overview-loading__bars">
@@ -322,12 +430,17 @@ function LoadingOverview() {
   );
 }
 
-function EmptyOverview({ onOpenAnalytics }) {
+function EmptyOverview({
+  onOpenAnalytics,
+}) {
   return (
     <div className="overview-empty">
       <div className="overview-empty__visual">
         <div className="overview-empty__icon">
-          <BarChart3 size={32} strokeWidth={1.8} />
+          <BarChart3
+            size={32}
+            strokeWidth={1.8}
+          />
         </div>
 
         <span className="overview-empty__dot overview-empty__dot--1" />
@@ -339,12 +452,16 @@ function EmptyOverview({ onOpenAnalytics }) {
         Your business operating system
       </div>
 
-      <h1>Give Metria something to watch.</h1>
+      <h1>
+        Give Metria something to watch.
+      </h1>
 
       <p>
-        Once you analyse business data, your Overview becomes a
-        living executive briefing — showing what changed, what
-        matters, what needs attention and what to do next.
+        Once you analyse business data,
+        your Overview becomes a living
+        executive briefing — showing what
+        changed, what matters, what needs
+        attention and what to do next.
       </p>
 
       <button
@@ -382,14 +499,19 @@ function EmptyOverview({ onOpenAnalytics }) {
   );
 }
 
-function ErrorOverview({ message, onRetry }) {
+function ErrorOverview({
+  message,
+  onRetry,
+}) {
   return (
     <div className="overview-error">
       <div className="overview-error__icon">
         <AlertTriangle size={27} />
       </div>
 
-      <h2>Metria couldn't load your overview</h2>
+      <h2>
+        Metria couldn't load your overview
+      </h2>
 
       <p>
         {message ||
@@ -415,19 +537,44 @@ function ErrorOverview({ message, onRetry }) {
 export default function Overview() {
   const navigate = useNavigate();
 
-  const [overview, setOverview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    overview,
+    setOverview,
+  ] = useState(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  /* ==========================================================
+     FETCH OVERVIEW
+  ========================================================== */
 
   const fetchOverview = useCallback(
-    async ({ force = false } = {}) => {
+    async ({
+      force = false,
+    } = {}) => {
       const token = getToken();
 
       if (!token) {
-        setError("Your session has expired. Please sign in again.");
+        setError(
+          "Your session has expired. Please sign in again."
+        );
+
         setLoading(false);
         setRefreshing(false);
+
         return;
       }
 
@@ -444,10 +591,15 @@ export default function Overview() {
           `${API_BASE_URL}/overview/intelligence`,
           {
             method: "POST",
+
             headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
             },
+
             body: JSON.stringify({
               force,
             }),
@@ -457,13 +609,16 @@ export default function Overview() {
         let data = null;
 
         try {
-          data = await response.json();
+          data =
+            await response.json();
         } catch {
           data = null;
         }
 
         if (!response.ok) {
-          if (response.status === 401) {
+          if (
+            response.status === 401
+          ) {
             throw new Error(
               "Your session has expired. Please sign in again."
             );
@@ -498,74 +653,150 @@ export default function Overview() {
     fetchOverview();
   }, [fetchOverview]);
 
-  const brief = overview?.brief || null;
+  /* ==========================================================
+     DERIVED OVERVIEW STATE
+  ========================================================== */
+
+  const brief =
+    overview?.brief || null;
 
   const healthConfig = useMemo(
-    () => getHealthConfig(brief?.health?.status),
+    () =>
+      getHealthConfig(
+        brief?.health?.status
+      ),
     [brief?.health?.status]
   );
 
   const directionConfig = useMemo(
-    () => getDirectionConfig(brief?.change?.direction),
+    () =>
+      getDirectionConfig(
+        brief?.change?.direction
+      ),
     [brief?.change?.direction]
   );
 
   const questions = useMemo(
-    () => normaliseQuestions(brief?.suggested_questions),
+    () =>
+      normaliseQuestions(
+        brief?.suggested_questions
+      ),
     [brief?.suggested_questions]
   );
 
   const watchlist = useMemo(
-    () => normaliseWatchlist(brief?.watchlist),
+    () =>
+      normaliseWatchlist(
+        brief?.watchlist
+      ),
     [brief?.watchlist]
   );
 
-  const HealthIcon = healthConfig.icon;
-  const DirectionIcon = directionConfig.icon;
+  const HealthIcon =
+    healthConfig.icon;
+
+  const DirectionIcon =
+    directionConfig.icon;
 
   const organization =
-    safeString(brief?.meta?.organization) ||
-    "Your business";
+    safeString(
+      brief?.meta?.organization
+    ) || "Your business";
 
   const industry =
-    safeString(brief?.meta?.industry) ||
-    "Business";
+    safeString(
+      brief?.meta?.industry
+    ) || "Business";
 
   const datasetCount =
-    Number(brief?.meta?.dataset_count) || 0;
+    Number(
+      brief?.meta?.dataset_count
+    ) || 0;
 
   const confidence =
-    typeof brief?.confidence === "number"
+    typeof brief?.confidence ===
+    "number"
       ? brief.confidence
       : null;
 
+  /* ==========================================================
+     NAVIGATION
+  ========================================================== */
+
+  /*
+    Normal Analytics navigation.
+
+    This does NOT ask Metria to expand.
+  */
   const openAnalytics = () => {
     navigate(ANALYTICS_ROUTE);
   };
 
-  const openAskMetria = (question = "") => {
-    /*
-      Passing the question in router state avoids placing business
-      context in the URL.
+  /*
+    OVERVIEW -> ANALYTICS -> FULL-SCREEN METRIA
 
-      In AskMetria you can optionally read:
+    This is the important connection.
 
-      const location = useLocation();
-      const initialQuestion = location.state?.initialQuestion;
+    Analytics.jsx reads:
 
-      and prefill/send it.
-    */
-    navigate(ASK_METRIA_ROUTE, {
-      state: question
-        ? {
-            initialQuestion: question,
-            source: "overview",
-          }
-        : {
-            source: "overview",
-          },
-    });
+      location.state?.source
+      location.state?.openMetria
+      location.state?.initialQuestion
+      location.state?.requestId
+
+    It then passes those through:
+
+      Analytics
+          ↓
+      Visualizer
+          ↓
+      MetriaFollowUp
+
+    MetriaFollowUp sets its EXISTING isExpanded state to true.
+  */
+  const openAskMetria = (
+    question = ""
+  ) => {
+    const cleanQuestion =
+      typeof question === "string"
+        ? question.trim()
+        : "";
+
+    navigate(
+      ANALYTICS_ROUTE,
+      {
+        state: {
+          source: "overview",
+
+          /*
+            Tells the existing Metria
+            component to enter its
+            full-screen state.
+          */
+          openMetria: true,
+
+          /*
+            Optional question supplied by
+            an Overview recommendation.
+          */
+          initialQuestion:
+            cleanQuestion,
+
+          /*
+            Unique ID means two clicks on
+            the same question are still
+            treated as separate launches.
+          */
+          requestId:
+            createMetriaLaunchId(),
+        },
+      }
+    );
   };
+
+  /* ==========================================================
+     LOADING
+  ========================================================== */
 
   if (loading) {
     return (
@@ -579,7 +810,14 @@ export default function Overview() {
     );
   }
 
-  if (error && !overview) {
+  /* ==========================================================
+     ERROR
+  ========================================================== */
+
+  if (
+    error &&
+    !overview
+  ) {
     return (
       <>
         <OverviewStyles />
@@ -587,16 +825,23 @@ export default function Overview() {
         <main className="metria-overview">
           <ErrorOverview
             message={error}
-            onRetry={() => fetchOverview()}
+            onRetry={() =>
+              fetchOverview()
+            }
           />
         </main>
       </>
     );
   }
 
+  /* ==========================================================
+     EMPTY STATE
+  ========================================================== */
+
   if (
     !overview?.has_data ||
-    overview?.status === "empty" ||
+    overview?.status ===
+      "empty" ||
     !brief
   ) {
     return (
@@ -605,12 +850,18 @@ export default function Overview() {
 
         <main className="metria-overview">
           <EmptyOverview
-            onOpenAnalytics={openAnalytics}
+            onOpenAnalytics={
+              openAnalytics
+            }
           />
         </main>
       </>
     );
   }
+
+  /* ==========================================================
+     MAIN OVERVIEW
+  ========================================================== */
 
   return (
     <>
@@ -635,7 +886,9 @@ export default function Overview() {
               <span className="overview-live-dot" />
 
               <div>
-                <span>Business intelligence</span>
+                <span>
+                  Business intelligence
+                </span>
 
                 <strong>
                   Updated{" "}
@@ -660,7 +913,9 @@ export default function Overview() {
               <RefreshCw
                 size={16}
                 className={
-                  refreshing ? "spin" : ""
+                  refreshing
+                    ? "spin"
+                    : ""
                 }
               />
 
@@ -673,7 +928,10 @@ export default function Overview() {
 
         {error ? (
           <div className="overview-inline-error">
-            <AlertTriangle size={15} />
+            <AlertTriangle
+              size={15}
+            />
+
             {error}
           </div>
         ) : null}
@@ -697,9 +955,17 @@ export default function Overview() {
             </div>
 
             <div className="overview-hero__status-row">
-              <div className={healthConfig.className}>
-                <HealthIcon size={15} />
-                {brief?.health?.label ||
+              <div
+                className={
+                  healthConfig.className
+                }
+              >
+                <HealthIcon
+                  size={15}
+                />
+
+                {brief?.health
+                  ?.label ||
                   healthConfig.label}
               </div>
 
@@ -723,19 +989,32 @@ export default function Overview() {
               <button
                 type="button"
                 className="overview-primary-button"
-                onClick={() => openAskMetria()}
+                onClick={() =>
+                  openAskMetria()
+                }
               >
-                <MessageSquareText size={17} />
+                <MessageSquareText
+                  size={17}
+                />
+
                 Ask Metria
-                <ArrowRight size={16} />
+
+                <ArrowRight
+                  size={16}
+                />
               </button>
 
               <button
                 type="button"
                 className="overview-ghost-button"
-                onClick={openAnalytics}
+                onClick={
+                  openAnalytics
+                }
               >
-                <BarChart3 size={16} />
+                <BarChart3
+                  size={16}
+                />
+
                 Open analytics
               </button>
             </div>
@@ -744,36 +1023,50 @@ export default function Overview() {
           <div className="overview-hero__side">
             <div className="health-panel">
               <div className="health-panel__top">
-                <span>Business health</span>
+                <span>
+                  Business health
+                </span>
 
-                <Activity size={17} />
+                <Activity
+                  size={17}
+                />
               </div>
 
               <div className="health-panel__status">
-                {brief?.health?.label ||
+                {brief?.health
+                  ?.label ||
                   healthConfig.label}
               </div>
 
               <p>
-                {brief?.health?.reason ||
+                {brief?.health
+                  ?.reason ||
                   "Metria does not yet have enough evidence to explain the current health state."}
               </p>
 
               <div className="health-panel__footer">
                 <span>
-                  <Database size={14} />
+                  <Database
+                    size={14}
+                  />
+
                   {datasetCount}{" "}
                   {datasetCount === 1
                     ? "dataset"
                     : "datasets"}
                 </span>
 
-                {confidence !== null ? (
+                {confidence !==
+                null ? (
                   <span>
-                    <Gauge size={14} />
+                    <Gauge
+                      size={14}
+                    />
+
                     {confidence <= 1
                       ? `${Math.round(
-                          confidence * 100
+                          confidence *
+                            100
                         )}% confidence`
                       : `${Math.round(
                           confidence
@@ -781,7 +1074,10 @@ export default function Overview() {
                   </span>
                 ) : (
                   <span>
-                    <Brain size={14} />
+                    <Brain
+                      size={14}
+                    />
+
                     Evidence-led
                   </span>
                 )}
@@ -806,7 +1102,10 @@ export default function Overview() {
             <article className="focus-card focus-card--change">
               <div className="focus-card__header">
                 <div className="focus-card__label">
-                  <Activity size={17} />
+                  <Activity
+                    size={17}
+                  />
+
                   Biggest change
                 </div>
 
@@ -815,18 +1114,25 @@ export default function Overview() {
                     directionConfig.className
                   }
                 >
-                  <DirectionIcon size={14} />
-                  {directionConfig.label}
+                  <DirectionIcon
+                    size={14}
+                  />
+
+                  {
+                    directionConfig.label
+                  }
                 </div>
               </div>
 
               <h3>
-                {brief?.change?.headline ||
+                {brief?.change
+                  ?.headline ||
                   "No reliable change detected yet"}
               </h3>
 
               <p>
-                {brief?.change?.detail ||
+                {brief?.change
+                  ?.detail ||
                   "Metria needs more historical analytical evidence before identifying a meaningful change."}
               </p>
             </article>
@@ -834,7 +1140,10 @@ export default function Overview() {
             <article className="focus-card focus-card--priority">
               <div className="focus-card__header">
                 <div className="focus-card__label">
-                  <Target size={17} />
+                  <Target
+                    size={17}
+                  />
+
                   Priority
                 </div>
 
@@ -844,24 +1153,33 @@ export default function Overview() {
               </div>
 
               <h3>
-                {brief?.priority?.title ||
+                {brief?.priority
+                  ?.title ||
                   "Continue building business signal"}
               </h3>
 
               <p>
-                {brief?.priority?.reason ||
+                {brief?.priority
+                  ?.reason ||
                   "Metria needs more evidence before recommending a specific business action."}
               </p>
 
-              {brief?.priority?.expected_impact ? (
+              {brief?.priority
+                ?.expected_impact ? (
                 <div className="expected-impact">
-                  <TrendingUp size={15} />
+                  <TrendingUp
+                    size={15}
+                  />
 
                   <div>
-                    <span>Expected impact</span>
+                    <span>
+                      Expected impact
+                    </span>
+
                     <strong>
                       {
-                        brief.priority
+                        brief
+                          .priority
                           .expected_impact
                       }
                     </strong>
@@ -886,19 +1204,27 @@ export default function Overview() {
 
           <div className="overview-intelligence-grid">
             <IntelligenceCard
-              icon={ShieldAlert}
+              icon={
+                ShieldAlert
+              }
               eyebrow="Risk to watch"
-              title={brief?.risk?.title}
-              body={brief?.risk?.detail}
+              title={
+                brief?.risk?.title
+              }
+              body={
+                brief?.risk?.detail
+              }
               tone="risk"
               footer={
                 <span
                   className={getRiskClass(
-                    brief?.risk?.severity
+                    brief?.risk
+                      ?.severity
                   )}
                 >
                   {sentenceCase(
-                    brief?.risk?.severity ||
+                    brief?.risk
+                      ?.severity ||
                       "unknown"
                   )}{" "}
                   severity
@@ -909,8 +1235,14 @@ export default function Overview() {
             <IntelligenceCard
               icon={Lightbulb}
               eyebrow="Opportunity"
-              title={brief?.opportunity?.title}
-              body={brief?.opportunity?.detail}
+              title={
+                brief?.opportunity
+                  ?.title
+              }
+              body={
+                brief?.opportunity
+                  ?.detail
+              }
               tone="opportunity"
               footer={
                 <button
@@ -918,14 +1250,20 @@ export default function Overview() {
                   className="text-action"
                   onClick={() =>
                     openAskMetria(
-                      brief?.opportunity?.title
+                      brief
+                        ?.opportunity
+                        ?.title
                         ? `Investigate this opportunity further: ${brief.opportunity.title}`
                         : "What is the strongest opportunity in my current business data?"
                     )
                   }
                 >
-                  Investigate with Metria
-                  <ChevronRight size={15} />
+                  Investigate with
+                  Metria
+
+                  <ChevronRight
+                    size={15}
+                  />
                 </button>
               }
             />
@@ -936,26 +1274,37 @@ export default function Overview() {
             PERSONALIZATION
         ==================================================== */}
 
-        {brief?.personalization?.focus ? (
+        {brief?.personalization
+          ?.focus ? (
           <section className="overview-section">
             <div className="personalized-card">
               <div className="personalized-card__icon">
-                <Sparkles size={20} />
+                <Sparkles
+                  size={20}
+                />
               </div>
 
               <div className="personalized-card__content">
                 <div className="overview-eyebrow">
-                  Personalized for you
+                  Personalized for
+                  you
                 </div>
 
                 <h3>
-                  {brief.personalization.focus}
+                  {
+                    brief
+                      .personalization
+                      .focus
+                  }
                 </h3>
 
-                {brief?.personalization?.reason ? (
+                {brief
+                  ?.personalization
+                  ?.reason ? (
                   <p>
                     {
-                      brief.personalization
+                      brief
+                        .personalization
                         .reason
                     }
                   </p>
@@ -963,8 +1312,12 @@ export default function Overview() {
               </div>
 
               <div className="personalized-card__badge">
-                <Brain size={14} />
-                Learned from your Metria usage
+                <Brain
+                  size={14}
+                />
+
+                Learned from your
+                Metria usage
               </div>
             </div>
           </section>
@@ -974,7 +1327,8 @@ export default function Overview() {
             WATCHLIST
         ==================================================== */}
 
-        {watchlist.length > 0 ? (
+        {watchlist.length >
+        0 ? (
           <section className="overview-section">
             <SectionHeading
               eyebrow="Always watching"
@@ -984,31 +1338,41 @@ export default function Overview() {
             />
 
             <div className="watchlist-grid">
-              {watchlist.map((item, index) => (
-                <article
-                  className="watchlist-item"
-                  key={`${item?.label || "watch"}-${index}`}
-                >
-                  <div className="watchlist-item__number">
-                    {String(index + 1).padStart(
-                      2,
-                      "0"
-                    )}
-                  </div>
+              {watchlist.map(
+                (
+                  item,
+                  index
+                ) => (
+                  <article
+                    className="watchlist-item"
+                    key={`${
+                      item?.label ||
+                      "watch"
+                    }-${index}`}
+                  >
+                    <div className="watchlist-item__number">
+                      {String(
+                        index + 1
+                      ).padStart(
+                        2,
+                        "0"
+                      )}
+                    </div>
 
-                  <div>
-                    <h3>
-                      {item?.label ||
-                        "Business signal"}
-                    </h3>
+                    <div>
+                      <h3>
+                        {item?.label ||
+                          "Business signal"}
+                      </h3>
 
-                    <p>
-                      {item?.reason ||
-                        "Metria is monitoring this signal for meaningful movement."}
-                    </p>
-                  </div>
-                </article>
-              ))}
+                      <p>
+                        {item?.reason ||
+                          "Metria is monitoring this signal for meaningful movement."}
+                      </p>
+                    </div>
+                  </article>
+                )
+              )}
             </div>
           </section>
         ) : null}
@@ -1023,7 +1387,9 @@ export default function Overview() {
               <div className="ask-metria-panel__icon">
                 <MessageSquareText
                   size={22}
-                  strokeWidth={1.9}
+                  strokeWidth={
+                    1.9
+                  }
                 />
               </div>
 
@@ -1032,30 +1398,50 @@ export default function Overview() {
                   Go deeper
                 </div>
 
-                <h2>Ask Metria about this.</h2>
+                <h2>
+                  Ask Metria about
+                  this.
+                </h2>
 
                 <p>
-                  Your analyst already has context
-                  from the business intelligence
-                  above. Continue the investigation
-                  instead of starting from scratch.
+                  Your analyst
+                  already has context
+                  from the business
+                  intelligence above.
+                  Continue the
+                  investigation
+                  instead of starting
+                  from scratch.
                 </p>
               </div>
             </div>
 
-            {questions.length > 0 ? (
+            {questions.length >
+            0 ? (
               <div className="suggested-questions">
                 {questions.map(
-                  (question, index) => (
+                  (
+                    question,
+                    index
+                  ) => (
                     <button
                       type="button"
                       key={`${question}-${index}`}
                       onClick={() =>
-                        openAskMetria(question)
+                        openAskMetria(
+                          question
+                        )
                       }
                     >
-                      <span>{question}</span>
-                      <ArrowRight size={16} />
+                      <span>
+                        {question}
+                      </span>
+
+                      <ArrowRight
+                        size={
+                          16
+                        }
+                      />
                     </button>
                   )
                 )}
@@ -1064,11 +1450,19 @@ export default function Overview() {
               <button
                 type="button"
                 className="overview-primary-button"
-                onClick={() => openAskMetria()}
+                onClick={() =>
+                  openAskMetria()
+                }
               >
-                <MessageSquareText size={17} />
+                <MessageSquareText
+                  size={17}
+                />
+
                 Open Ask Metria
-                <ArrowRight size={16} />
+
+                <ArrowRight
+                  size={16}
+                />
               </button>
             )}
           </div>
@@ -1081,7 +1475,8 @@ export default function Overview() {
         <footer className="overview-footer">
           <div>
             <span className="overview-live-dot" />
-            Metria intelligence active
+            Metria intelligence
+            active
           </div>
 
           <div>
@@ -1089,7 +1484,8 @@ export default function Overview() {
             {datasetCount === 1
               ? "dataset"
               : "datasets"}{" "}
-            connected to this briefing
+            connected to this
+            briefing
           </div>
         </footer>
       </main>
@@ -1316,7 +1712,9 @@ function OverviewStyles() {
         margin: 0 auto;
         overflow: hidden;
         display: grid;
-        grid-template-columns: minmax(0, 1.45fr) minmax(310px, 0.55fr);
+        grid-template-columns:
+          minmax(0, 1.45fr)
+          minmax(310px, 0.55fr);
         gap: 34px;
         padding: clamp(30px, 4vw, 54px);
         border: 1px solid #e7e3ff;
@@ -1572,7 +1970,8 @@ function OverviewStyles() {
       .overview-focus-grid,
       .overview-intelligence-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
         gap: 16px;
       }
 
@@ -1584,7 +1983,8 @@ function OverviewStyles() {
         border: 1px solid var(--overview-border);
         border-radius: 18px;
         background: var(--overview-card);
-        box-shadow: 0 7px 24px rgba(16,24,40,0.025);
+        box-shadow:
+          0 7px 24px rgba(16,24,40,0.025);
       }
 
       .focus-card--change {
@@ -1831,7 +2231,8 @@ function OverviewStyles() {
 
       .personalized-card {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-columns:
+          auto minmax(0, 1fr) auto;
         align-items: center;
         gap: 18px;
         padding: 25px;
@@ -1886,14 +2287,16 @@ function OverviewStyles() {
 
       .watchlist-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
 
       .watchlist-item {
         min-height: 105px;
         display: grid;
-        grid-template-columns: auto 1fr;
+        grid-template-columns:
+          auto 1fr;
         gap: 14px;
         padding: 18px;
         border: 1px solid var(--overview-border);
@@ -1929,7 +2332,9 @@ function OverviewStyles() {
         position: relative;
         overflow: hidden;
         display: grid;
-        grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1.2fr);
+        grid-template-columns:
+          minmax(280px, 0.8fr)
+          minmax(360px, 1.2fr);
         gap: 35px;
         padding: 30px;
         border-radius: 21px;
@@ -1995,7 +2400,8 @@ function OverviewStyles() {
         line-height: 1.65;
       }
 
-      .ask-metria-panel .overview-eyebrow {
+      .ask-metria-panel
+        .overview-eyebrow {
         color: #a996ff;
       }
 
@@ -2059,7 +2465,8 @@ function OverviewStyles() {
         gap: 8px;
       }
 
-      .overview-footer .overview-live-dot {
+      .overview-footer
+        .overview-live-dot {
         width: 6px;
         height: 6px;
         box-shadow: none;
@@ -2097,7 +2504,11 @@ function OverviewStyles() {
         inset: -7px;
         border: 1px solid rgba(108,76,255,0.15);
         border-radius: 25px;
-        animation: pulseOverview 1.8s ease-in-out infinite;
+        animation:
+          pulseOverview
+          1.8s
+          ease-in-out
+          infinite;
       }
 
       .overview-loading h2,
@@ -2115,7 +2526,8 @@ function OverviewStyles() {
 
       .overview-empty h1 {
         max-width: 560px;
-        font-size: clamp(30px, 5vw, 46px);
+        font-size:
+          clamp(30px, 5vw, 46px);
       }
 
       .overview-loading p,
@@ -2139,14 +2551,20 @@ function OverviewStyles() {
         height: 18px;
         border-radius: 999px;
         background: var(--overview-purple);
-        animation: overviewBars 1s ease-in-out infinite;
+        animation:
+          overviewBars
+          1s
+          ease-in-out
+          infinite;
       }
 
-      .overview-loading__bars span:nth-child(2) {
+      .overview-loading__bars
+        span:nth-child(2) {
         animation-delay: 0.12s;
       }
 
-      .overview-loading__bars span:nth-child(3) {
+      .overview-loading__bars
+        span:nth-child(3) {
         animation-delay: 0.24s;
       }
 
@@ -2206,7 +2624,11 @@ function OverviewStyles() {
       }
 
       .spin {
-        animation: spinOverview 0.85s linear infinite;
+        animation:
+          spinOverview
+          0.85s
+          linear
+          infinite;
       }
 
       @keyframes spinOverview {
@@ -2243,11 +2665,13 @@ function OverviewStyles() {
 
       @media (max-width: 1050px) {
         .metria-overview {
-          padding: 30px 25px 40px;
+          padding:
+            30px 25px 40px;
         }
 
         .overview-hero {
-          grid-template-columns: 1fr;
+          grid-template-columns:
+            1fr;
         }
 
         .overview-hero__side {
@@ -2255,23 +2679,28 @@ function OverviewStyles() {
         }
 
         .ask-metria-panel {
-          grid-template-columns: 1fr;
+          grid-template-columns:
+            1fr;
         }
       }
 
       @media (max-width: 760px) {
         .metria-overview {
-          padding: 24px 16px 35px;
+          padding:
+            24px 16px 35px;
         }
 
         .overview-topbar {
-          align-items: flex-start;
-          flex-direction: column;
+          align-items:
+            flex-start;
+          flex-direction:
+            column;
         }
 
         .overview-topbar__actions {
           width: 100%;
-          justify-content: space-between;
+          justify-content:
+            space-between;
         }
 
         .overview-freshness {
@@ -2279,8 +2708,10 @@ function OverviewStyles() {
         }
 
         .overview-hero {
-          padding: 26px 20px;
-          border-radius: 19px;
+          padding:
+            26px 20px;
+          border-radius:
+            19px;
         }
 
         .overview-hero h2 {
@@ -2290,15 +2721,18 @@ function OverviewStyles() {
         .overview-focus-grid,
         .overview-intelligence-grid,
         .watchlist-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns:
+            1fr;
         }
 
         .personalized-card {
-          grid-template-columns: auto 1fr;
+          grid-template-columns:
+            auto 1fr;
         }
 
         .personalized-card__badge {
-          grid-column: 1 / -1;
+          grid-column:
+            1 / -1;
           width: fit-content;
         }
 
@@ -2307,36 +2741,45 @@ function OverviewStyles() {
         }
 
         .overview-section-heading {
-          align-items: flex-start;
+          align-items:
+            flex-start;
         }
 
         .ask-metria-panel {
-          padding: 23px 18px;
+          padding:
+            23px 18px;
         }
 
         .overview-footer {
-          flex-direction: column;
+          flex-direction:
+            column;
           gap: 7px;
         }
       }
 
       @media (max-width: 500px) {
         .overview-topbar__actions {
-          align-items: stretch;
-          flex-direction: column;
+          align-items:
+            stretch;
+          flex-direction:
+            column;
         }
 
         .overview-refresh-button {
-          justify-content: center;
+          justify-content:
+            center;
         }
 
         .overview-hero__status-row {
-          align-items: flex-start;
-          flex-direction: column;
+          align-items:
+            flex-start;
+          flex-direction:
+            column;
         }
 
         .overview-hero__actions {
-          flex-direction: column;
+          flex-direction:
+            column;
         }
 
         .overview-primary-button,
@@ -2350,26 +2793,36 @@ function OverviewStyles() {
         }
 
         .focus-card__header {
-          align-items: flex-start;
+          align-items:
+            flex-start;
         }
 
         .personalized-card {
-          grid-template-columns: 1fr;
+          grid-template-columns:
+            1fr;
         }
 
         .ask-metria-panel__intro {
-          flex-direction: column;
+          flex-direction:
+            column;
         }
       }
 
-      @media (prefers-reduced-motion: reduce) {
+      @media (
+        prefers-reduced-motion:
+        reduce
+      ) {
         *,
         *::before,
         *::after {
-          scroll-behavior: auto !important;
-          animation-duration: 0.01ms !important;
-          animation-iteration-count: 1 !important;
-          transition-duration: 0.01ms !important;
+          scroll-behavior:
+            auto !important;
+          animation-duration:
+            0.01ms !important;
+          animation-iteration-count:
+            1 !important;
+          transition-duration:
+            0.01ms !important;
         }
       }
     `}</style>
