@@ -34,10 +34,7 @@ import { useNavigate } from "react-router-dom";
    CONFIG
 ============================================================ */
 
-const API_BASE =
-  import.meta.env.VITE_APP_SERVER_BASE_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  "";
+const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 /*
   Change these two routes only if your project uses different
@@ -444,7 +441,7 @@ export default function Overview() {
 
       try {
         const response = await fetch(
-          `${API_BASE}/overview/intelligence`,
+          `${API_BASE_URL}/overview/intelligence`,
           {
             method: "POST",
             headers: {
