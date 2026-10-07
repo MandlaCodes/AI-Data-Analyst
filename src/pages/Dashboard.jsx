@@ -29,6 +29,7 @@ export default function Dashboard({ onLogout }) {
     const { profile } = useData();
     const location = useLocation();
     const currentTab = location.pathname.split("/").pop(); 
+    const isOverview = currentTab === "overview";
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const customStyles = `
@@ -103,17 +104,34 @@ export default function Dashboard({ onLogout }) {
                 )}
 
                 {/* --- MAIN CONTENT AREA --- */}
-                <main className="flex-1 lg:ml-64 min-h-screen flex flex-col min-w-0 relative z-20 bg-[#000000]"> 
-                    
-                    {/* Content Wrapper - PADDING AND MAX-WIDTH REMOVED FOR EDGE-TO-EDGE */}
-                    <div className="w-full h-full flex-1 bg-[#000000]">
-                        <div className="w-full">
-                            <Outlet />
-                        </div>
+{/* --- MAIN CONTENT AREA --- */}
+                <main
+                    className={`
+                        flex-1 lg:ml-64 min-h-screen flex flex-col min-w-0 relative z-20
+                        ${isOverview ? "bg-[#f7f8fc]" : "bg-[#000000]"}
+                    `}
+                >
+                    {/* PAGE CONTENT */}
+                    <div
+                        className={`
+                            w-full flex-1
+                            ${isOverview ? "bg-[#f7f8fc]" : "bg-[#000000]"}
+                        `}
+                    >
+                        <Outlet />
                     </div>
 
-                    {/* Footer */}
-                    <footer className="mt-auto p-10 text-center text-white/10 text-[10px] font-bold uppercase tracking-[0.6em] pointer-events-none">
+                    {/* FOOTER */}
+                    <footer
+                        className={`
+                            text-center text-[10px] font-bold uppercase
+                            tracking-[0.6em] pointer-events-none
+                            ${isOverview
+                                ? "py-6 text-slate-300 bg-[#f7f8fc]"
+                                : "p-10 text-white/10 bg-black"
+                            }
+                        `}
+                    >
                         &copy; 2026 Metria AI &bull; Encrypted Session
                     </footer>
                 </main>

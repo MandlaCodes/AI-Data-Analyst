@@ -1544,10 +1544,10 @@ function OverviewStyles() {
         box-sizing: border-box;
       }
 
-      .metria-overview {
-        width: 100%;
-        min-height: 100vh;
-        padding: 42px 46px 56px;
+        .metria-overview {
+          width: 100%;
+          min-height: 100%;
+          padding: 42px 46px 56px;
 
         background:
           radial-gradient(
