@@ -1686,251 +1686,470 @@ return (
                 </div>
             </div>
 
-            {allDatasets.length > 0 ? (
-                <div className="px-6 lg:px-10 pb-10">
+           {allDatasets.length > 0 ? (
+    <div className="px-6 lg:px-10 pb-8">
 
-                    <div className="max-w-[1480px] mx-auto">
+        <div className="max-w-[1480px] mx-auto">
 
-                        {/* ====================================================
-                            DATA SOURCES
-                        ==================================================== */}
+            {/* ====================================================
+                DATA SOURCES
+            ==================================================== */}
 
-                        <section className="mt-7">
+            <section className="mt-6">
 
-                            <div className="flex items-end justify-between gap-6 mb-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="w-7 h-7 rounded-lg border border-purple-200 bg-purple-50 flex items-center justify-center">
-                                            <MdOutlineTableChart
-                                                size={14}
-                                                className="text-purple-600"
-                                            />
-                                        </div>
+                {/* SECTION HEADER */}
+                <div className="flex items-end justify-between gap-6 mb-4">
 
-                                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-purple-600">
-                                            Data sources
-                                        </span>
-                                    </div>
-
-                                    <h2 className="text-[22px] md:text-[24px] font-bold tracking-[-0.035em] text-[#111827] leading-tight">
-                                        Your connected data
-                                    </h2>
-
-                                    <p className="mt-1 text-[12px] md:text-[13px] text-slate-500 leading-relaxed">
-                                        Select the datasets Metria should use in the live analysis below.
-                                    </p>
-                                </div>
-
-                                <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-500">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-
-                                    {activeDatasets.length} active
-                                </div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <div className="
+                                w-7 h-7
+                                rounded-[8px]
+                                border border-[#E3D9FF]
+                                bg-[#F4F0FF]
+                                flex items-center justify-center
+                            ">
+                                <MdOutlineTableChart
+                                    size={14}
+                                    className="text-[#6D3DF5]"
+                                />
                             </div>
 
-                            {/* ====================================================
-                                DATASET CARDS
-                            ==================================================== */}
+                            <span className="
+                                text-[10px]
+                                font-bold
+                                uppercase
+                                tracking-[0.14em]
+                                text-[#6D3DF5]
+                            ">
+                                Data sources
+                            </span>
+                        </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                        <h2 className="
+                            text-[22px] md:text-[24px]
+                            font-bold
+                            tracking-[-0.035em]
+                            text-[#17171A]
+                            leading-tight
+                        ">
+                            Your connected data
+                        </h2>
 
-                                {allDatasets.map((ds) => {
-                                    const isActive = activeDatasets.some(
-                                        (a) => a.id === ds.id
-                                    );
+                        <p className="
+                            mt-1
+                            text-[12px] md:text-[13px]
+                            font-medium
+                            text-[#71717A]
+                            leading-relaxed
+                        ">
+                            Select the datasets Metria should use in the live analysis below.
+                        </p>
+                    </div>
 
-                                    const health = calculateHealthScore(ds);
+                    {/* ACTIVE COUNT */}
+                    <div className="
+                        hidden sm:flex
+                        items-center gap-2
+                        h-8
+                        px-3
+                        rounded-[9px]
+                        border border-[#E4E4E0]
+                        bg-white
+                        text-[10px]
+                        font-semibold
+                        text-[#686864]
+                    ">
+                        <span className="
+                            w-1.5 h-1.5
+                            rounded-full
+                            bg-[#18B77A]
+                        " />
 
-                                    return (
+                        {activeDatasets.length} active
+                    </div>
+                </div>
+
+
+                {/* ====================================================
+                    DATASET CARDS
+                ==================================================== */}
+
+                <div className="
+                    grid
+                    grid-cols-1
+                    sm:grid-cols-2
+                    xl:grid-cols-3
+                    gap-3
+                    max-w-[940px]
+                ">
+
+                    {allDatasets.map((ds) => {
+
+                        const isActive = activeDatasets.some(
+                            (a) => a.id === ds.id
+                        );
+
+                        const health = calculateHealthScore(ds);
+
+                        return (
+                            <div
+                                key={ds.id}
+                                onClick={() => handleToggleDataset(ds)}
+                                className={`
+                                    group
+                                    relative
+                                    overflow-hidden
+                                    min-h-[132px]
+                                    rounded-[15px]
+                                    border
+                                    cursor-pointer
+                                    transition-all
+                                    duration-200
+
+                                    ${
+                                        isActive
+                                            ? "bg-white border-[#CDBBFF] shadow-[0_5px_18px_rgba(109,61,245,0.07)]"
+                                            : "bg-white border-[#E4E4DF] hover:border-[#D4C7FA] hover:shadow-[0_5px_18px_rgba(20,20,20,0.045)]"
+                                    }
+                                `}
+                            >
+
+                                {/* ACTIVE PURPLE EDGE */}
+                                {isActive && (
+                                    <div className="
+                                        absolute
+                                        left-0
+                                        top-0
+                                        bottom-0
+                                        w-[3px]
+                                        bg-[#6D3DF5]
+                                    " />
+                                )}
+
+
+                                <div className="px-4 py-4">
+
+                                    {/* TOP ROW */}
+                                    <div className="
+                                        flex
+                                        items-start
+                                        justify-between
+                                        gap-3
+                                    ">
+
+                                        {/* DATASET ICON */}
                                         <div
-                                            key={ds.id}
-                                            onClick={() =>
-                                                handleToggleDataset(ds)
-                                            }
                                             className={`
-                                                group relative overflow-hidden
-                                                min-h-[154px]
-                                                rounded-[16px]
+                                                w-9 h-9
+                                                rounded-[10px]
+                                                flex
+                                                items-center
+                                                justify-center
                                                 border
-                                                p-5
-                                                cursor-pointer
-                                                transition-all duration-200
+                                                transition-all
+                                                duration-200
+
                                                 ${
                                                     isActive
-                                                        ? "bg-white border-purple-300 shadow-[0_8px_24px_rgba(108,76,255,0.08)]"
-                                                        : "bg-white border-slate-200 hover:border-purple-200 hover:shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
+                                                        ? "bg-[#6D3DF5] border-[#6D3DF5] text-white"
+                                                        : "bg-[#F4F0FF] border-[#E3D9FF] text-[#6D3DF5]"
                                                 }
                                             `}
                                         >
-                                            {isActive && (
-                                                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-purple-600" />
-                                            )}
-
-                                            <div className="relative z-10 h-full flex flex-col">
-
-                                                <div className="flex items-start justify-between gap-3">
-
-                                                    <div
-                                                        className={`
-                                                            w-9 h-9
-                                                            rounded-[10px]
-                                                            flex items-center justify-center
-                                                            border
-                                                            transition-colors
-                                                            ${
-                                                                isActive
-                                                                    ? "bg-purple-600 border-purple-600 text-white"
-                                                                    : "bg-purple-50 border-purple-100 text-purple-600"
-                                                            }
-                                                        `}
-                                                    >
-                                                        <MdOutlineTableChart size={17} />
-                                                    </div>
-
-                                                    <span
-                                                        className={`
-                                                            inline-flex items-center
-                                                            px-2 py-1
-                                                            rounded-md
-                                                            text-[9px]
-                                                            font-bold
-                                                            ${
-                                                                health > 85
-                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                                                    : "bg-amber-50 text-amber-700 border border-amber-100"
-                                                            }
-                                                        `}
-                                                    >
-                                                        {health}% integrity
-                                                    </span>
-                                                </div>
-
-                                                <div className="mt-4 flex-1">
-                                                    <h3 className="text-[15px] font-bold text-[#111827] tracking-[-0.02em] truncate">
-                                                        {ds.name}
-                                                    </h3>
-
-                                                    <p className="mt-1 text-[10px] font-medium text-slate-500">
-                                                        {ds.rows} active nodes
-                                                    </p>
-                                                </div>
-
-                                                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-
-                                                    <span
-                                                        className={`
-                                                            inline-flex items-center gap-2
-                                                            text-[9px]
-                                                            font-bold
-                                                            ${
-                                                                isActive
-                                                                    ? "text-purple-700"
-                                                                    : "text-slate-400"
-                                                            }
-                                                        `}
-                                                    >
-                                                        <span
-                                                            className={`
-                                                                w-1.5 h-1.5 rounded-full
-                                                                ${
-                                                                    isActive
-                                                                        ? "bg-emerald-500"
-                                                                        : "bg-slate-300"
-                                                                }
-                                                            `}
-                                                        />
-
-                                                        {isActive
-                                                            ? "Active in analysis"
-                                                            : "Not selected"}
-                                                    </span>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteDataset(ds.id);
-                                                        }}
-                                                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                        aria-label={`Delete ${ds.name}`}
-                                                    >
-                                                        <FiTrash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <MdOutlineTableChart size={16} />
                                         </div>
-                                    );
-                                })}
 
-                                {/* ADD DATA SOURCE */}
 
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(true)}
-                                    className="
-                                        min-h-[154px]
-                                        rounded-[16px]
-                                        border border-dashed border-slate-300
-                                        bg-white/60
-                                        hover:bg-white
-                                        hover:border-purple-300
-                                        hover:shadow-[0_8px_24px_rgba(15,23,42,0.04)]
-                                        transition-all duration-200
-                                        flex flex-col
-                                        items-center justify-center
-                                        gap-3
-                                        text-slate-500
-                                        hover:text-purple-600
-                                        group
-                                    "
-                                >
+                                        {/* INTEGRITY */}
+                                        <span
+                                            className={`
+                                                inline-flex
+                                                items-center
+                                                px-2
+                                                h-6
+                                                rounded-[7px]
+                                                text-[9px]
+                                                font-bold
+
+                                                ${
+                                                    health > 85
+                                                        ? "bg-[#ECFBF3] text-[#16855B] border border-[#CBEFDC]"
+                                                        : "bg-[#FFF8E8] text-[#A96B16] border border-[#F2E2B9]"
+                                                }
+                                            `}
+                                        >
+                                            {health}% integrity
+                                        </span>
+                                    </div>
+
+
+                                    {/* DATASET DETAILS */}
+                                    <div className="mt-3">
+
+                                        <h3 className="
+                                            text-[14px]
+                                            leading-tight
+                                            font-bold
+                                            tracking-[-0.02em]
+                                            text-[#1B1B1D]
+                                            truncate
+                                        ">
+                                            {ds.name}
+                                        </h3>
+
+                                        <p className="
+                                            mt-1
+                                            text-[10px]
+                                            leading-normal
+                                            font-medium
+                                            text-[#777773]
+                                        ">
+                                            {ds.rows} active nodes
+                                        </p>
+                                    </div>
+
+
+                                    {/* BOTTOM STATUS */}
                                     <div className="
-                                        w-9 h-9
-                                        rounded-[10px]
-                                        border border-slate-200
-                                        bg-white
-                                        flex items-center justify-center
-                                        group-hover:border-purple-200
-                                        group-hover:bg-purple-50
-                                        transition-colors
+                                        flex
+                                        items-center
+                                        justify-between
+                                        gap-3
+                                        mt-3
+                                        pt-3
+                                        border-t
+                                        border-[#EEEEEA]
                                     ">
-                                        <FiPlus size={17} />
-                                    </div>
 
-                                    <div className="text-center">
-                                        <div className="text-[11px] font-bold text-[#344054] group-hover:text-purple-700">
-                                            Add data source
+                                        <div className="
+                                            flex
+                                            items-center
+                                            gap-2
+                                            min-w-0
+                                        ">
+                                            <span
+                                                className={`
+                                                    w-1.5 h-1.5
+                                                    rounded-full
+                                                    shrink-0
+
+                                                    ${
+                                                        isActive
+                                                            ? "bg-[#18B77A]"
+                                                            : "bg-[#C7C7C2]"
+                                                    }
+                                                `}
+                                            />
+
+                                            <span
+                                                className={`
+                                                    text-[9px]
+                                                    font-semibold
+                                                    truncate
+
+                                                    ${
+                                                        isActive
+                                                            ? "text-[#6D3DF5]"
+                                                            : "text-[#8A8A85]"
+                                                    }
+                                                `}
+                                            >
+                                                {isActive
+                                                    ? "Active in analysis"
+                                                    : "Not selected"}
+                                            </span>
                                         </div>
 
-                                        <div className="mt-0.5 text-[9px] text-slate-400">
-                                            Import another dataset
-                                        </div>
+
+                                        {/* DELETE */}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteDataset(ds.id);
+                                            }}
+                                            className="
+                                                w-7 h-7
+                                                rounded-[8px]
+                                                flex
+                                                items-center
+                                                justify-center
+
+                                                text-[#A1A19C]
+
+                                                transition-all
+                                                duration-200
+
+                                                hover:text-red-500
+                                                hover:bg-red-50
+                                            "
+                                            aria-label={`Delete ${ds.name}`}
+                                        >
+                                            <FiTrash2 size={13} />
+                                        </button>
+
                                     </div>
-                                </button>
+                                </div>
                             </div>
-                        </section>
+                        );
+                    })}
 
-                        {/* ====================================================
-                            ANALYSIS DIVIDER
-                        ==================================================== */}
 
-                        <div className="flex items-center gap-4 mt-8 mb-5">
-                            <div className="h-px flex-1 bg-slate-200" />
+                    {/* ====================================================
+                        ADD DATA SOURCE
+                    ==================================================== */}
 
-                            <div className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-500">
-                                <span className="w-6 h-6 rounded-lg border border-purple-100 bg-purple-50 flex items-center justify-center">
-                                    <MdOutlineAnalytics
-                                        size={12}
-                                        className="text-purple-600"
-                                    />
-                                </span>
+                    <button
+                        type="button"
+                        onClick={() => setShowModal(true)}
+                        className="
+                            group
+                            min-h-[132px]
+                            rounded-[15px]
 
-                                Live analysis
+                            bg-white/60
+
+                            border
+                            border-dashed
+                            border-[#D6D4DC]
+
+                            flex
+                            items-center
+                            justify-center
+
+                            transition-all
+                            duration-200
+
+                            hover:bg-white
+                            hover:border-[#BDA8FA]
+                            hover:shadow-[0_5px_18px_rgba(109,61,245,0.05)]
+
+                            active:scale-[0.99]
+                        "
+                    >
+                        <div className="
+                            flex
+                            items-center
+                            gap-3
+                            px-5
+                        ">
+
+                            <div className="
+                                w-9 h-9
+                                shrink-0
+
+                                rounded-[10px]
+
+                                bg-[#F5F1FF]
+                                border
+                                border-[#E4D9FF]
+
+                                flex
+                                items-center
+                                justify-center
+
+                                text-[#6D3DF5]
+
+                                transition-all
+                                duration-200
+
+                                group-hover:bg-[#EEE8FF]
+                                group-hover:scale-105
+                            ">
+                                <FiPlus size={15} />
                             </div>
 
-                            <div className="h-px flex-1 bg-slate-200" />
+
+                            <div className="text-left">
+
+                                <p className="
+                                    text-[12px]
+                                    leading-tight
+                                    font-semibold
+                                    text-[#242426]
+                                ">
+                                    Add data source
+                                </p>
+
+                                <p className="
+                                    mt-1
+                                    text-[10px]
+                                    leading-tight
+                                    font-medium
+                                    text-[#92928D]
+                                ">
+                                    Import another dataset
+                                </p>
+
+                            </div>
                         </div>
+                    </button>
 
+                </div>
+            </section>
+
+
+            {/* ====================================================
+                ANALYSIS DIVIDER
+            ==================================================== */}
+
+            <div className="
+                flex
+                items-center
+                gap-4
+                mt-7
+                mb-4
+            ">
+
+                <div className="
+                    h-px
+                    flex-1
+                    bg-[#E2E2DE]
+                " />
+
+                <div className="
+                    inline-flex
+                    items-center
+                    gap-2
+
+                    text-[9px]
+                    font-bold
+                    uppercase
+                    tracking-[0.13em]
+                    text-[#777773]
+                ">
+
+                    <span className="
+                        w-6 h-6
+                        rounded-[8px]
+
+                        border
+                        border-[#E4D9FF]
+
+                        bg-[#F4F0FF]
+
+                        flex
+                        items-center
+                        justify-center
+                    ">
+                        <MdOutlineAnalytics
+                            size={12}
+                            className="text-[#6D3DF5]"
+                        />
+                    </span>
+
+                    Live analysis
+
+                </div>
+
+                <div className="
+                    h-px
+                    flex-1
+                    bg-[#E2E2DE]
+                " />
+
+            </div>
                         {/* ====================================================
                             VISUALIZER
                         ==================================================== */}
