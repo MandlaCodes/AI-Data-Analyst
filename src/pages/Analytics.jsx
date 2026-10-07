@@ -1644,391 +1644,416 @@ const metriaAnalystReady =
 // ============================================================
 
 return (
-    <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
+    <div className="w-full min-h-screen bg-[#f7f8fc] text-[#111827] font-sans selection:bg-purple-500/20 overflow-x-hidden">
 
-        {/* ==================================================== */}
-        {/* INITIALIZATION / IMPORT OVERLAY                       */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            INITIALIZATION / IMPORT OVERLAY
+        ==================================================== */}
 
-        {(isInitializing ||
-            isImporting) && (
-            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
-
+        {(isInitializing || isImporting) && (
+            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0b0911]/95 backdrop-blur-xl">
                 <div className="relative mb-6">
-
                     <div className="absolute inset-0 bg-purple-500/20 blur-3xl animate-pulse" />
 
                     <FaSpinner
-                        size={60}
+                        size={48}
                         className="text-purple-500 animate-spin relative"
                     />
-
                 </div>
 
-                <p className="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">
-
+                <p className="text-[12px] font-bold tracking-[0.18em] text-white uppercase">
                     {isImporting
-                        ? "Processing Stream..."
-                        : "MetriaAI Initializing..."
-                    }
-
+                        ? "Processing your data..."
+                        : "Preparing your workspace..."}
                 </p>
-
             </div>
         )}
 
         <div className="w-full">
 
-            {/* ================================================= */}
-            {/* HEADER                                            */}
-            {/* ================================================= */}
+            {/* ====================================================
+                HEADER
+            ==================================================== */}
 
-            <div className="pt-8 px-6 lg:px-10">
-
-                <WorkbenchHeader
-                    isSaving={
-                        isSaving
-                    }
-                    onImport={() =>
-                        setShowModal(
-                            true
-                        )
-                    }
-                    onSave={
-                        handleSave
-                    }
-                    onOpenAI={() => {}}
-                />
-
-            </div>
-
-            {allDatasets.length >
-            0 ? (
-
-                <div className="mt-12 space-y-12">
-
-                    {/* ========================================= */}
-                    {/* NEURAL STREAMS HEADER                     */}
-                    {/* ========================================= */}
-
-                    <div className="flex items-center gap-6 px-6 lg:px-10">
-
-                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.8em] whitespace-nowrap">
-                            Neural Streams
-                        </h3>
-
-                        <div className="h-[1px] flex-1 bg-white/5" />
-
-                    </div>
-
-                    {/* ========================================= */}
-                    {/* DATASET CARDS                             */}
-                    {/* ========================================= */}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6 lg:px-10">
-
-                        {allDatasets.map(
-                            (ds) => {
-                                const isActive =
-                                    activeDatasets.some(
-                                        (a) =>
-                                            a.id ===
-                                            ds.id
-                                    );
-
-                                const health =
-                                    calculateHealthScore(
-                                        ds
-                                    );
-
-                                return (
-                                    <div
-                                        key={
-                                            ds.id
-                                        }
-                                        onClick={() =>
-                                            handleToggleDataset(
-                                                ds
-                                            )
-                                        }
-                                        className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
-                                            isActive
-                                                ? "bg-purple-900/20 border-purple-500/40 shadow-[0_0_50px_rgba(188,19,254,0.1)] scale-[1.02]"
-                                                : "bg-white/[0.03] border-white/10 hover:border-white/20"
-                                        }`}
-                                    >
-
-                                        <div
-                                            className="absolute inset-0 opacity-40 pointer-events-none"
-                                            style={{
-                                                background:
-                                                    isActive
-                                                        ? "radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.3), transparent 80%)"
-                                                        : "radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05), transparent 80%)"
-                                            }}
-                                        />
-
-                                        <div className="relative z-10 flex-1">
-
-                                            <div className="flex justify-between items-start mb-6">
-
-                                                <div
-                                                    className={`p-4 rounded-2xl border transition-all duration-500 ${
-                                                        isActive
-                                                            ? "bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20"
-                                                            : "bg-white border-white text-black"
-                                                    }`}
-                                                >
-                                                    <MdOutlineTableChart
-                                                        size={
-                                                            22
-                                                        }
-                                                    />
-                                                </div>
-
-                                                <span
-                                                    className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest ${
-                                                        health >
-                                                        85
-                                                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                                            : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-                                                    }`}
-                                                >
-                                                    {
-                                                        health
-                                                    }
-                                                    %
-                                                    {" "}
-                                                    Integrity
-                                                </span>
-
-                                            </div>
-
-                                            <div className="mb-2">
-
-                                                <div className="text-xl font-black text-white uppercase tracking-tighter truncate leading-tight mb-1">
-                                                    {
-                                                        ds.name
-                                                    }
-                                                </div>
-
-                                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">
-                                                    {
-                                                        ds.rows
-                                                    }
-                                                    {" "}
-                                                    Active Nodes
-                                                </div>
-
-                                            </div>
-
-                                        </div>
-
-                                        <div className="relative z-10 flex items-center justify-between pt-5 border-t border-white/5">
-
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-
-                                                <div
-                                                    className={`w-2 h-2 rounded-full ${
-                                                        isActive
-                                                            ? "bg-purple-500 animate-pulse"
-                                                            : "bg-slate-700"
-                                                    }`}
-                                                />
-
-                                                {isActive
-                                                    ? "Broadcasting"
-                                                    : "Standby"
-                                                }
-
-                                            </span>
-
-                                            <FiTrash2
-                                                onClick={(
-                                                    e
-                                                ) => {
-                                                    e.stopPropagation();
-
-                                                    handleDeleteDataset(
-                                                        ds.id
-                                                    );
-                                                }}
-                                                className="text-slate-600 hover:text-red-400 transition-colors"
-                                                size={
-                                                    18
-                                                }
-                                            />
-
-                                        </div>
-
-                                    </div>
-                                );
-                            }
-                        )}
-
-                        {/* ADD STREAM */}
-
-                        <button
-                            onClick={() =>
-                                setShowModal(
-                                    true
-                                )
-                            }
-                            className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group"
-                        >
-
-                            <div className="p-4 rounded-full border-2 border-dashed border-slate-800 group-hover:border-purple-500/50 transition-all">
-
-                                <FiPlus
-                                    size={28}
-                                />
-
-                            </div>
-
-                            <span className="text-[11px] font-black uppercase tracking-[0.5em]">
-                                Sync Stream
-                            </span>
-
-                        </button>
-
-                    </div>
-
-                    {/* ========================================= */}
-                    {/* VISUALIZER                                */}
-                    {/* ========================================= */}
-
-                  <div className="px-6 lg:px-10 pb-12">
-                    <Visualizer
-                        activeDatasets={activeDatasets}
-                        readyDatasets={readyToVisualize}
-                        chartType={chartType}
-                        chartTypeSet={setChartType}
-                        authToken={userToken}
-                        onAIUpdate={handleAIUpdate}
-                        analysisMode={analysisMode}
-                        setAnalysisMode={handleAnalysisModeChange}
-                        activeDatasetIndex={activeDatasetIndex}
-                        setActiveDatasetIndex={handleActiveDatasetChange}
-                        crossAnalysis={crossAnalysis}
-                        setCrossAnalysis={setCrossAnalysis}
-                        interactiveAnalystReady={metriaAnalystReady}
+            <div className="px-6 pt-7 lg:px-10 lg:pt-8">
+                <div className="max-w-[1480px] mx-auto">
+                    <WorkbenchHeader
+                        isSaving={isSaving}
+                        onImport={() => setShowModal(true)}
+                        onSave={handleSave}
+                        onOpenAI={() => {}}
                     />
                 </div>
+            </div>
 
+            {allDatasets.length > 0 ? (
+                <div className="px-6 lg:px-10 pb-10">
+
+                    <div className="max-w-[1480px] mx-auto">
+
+                        {/* ====================================================
+                            DATA SOURCES
+                        ==================================================== */}
+
+                        <section className="mt-7">
+
+                            <div className="flex items-end justify-between gap-6 mb-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <div className="w-7 h-7 rounded-lg border border-purple-200 bg-purple-50 flex items-center justify-center">
+                                            <MdOutlineTableChart
+                                                size={14}
+                                                className="text-purple-600"
+                                            />
+                                        </div>
+
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-purple-600">
+                                            Data sources
+                                        </span>
+                                    </div>
+
+                                    <h2 className="text-[22px] md:text-[24px] font-bold tracking-[-0.035em] text-[#111827] leading-tight">
+                                        Your connected data
+                                    </h2>
+
+                                    <p className="mt-1 text-[12px] md:text-[13px] text-slate-500 leading-relaxed">
+                                        Select the datasets Metria should use in the live analysis below.
+                                    </p>
+                                </div>
+
+                                <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-500">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+
+                                    {activeDatasets.length} active
+                                </div>
+                            </div>
+
+                            {/* ====================================================
+                                DATASET CARDS
+                            ==================================================== */}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+
+                                {allDatasets.map((ds) => {
+                                    const isActive = activeDatasets.some(
+                                        (a) => a.id === ds.id
+                                    );
+
+                                    const health = calculateHealthScore(ds);
+
+                                    return (
+                                        <div
+                                            key={ds.id}
+                                            onClick={() =>
+                                                handleToggleDataset(ds)
+                                            }
+                                            className={`
+                                                group relative overflow-hidden
+                                                min-h-[154px]
+                                                rounded-[16px]
+                                                border
+                                                p-5
+                                                cursor-pointer
+                                                transition-all duration-200
+                                                ${
+                                                    isActive
+                                                        ? "bg-white border-purple-300 shadow-[0_8px_24px_rgba(108,76,255,0.08)]"
+                                                        : "bg-white border-slate-200 hover:border-purple-200 hover:shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
+                                                }
+                                            `}
+                                        >
+                                            {isActive && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-purple-600" />
+                                            )}
+
+                                            <div className="relative z-10 h-full flex flex-col">
+
+                                                <div className="flex items-start justify-between gap-3">
+
+                                                    <div
+                                                        className={`
+                                                            w-9 h-9
+                                                            rounded-[10px]
+                                                            flex items-center justify-center
+                                                            border
+                                                            transition-colors
+                                                            ${
+                                                                isActive
+                                                                    ? "bg-purple-600 border-purple-600 text-white"
+                                                                    : "bg-purple-50 border-purple-100 text-purple-600"
+                                                            }
+                                                        `}
+                                                    >
+                                                        <MdOutlineTableChart size={17} />
+                                                    </div>
+
+                                                    <span
+                                                        className={`
+                                                            inline-flex items-center
+                                                            px-2 py-1
+                                                            rounded-md
+                                                            text-[9px]
+                                                            font-bold
+                                                            ${
+                                                                health > 85
+                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                                                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                                                            }
+                                                        `}
+                                                    >
+                                                        {health}% integrity
+                                                    </span>
+                                                </div>
+
+                                                <div className="mt-4 flex-1">
+                                                    <h3 className="text-[15px] font-bold text-[#111827] tracking-[-0.02em] truncate">
+                                                        {ds.name}
+                                                    </h3>
+
+                                                    <p className="mt-1 text-[10px] font-medium text-slate-500">
+                                                        {ds.rows} active nodes
+                                                    </p>
+                                                </div>
+
+                                                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+
+                                                    <span
+                                                        className={`
+                                                            inline-flex items-center gap-2
+                                                            text-[9px]
+                                                            font-bold
+                                                            ${
+                                                                isActive
+                                                                    ? "text-purple-700"
+                                                                    : "text-slate-400"
+                                                            }
+                                                        `}
+                                                    >
+                                                        <span
+                                                            className={`
+                                                                w-1.5 h-1.5 rounded-full
+                                                                ${
+                                                                    isActive
+                                                                        ? "bg-emerald-500"
+                                                                        : "bg-slate-300"
+                                                                }
+                                                            `}
+                                                        />
+
+                                                        {isActive
+                                                            ? "Active in analysis"
+                                                            : "Not selected"}
+                                                    </span>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteDataset(ds.id);
+                                                        }}
+                                                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                        aria-label={`Delete ${ds.name}`}
+                                                    >
+                                                        <FiTrash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* ADD DATA SOURCE */}
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(true)}
+                                    className="
+                                        min-h-[154px]
+                                        rounded-[16px]
+                                        border border-dashed border-slate-300
+                                        bg-white/60
+                                        hover:bg-white
+                                        hover:border-purple-300
+                                        hover:shadow-[0_8px_24px_rgba(15,23,42,0.04)]
+                                        transition-all duration-200
+                                        flex flex-col
+                                        items-center justify-center
+                                        gap-3
+                                        text-slate-500
+                                        hover:text-purple-600
+                                        group
+                                    "
+                                >
+                                    <div className="
+                                        w-9 h-9
+                                        rounded-[10px]
+                                        border border-slate-200
+                                        bg-white
+                                        flex items-center justify-center
+                                        group-hover:border-purple-200
+                                        group-hover:bg-purple-50
+                                        transition-colors
+                                    ">
+                                        <FiPlus size={17} />
+                                    </div>
+
+                                    <div className="text-center">
+                                        <div className="text-[11px] font-bold text-[#344054] group-hover:text-purple-700">
+                                            Add data source
+                                        </div>
+
+                                        <div className="mt-0.5 text-[9px] text-slate-400">
+                                            Import another dataset
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </section>
+
+                        {/* ====================================================
+                            ANALYSIS DIVIDER
+                        ==================================================== */}
+
+                        <div className="flex items-center gap-4 mt-8 mb-5">
+                            <div className="h-px flex-1 bg-slate-200" />
+
+                            <div className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-500">
+                                <span className="w-6 h-6 rounded-lg border border-purple-100 bg-purple-50 flex items-center justify-center">
+                                    <MdOutlineAnalytics
+                                        size={12}
+                                        className="text-purple-600"
+                                    />
+                                </span>
+
+                                Live analysis
+                            </div>
+
+                            <div className="h-px flex-1 bg-slate-200" />
+                        </div>
+
+                        {/* ====================================================
+                            VISUALIZER
+                        ==================================================== */}
+
+                        <div className="w-full">
+                            <Visualizer
+                                activeDatasets={activeDatasets}
+                                readyDatasets={readyToVisualize}
+                                chartType={chartType}
+                                chartTypeSet={setChartType}
+                                authToken={userToken}
+                                onAIUpdate={handleAIUpdate}
+                                analysisMode={analysisMode}
+                                setAnalysisMode={handleAnalysisModeChange}
+                                activeDatasetIndex={activeDatasetIndex}
+                                setActiveDatasetIndex={handleActiveDatasetChange}
+                                crossAnalysis={crossAnalysis}
+                                setCrossAnalysis={setCrossAnalysis}
+                                interactiveAnalystReady={metriaAnalystReady}
+                            />
+                        </div>
+                    </div>
                 </div>
-
             ) : (
 
-                // =============================================
-                // EMPTY STATE
-                // =============================================
+                /* ====================================================
+                    EMPTY STATE
+                ==================================================== */
 
-                <div className="px-6 lg:px-10 pb-12 mt-12">
+                <div className="px-6 lg:px-10 pb-12">
+                    <div className="max-w-[1480px] mx-auto">
 
-                    <div className="text-center py-52 bg-white/[0.01] border-y border-white/5 relative overflow-hidden rounded-[3rem]">
+                        <div className="
+                            mt-8
+                            min-h-[430px]
+                            flex flex-col
+                            items-center justify-center
+                            text-center
+                            px-6 py-16
+                            bg-white
+                            border border-slate-200
+                            rounded-[20px]
+                            shadow-[0_8px_30px_rgba(15,23,42,0.04)]
+                        ">
+                            <div className="
+                                w-14 h-14
+                                rounded-[16px]
+                                bg-purple-50
+                                border border-purple-100
+                                flex items-center justify-center
+                                mb-5
+                            ">
+                                <MdOutlineAnalytics
+                                    size={26}
+                                    className="text-purple-600"
+                                />
+                            </div>
 
-                        <div className="absolute inset-0 bg-radial-gradient from-purple-500/10 to-transparent opacity-40 pointer-events-none" />
+                            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-purple-600 mb-2">
+                                Analytics
+                            </div>
 
-                        <MdOutlineAnalytics
-                            size={100}
-                            className="mx-auto text-slate-900 mb-8"
-                        />
+                            <h3 className="text-[26px] md:text-[30px] font-bold tracking-[-0.04em] text-[#111827]">
+                                Connect your first dataset
+                            </h3>
 
-                        <h3 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">
-                            Neural Link Disconnected
-                        </h3>
+                            <p className="mt-3 max-w-[470px] text-[13px] leading-6 text-slate-500">
+                                Import business data to start generating analytics,
+                                visualizations and Metria intelligence.
+                            </p>
 
-                        <button
-                            onClick={() =>
-                                setShowModal(
-                                    true
-                                )
-                            }
-                            className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
-                        >
-                            Initialize Stream
-                        </button>
-
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(true)}
+                                className="
+                                    mt-6
+                                    inline-flex items-center justify-center gap-2
+                                    h-11 px-5
+                                    rounded-[11px]
+                                    bg-purple-600
+                                    hover:bg-purple-700
+                                    text-white
+                                    text-[11px]
+                                    font-bold
+                                    shadow-[0_7px_18px_rgba(108,76,255,0.18)]
+                                    transition-all
+                                "
+                            >
+                                <FiPlus size={15} />
+                                Import data
+                            </button>
+                        </div>
                     </div>
-
                 </div>
             )}
-
         </div>
 
-        {/* ==================================================== */}
-        {/* IMPORT MODAL                                         */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            IMPORT MODAL
+        ==================================================== */}
 
         {showModal && (
             <ImportModal
                 onClose={() => {
-                    setShowModal(
-                        false
-                    );
-
-                    setSelectedApps(
-                        []
-                    );
-
-                    setSheetsList(
-                        []
-                    );
-
-                    setCsvToImport(
-                        null
-                    );
-
-                    setSelectedSheet(
-                        ""
-                    );
+                    setShowModal(false);
+                    setSelectedApps([]);
+                    setSheetsList([]);
+                    setCsvToImport(null);
+                    setSelectedSheet("");
                 }}
-
-                selectedApps={
-                    selectedApps
-                }
-
-                setSelectedApps={
-                    setSelectedApps
-                }
-
-                sheetsList={
-                    sheetsList
-                }
-
-                setSheetsList={
-                    setSheetsList
-                }
-
-                selectedSheet={
-                    selectedSheet
-                }
-
-                setSelectedSheet={
-                    setSelectedSheet
-                }
-
-                setCsvToImport={
-                    setCsvToImport
-                }
-
-                csvToImport={
-                    csvToImport
-                }
-
-                onImport={(
-                    ids,
-                    names
-                ) =>
-                    importSelected(
-                        ids,
-                        names
-                    )
+                selectedApps={selectedApps}
+                setSelectedApps={setSelectedApps}
+                sheetsList={sheetsList}
+                setSheetsList={setSheetsList}
+                selectedSheet={selectedSheet}
+                setSelectedSheet={setSelectedSheet}
+                setCsvToImport={setCsvToImport}
+                csvToImport={csvToImport}
+                onImport={(ids, names) =>
+                    importSelected(ids, names)
                 }
             />
         )}
-
     </div>
 );
-
 }
