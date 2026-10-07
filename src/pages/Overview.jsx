@@ -47,7 +47,7 @@ const API_BASE_URL =
 
   Analytics.jsx -> Visualizer.jsx -> MetriaFollowUp.jsx
 */
-const ANALYTICS_ROUTE = "/analytics";
+const ANALYTICS_ROUTE = "/dashboard/analytics";
 
 /* ============================================================
    HELPERS
