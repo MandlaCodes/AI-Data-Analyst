@@ -2,137 +2,261 @@ import React, { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { FiMenu, FiX } from "react-icons/fi";
-// Import the context hook
 import { useData } from "../contexts/DataContext";
 
 // Individual components for nested routes
 import Analytics from "./Analytics";
-import Integrations from "./Integrations"; 
+import Integrations from "./Integrations";
 import Profile from "./Profile";
 import Overview from "./Overview";
 import Trends from "./Trends";
 
 const IntegrationsWrapper = ({ onLogout }) => {
-    const { profile, refreshAll } = useData(); 
-    const userId = profile?.id; 
+    const { profile, refreshAll } = useData();
+    const userId = profile?.id;
+
     return (
-        <Integrations 
-            userId={userId} 
-            onLogout={onLogout} 
+        <Integrations
+            userId={userId}
+            onLogout={onLogout}
             refetchProfile={refreshAll}
         />
     );
 };
 
-export default function Dashboard({ onLogout }) { 
-    // Pull global state from context
+export default function Dashboard({ onLogout }) {
     const { profile } = useData();
+
     const location = useLocation();
-    const currentTab = location.pathname.split("/").pop(); 
-    const isOverview = currentTab === "overview";
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    const currentTab =
+        location.pathname.split("/").pop();
+
+    const [isSidebarOpen, setIsSidebarOpen] =
+        useState(false);
 
     const customStyles = `
-        /* FORCE TOTAL BLACKOUT & RESPONSIVE FIXES */
-        html, body {
+        html,
+        body,
+        #root {
             margin: 0 !important;
             padding: 0 !important;
-            background-color: #000000 !important; 
-            overflow-x: hidden; 
             width: 100%;
-            color: white;
+            min-height: 100%;
+            background: #F1F1EF !important;
+            overflow-x: hidden;
+        }
+
+        body {
+            color: #171717;
         }
 
         .dashboard-container {
             position: relative;
-            min-height: 100vh;
             width: 100%;
-            background-color: #000000 !important; 
+            min-height: 100vh;
+            background: #F1F1EF;
         }
 
-        /* CUSTOM NEON SCROLLBAR */
+        /*
+         * SCROLLBAR
+         * Keep the Metria purple identity,
+         * but make it quieter than the old neon scrollbar.
+         */
         ::-webkit-scrollbar {
-            width: 4px;
+            width: 6px;
         }
+
         ::-webkit-scrollbar-track {
-            background: #000000;
+            background: #E9E9E6;
         }
+
         ::-webkit-scrollbar-thumb {
-            background: #bc13fe;
-            border-radius: 10px;
+            background: #B9A4F8;
+            border-radius: 999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8B68F5;
         }
     `;
 
     return (
-        <div className="dashboard-container text-white font-sans">
+        <div className="dashboard-container font-sans">
             <style>{customStyles}</style>
 
-            {/* --- MOBILE TOP NAVIGATION --- */}
-            <div className="lg:hidden flex items-center justify-between p-4 bg-black/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
-                <h1 className="text-purple-400 text-xl font-black tracking-tighter uppercase">MetriaAI</h1>
-                <button 
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-2 text-white bg-white/5 rounded-lg border border-white/10"
+            {/* =====================================================
+                MOBILE TOP NAVIGATION
+            ===================================================== */}
+            <div
+                className="
+                    lg:hidden
+                    sticky top-0 z-50
+                    flex items-center justify-between
+                    px-4 py-3.5
+                    bg-black/95
+                    backdrop-blur-md
+                    border-b border-white/10
+                "
+            >
+                <h1
+                    className="
+                        text-purple-400
+                        text-xl
+                        font-bold
+                        tracking-[-0.03em]
+                    "
                 >
-                    {isSidebarOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+                    MetriaAI
+                </h1>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        setIsSidebarOpen(
+                            !isSidebarOpen
+                        )
+                    }
+                    className="
+                        w-10 h-10
+                        flex items-center justify-center
+                        text-white
+                        bg-white/5
+                        rounded-[10px]
+                        border border-white/10
+                    "
+                >
+                    {isSidebarOpen ? (
+                        <FiX size={21} />
+                    ) : (
+                        <FiMenu size={21} />
+                    )}
                 </button>
             </div>
 
-            <div className="relative z-10 flex min-h-screen w-full">
-                
-                {/* --- SIDEBAR --- */}
-                <aside className={`
-                    w-64 fixed top-0 left-0 h-full z-[60] border-r border-white/5 bg-[#000000]
-                    transition-transform duration-300 ease-in-out
-                    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} 
-                    lg:translate-x-0
-                `}>
-                    <Sidebar 
-                        profile={profile} 
-                        current={currentTab} 
-                        onLogout={onLogout} 
-                        closeMobileMenu={() => setIsSidebarOpen(false)} 
+            <div
+                className="
+                    relative z-10
+                    flex
+                    min-h-screen
+                    w-full
+                "
+            >
+                {/* =================================================
+                    SIDEBAR
+                ================================================= */}
+                <aside
+                    className={`
+                        fixed
+                        top-0 left-0
+                        z-[60]
+
+                        w-64
+                        h-full
+
+                        bg-black
+                        border-r border-white/5
+
+                        transition-transform
+                        duration-300
+                        ease-in-out
+
+                        ${
+                            isSidebarOpen
+                                ? "translate-x-0"
+                                : "-translate-x-full"
+                        }
+
+                        lg:translate-x-0
+                    `}
+                >
+                    <Sidebar
+                        profile={profile}
+                        current={currentTab}
+                        onLogout={onLogout}
+                        closeMobileMenu={() =>
+                            setIsSidebarOpen(false)
+                        }
                     />
                 </aside>
 
-                {/* --- MOBILE OVERLAY --- */}
+                {/* =================================================
+                    MOBILE OVERLAY
+                ================================================= */}
                 {isSidebarOpen && (
-                    <div 
-                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 lg:hidden"
-                        onClick={() => setIsSidebarOpen(false)}
+                    <div
+                        className="
+                            fixed inset-0
+                            z-50
+                            bg-black/70
+                            backdrop-blur-sm
+                            lg:hidden
+                        "
+                        onClick={() =>
+                            setIsSidebarOpen(false)
+                        }
                     />
                 )}
 
-                {/* --- MAIN CONTENT AREA --- */}
-{/* --- MAIN CONTENT AREA --- */}
+                {/* =================================================
+                    MAIN APPLICATION CANVAS
+                ================================================= */}
                 <main
-                    className={`
-                        flex-1 lg:ml-64 min-h-screen flex flex-col min-w-0 relative z-20
-                        ${isOverview ? "bg-[#f7f8fc]" : "bg-[#000000]"}
-                    `}
+                    className="
+                        flex-1
+                        lg:ml-64
+
+                        min-w-0
+                        min-h-screen
+
+                        flex
+                        flex-col
+
+                        relative
+                        z-20
+
+                        bg-[#F1F1EF]
+                        text-[#171717]
+                    "
                 >
-                    {/* PAGE CONTENT */}
+                    {/* =============================================
+                        PAGE CONTENT
+                    ============================================= */}
                     <div
-                        className={`
-                            w-full flex-1
-                            ${isOverview ? "bg-[#f7f8fc]" : "bg-[#000000]"}
-                        `}
+                        className="
+                            w-full
+                            flex-1
+                            bg-[#F1F1EF]
+                        "
                     >
                         <Outlet />
                     </div>
 
-                    {/* FOOTER */}
+                    {/* =============================================
+                        FOOTER
+                    ============================================= */}
                     <footer
-                        className={`
-                            text-center text-[10px] font-bold uppercase
-                            tracking-[0.6em] pointer-events-none
-                            ${isOverview
-                                ? "py-6 text-slate-300 bg-[#f7f8fc]"
-                                : "p-10 text-white/10 bg-black"
-                            }
-                        `}
+                        className="
+                            py-6
+                            px-6
+
+                            text-center
+                            text-[9px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.35em]
+
+                            text-[#B1B1AB]
+                            bg-[#F1F1EF]
+
+                            pointer-events-none
+                        "
                     >
-                        &copy; 2026 Metria AI &bull; Encrypted Session
+                        &copy; 2026 Metria AI
+                        <span className="mx-2">
+                            •
+                        </span>
+                        Encrypted Session
                     </footer>
                 </main>
             </div>
@@ -144,5 +268,6 @@ export default function Dashboard({ onLogout }) {
 Dashboard.Overview = Overview;
 Dashboard.Analytics = Analytics;
 Dashboard.Trends = Trends;
-Dashboard.Integrations = IntegrationsWrapper; 
+Dashboard.Integrations =
+    IntegrationsWrapper;
 Dashboard.Profile = Profile;
