@@ -2,67 +2,150 @@ import React from "react";
 import { FiPlus, FiSave, FiCloudLightning } from "react-icons/fi";
 import { MdOutlineInsights } from "react-icons/md";
 
-export const WorkbenchHeader = ({ isSaving, onImport, onSave }) => (
-    /* METRIA AI SLIM-LINE PROTOCOL:
-        - Fixed width compatibility: Reduced horizontal padding and font sizes.
-        - Responsive icon handling: Uses className for sizing to avoid Babel errors.
-    */
-    <header className="sticky top-0 z-40 w-full bg-black border-b border-white/10 box-border overflow-hidden">
-        <div className="flex justify-between items-center gap-2 md:gap-4 px-4 md:px-6 py-4 md:py-6 mx-auto w-full">
+export const WorkbenchHeader = ({
+    isSaving,
+    onImport,
+    onSave
+}) => (
+    <header className="w-full bg-[#F3F3F1]">
+        <div className="w-full px-5 md:px-7 lg:px-8 pt-6 pb-4">
             
-            {/* BRANDING: COMPACTED */}
-            <div className="flex items-center gap-3 md:gap-4 min-w-0 shrink">
-                <div className="relative shrink-0 hidden xs:block">
-                    <div className="absolute inset-0 bg-purple-600/30 blur-2xl animate-pulse" />
-                    <div className="relative bg-white p-2 md:p-2.5 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                        <MdOutlineInsights className="text-black w-4 h-4 md:w-5 md:h-5" />
-                    </div>
-                </div>
+            <div className="
+                flex items-center justify-between gap-5
+                bg-white
+                border border-[#E7E7E2]
+                rounded-[18px]
+                px-5 md:px-6
+                py-4
+                shadow-[0_1px_2px_rgba(20,20,20,0.03),0_8px_24px_rgba(20,20,20,0.035)]
+            ">
                 
-                <div className="flex flex-col min-w-0">
-                    <h2 className="text-lg md:text-2xl font-black text-white tracking-tighter uppercase leading-none whitespace-nowrap">
-                        Workbench<span className="text-purple-500">_</span>
-                    </h2>
-                    <div className="flex items-center gap-2 md:gap-3 mt-1 md:mt-1.5">
-                        <span className="text-[7px] md:text-[9px] font-mono font-bold text-white/20 uppercase tracking-[0.2em] md:tracking-[0.3em] whitespace-nowrap">
-                            v4.0.2 // Core
-                        </span>
-                        {isSaving && (
-                            <div className="flex items-center gap-1 text-[7px] md:text-[9px] text-purple-400 font-black uppercase tracking-[0.1em] md:tracking-[0.2em] animate-pulse whitespace-nowrap">
-                                <FiCloudLightning className="w-2.5 h-2.5" /> Syncing
-                            </div>
-                        )}
+                {/* LEFT */}
+                <div className="flex items-center gap-3.5 min-w-0">
+                    
+                    <div className="
+                        w-10 h-10
+                        shrink-0
+                        rounded-[12px]
+                        bg-[#EEE9FF]
+                        border border-[#DDD3FF]
+                        flex items-center justify-center
+                    ">
+                        <MdOutlineInsights
+                            size={19}
+                            className="text-[#6D3DF5]"
+                        />
+                    </div>
+
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="
+                                text-[19px] md:text-[21px]
+                                leading-none
+                                font-semibold
+                                tracking-[-0.035em]
+                                text-[#171717]
+                            ">
+                                Workbench
+                            </h1>
+
+                            <span className="
+                                hidden sm:inline-flex
+                                px-2 py-1
+                                rounded-md
+                                bg-[#F3F3F1]
+                                text-[9px]
+                                leading-none
+                                font-semibold
+                                text-[#777771]
+                            ">
+                                v4.0.2
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-1.5">
+                            <p className="
+                                text-[11px]
+                                leading-none
+                                text-[#8B8B86]
+                                font-medium
+                            ">
+                                Analysis workspace
+                            </p>
+
+                            {isSaving && (
+                                <>
+                                    <span className="w-[3px] h-[3px] rounded-full bg-[#C7C7C2]" />
+
+                                    <span className="
+                                        flex items-center gap-1.5
+                                        text-[10px]
+                                        font-medium
+                                        text-[#6D3DF5]
+                                    ">
+                                        <FiCloudLightning size={11} />
+                                        Syncing
+                                    </span>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* ACTION CENTER: COMPACTED ISLAND */}
-            <div className="flex items-center gap-1 md:gap-2 shrink-0">
-                <div className="flex items-center bg-white/[0.03] p-1 rounded-xl md:rounded-[1.2rem] border border-white/10 shadow-xl">
-                    <button 
-                        onClick={onImport} 
-                        className="group flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 bg-white hover:bg-purple-600 text-black hover:text-white rounded-lg md:rounded-[1rem] font-black text-[8px] md:text-[9px] uppercase tracking-[0.1em] md:tracking-[0.2em] transition-all duration-300 active:scale-95"
-                    >
-                        <FiPlus className="w-3 h-3 md:w-3.5 md:h-3.5 text-purple-600 group-hover:text-white" /> 
-                        <span className="hidden xs:inline">Import</span>
-                    </button>
+                {/* ACTIONS */}
+                <div className="flex items-center gap-2 shrink-0">
                     
-                    <div className="w-[1px] h-5 md:h-6 bg-white/10 mx-1 md:mx-1.5" />
-                    
-                    <button 
-                        onClick={onSave} 
-                        disabled={isSaving} 
-                        className="flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-[1rem] font-black text-[8px] md:text-[9px] uppercase tracking-[0.1em] md:tracking-[0.2em] transition-all duration-300 text-white/40 hover:text-emerald-400 hover:bg-emerald-500/5 disabled:opacity-10 active:scale-95"
+                    <button
+                        onClick={onSave}
+                        disabled={isSaving}
+                        className="
+                            hidden sm:flex
+                            h-9
+                            items-center gap-2
+                            px-3.5
+                            rounded-[10px]
+                            border border-[#E5E5E0]
+                            bg-white
+                            text-[#555550]
+                            text-[11px]
+                            font-semibold
+                            transition-all duration-200
+                            hover:bg-[#F7F7F5]
+                            hover:text-[#171717]
+                            disabled:opacity-40
+                            active:scale-[0.98]
+                        "
                     >
-                        <FiSave className="w-3 h-3 md:w-3.5 md:h-3.5" /> 
-                        <span className="hidden xs:inline">{isSaving ? "Finalizing" : "Save"}</span>
-                        {isSaving && <span className="xs:hidden">...</span>}
+                        <FiSave size={13} />
+                        {isSaving ? "Saving" : "Save"}
                     </button>
+
+                    <button
+                        onClick={onImport}
+                        className="
+                            h-9
+                            flex items-center gap-2
+                            px-4
+                            rounded-[10px]
+                            bg-[#6D3DF5]
+                            text-white
+                            text-[11px]
+                            font-semibold
+                            shadow-[0_3px_10px_rgba(109,61,245,0.18)]
+                            transition-all duration-200
+                            hover:bg-[#6032E7]
+                            hover:shadow-[0_5px_14px_rgba(109,61,245,0.22)]
+                            active:scale-[0.98]
+                        "
+                    >
+                        <FiPlus size={14} />
+                        <span className="hidden xs:inline">
+                            Add data
+                        </span>
+                    </button>
+
                 </div>
             </div>
         </div>
-
-        {/* The Metria Horizon Line */}
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
     </header>
 );
