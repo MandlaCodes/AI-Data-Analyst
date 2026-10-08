@@ -773,6 +773,7 @@ const pumpStreamingAudio = () => {
 const handleStreamingAudioFinished = () => {
     setIsSpeaking(false);
     setIsAnalyzing(false);
+    setIsPlayingIntro(false);
 
     if (interfaceMode === "voice") {
         setLiveTranscript("");
@@ -881,27 +882,20 @@ const finishStreamingAudio = () => {
     state.streamEnded = true;
 
     pumpStreamingAudio();
-
-    /*
-     * The backend finishing the stream does not necessarily mean
-     * the browser has finished playing the buffered audio.
-     *
-     * Wait until playback itself reaches the end before changing
-     * Metria from "Speaking" back to the idle/listening state.
-     */
     const audio =
         audioRef.current;
 
-    if (!audio) {
-        setIsSpeaking(false);
-        setIsAnalyzing(false);
+if (!audio) {
+    setIsSpeaking(false);
+    setIsAnalyzing(false);
+    setIsPlayingIntro(false);
 
-        if (interfaceMode === "voice") {
-            setLiveTranscript("");
-        }
-
-        return;
+    if (interfaceMode === "voice") {
+        setLiveTranscript("");
     }
+
+    return;
+}
 
     const checkPlaybackFinished = () => {
         /*
@@ -923,19 +917,19 @@ const finishStreamingAudio = () => {
             duration > 0 &&
             currentTime >= duration - 0.08;
 
-        if (
-            audio.ended ||
-            hasReachedEnd
-        ) {
-            setIsSpeaking(false);
-            setIsAnalyzing(false);
+            if (
+                audio.ended ||
+                hasReachedEnd
+            ) {
+                setIsSpeaking(false);
+                setIsAnalyzing(false);
 
-            if (interfaceMode === "voice") {
-                setLiveTranscript("");
+                if (interfaceMode === "voice") {
+                    setLiveTranscript("");
+                }
+
+                return;
             }
-
-            return;
-        }
 
         window.setTimeout(
             checkPlaybackFinished,
