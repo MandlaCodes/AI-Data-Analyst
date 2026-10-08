@@ -26,16 +26,27 @@ const IntegrationsWrapper = ({ onLogout }) => {
 
 export default function Dashboard({ onLogout }) {
     const { profile } = useData();
-
     const location = useLocation();
 
-    const currentTab =
-        location.pathname.split("/").pop();
+    const currentTab = location.pathname.split("/").pop();
 
-    const [isSidebarOpen, setIsSidebarOpen] =
-        useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const customStyles = `
+        /*
+         * METRIA DESIGN SYSTEM
+         * Deep lavender-grey canvas with subtle purple undertones.
+         */
+
+        :root {
+            --metria-canvas: #E7E5ED;
+            --metria-surface: #FFFFFF;
+            --metria-accent: #6D3DF5;
+            --metria-text: #17151F;
+            --metria-muted: #656171;
+            --metria-border: #DCD8E5;
+        }
+
         html,
         body,
         #root {
@@ -43,36 +54,58 @@ export default function Dashboard({ onLogout }) {
             padding: 0 !important;
             width: 100%;
             min-height: 100%;
-            background: #F1F1EF !important;
+            background-color: var(--metria-canvas) !important;
             overflow-x: hidden;
         }
 
         body {
-            color: #171717;
+            color: var(--metria-text);
         }
 
         .dashboard-container {
             position: relative;
             width: 100%;
             min-height: 100vh;
-            background: #F1F1EF;
+            background-color: var(--metria-canvas);
+        }
+
+        /*
+         * Very subtle purple atmospheric lighting.
+         * Keeps the page feeling premium without overpowering cards.
+         */
+
+        .metria-main-canvas {
+            background-color: var(--metria-canvas);
+
+            background-image:
+                radial-gradient(
+                    ellipse 65% 42% at 95% 0%,
+                    rgba(126, 87, 220, 0.075),
+                    transparent 75%
+                ),
+                radial-gradient(
+                    ellipse 50% 38% at 0% 75%,
+                    rgba(112, 73, 190, 0.035),
+                    transparent 80%
+                );
+
+            background-attachment: fixed;
         }
 
         /*
          * SCROLLBAR
-         * Keep the Metria purple identity,
-         * but make it quieter than the old neon scrollbar.
          */
+
         ::-webkit-scrollbar {
             width: 6px;
         }
 
         ::-webkit-scrollbar-track {
-            background: #E9E9E6;
+            background: #E2DFE9;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #B9A4F8;
+            background: #B3A0DC;
             border-radius: 999px;
         }
 
@@ -88,20 +121,21 @@ export default function Dashboard({ onLogout }) {
             {/* =====================================================
                 MOBILE TOP NAVIGATION
             ===================================================== */}
+
             <div
                 className="
                     lg:hidden
                     sticky top-0 z-50
                     flex items-center justify-between
                     px-4 py-3.5
-                    bg-black/95
+                    bg-[#0D0B13]/95
                     backdrop-blur-md
-                    border-b border-white/10
+                    border-b border-purple-500/10
                 "
             >
                 <h1
                     className="
-                        text-purple-400
+                        text-[#C69BFF]
                         text-xl
                         font-bold
                         tracking-[-0.03em]
@@ -112,11 +146,7 @@ export default function Dashboard({ onLogout }) {
 
                 <button
                     type="button"
-                    onClick={() =>
-                        setIsSidebarOpen(
-                            !isSidebarOpen
-                        )
-                    }
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     className="
                         w-10 h-10
                         flex items-center justify-center
@@ -124,7 +154,14 @@ export default function Dashboard({ onLogout }) {
                         bg-white/5
                         rounded-[10px]
                         border border-white/10
+                        transition-colors
+                        hover:bg-white/10
                     "
+                    aria-label={
+                        isSidebarOpen
+                            ? "Close navigation"
+                            : "Open navigation"
+                    }
                 >
                     {isSidebarOpen ? (
                         <FiX size={21} />
@@ -145,6 +182,7 @@ export default function Dashboard({ onLogout }) {
                 {/* =================================================
                     SIDEBAR
                 ================================================= */}
+
                 <aside
                     className={`
                         fixed
@@ -154,8 +192,8 @@ export default function Dashboard({ onLogout }) {
                         w-64
                         h-full
 
-                        bg-black
-                        border-r border-white/5
+                        bg-[#08070C]
+                        border-r border-purple-500/10
 
                         transition-transform
                         duration-300
@@ -183,6 +221,7 @@ export default function Dashboard({ onLogout }) {
                 {/* =================================================
                     MOBILE OVERLAY
                 ================================================= */}
+
                 {isSidebarOpen && (
                     <div
                         className="
@@ -201,8 +240,11 @@ export default function Dashboard({ onLogout }) {
                 {/* =================================================
                     MAIN APPLICATION CANVAS
                 ================================================= */}
+
                 <main
                     className="
+                        metria-main-canvas
+
                         flex-1
                         lg:ml-64
 
@@ -215,18 +257,17 @@ export default function Dashboard({ onLogout }) {
                         relative
                         z-20
 
-                        bg-[#F1F1EF]
-                        text-[#171717]
+                        text-[#17151F]
                     "
                 >
                     {/* =============================================
                         PAGE CONTENT
                     ============================================= */}
+
                     <div
                         className="
                             w-full
                             flex-1
-                            bg-[#F1F1EF]
                         "
                     >
                         <Outlet />
@@ -235,19 +276,21 @@ export default function Dashboard({ onLogout }) {
                     {/* =============================================
                         FOOTER
                     ============================================= */}
+
                     <footer
                         className="
                             py-6
                             px-6
 
                             text-center
-                            text-[9px]
+                            text-[10px]
                             font-semibold
                             uppercase
-                            tracking-[0.35em]
+                            tracking-[0.25em]
 
-                            text-[#B1B1AB]
-                            bg-[#F1F1EF]
+                            text-[#858094]
+
+                            border-t border-[#DCD8E5]/60
 
                             pointer-events-none
                         "
@@ -268,6 +311,5 @@ export default function Dashboard({ onLogout }) {
 Dashboard.Overview = Overview;
 Dashboard.Analytics = Analytics;
 Dashboard.Trends = Trends;
-Dashboard.Integrations =
-    IntegrationsWrapper;
+Dashboard.Integrations = IntegrationsWrapper;
 Dashboard.Profile = Profile;
