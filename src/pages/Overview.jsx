@@ -1501,7 +1501,7 @@ function OverviewStyles() {
   return (
     <style>{`
       :root {
-        --overview-bg: #f7f8fc;
+        --overview-bg: #c7a7e4;
         --overview-card: #ffffff;
 
         /* MUCH STRONGER TEXT CONTRAST */
