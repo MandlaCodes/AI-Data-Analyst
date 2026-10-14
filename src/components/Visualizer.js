@@ -5,7 +5,8 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import axios from "axios";
-import { Line, Bar, Pie } from "react-chartjs-2";
+import { Line, Bar } from "react-chartjs-2";
+import { buildVisualizationPlan, toChartJsData, formatMetric } from "./visualizationEngine";
 
 import {
   Chart as ChartJS,
@@ -524,368 +525,28 @@ export const Visualizer = ({
   // PARSE DATASETS FOR VISUALIZATION ONLY
   // ------------------------------------------------------------
 
-  const parsed =
-    useMemo(() => {
-      return activeDatasets.map(
-        (ds) => {
-          const columns =
-            Array.isArray(
-              ds.data?.[0]
-            )
-              ? ds.data[0]
-              : Object.keys(
-                  ds.data?.[0] ||
-                    {}
-                );
-
-          const rows =
-            Array.isArray(
-              ds.data?.[0]
-            )
-              ? ds.data
-                  .slice(1)
-                  .map(
-                    (r) =>
-                      Object.fromEntries(
-                        columns.map(
-                          (
-                            c,
-                            i
-                          ) => [
-                            c,
-                            r[i]
-                          ]
-                        )
-                      )
-                  )
-              : ds.data ||
-                [];
-
-          // --------------------------------------------------------
-          // SMART LABEL SELECTION
-          // --------------------------------------------------------
-
-          const labelCol =
-            columns.find(
-              (col) => {
-                const cLower =
-                  String(
-                    col
-                  ).toLowerCase();
-
-                if (
-                  cLower.includes(
-                    "value"
-                  ) ||
-                  cLower.includes(
-                    "amount"
-                  ) ||
-                  cLower.includes(
-                    "price"
-                  ) ||
-                  cLower.includes(
-                    "cost"
-                  ) ||
-                  cLower.includes(
-                    "total"
-                  ) ||
-                  cLower.includes(
-                    "revenue"
-                  )
-                ) {
-                  return false;
-                }
-
-                return (
-                  cLower.includes(
-                    "name"
-                  ) ||
-                  cLower.includes(
-                    "product"
-                  ) ||
-                  cLower.includes(
-                    "item"
-                  ) ||
-                  cLower.includes(
-                    "deal"
-                  ) ||
-                  cLower.includes(
-                    "client"
-                  ) ||
-                  cLower.includes(
-                    "company"
-                  ) ||
-                  cLower.includes(
-                    "rep"
-                  ) ||
-                  cLower.includes(
-                    "title"
-                  ) ||
-                  cLower.includes(
-                    "id"
-                  )
-                );
-              }
-            ) ||
-            columns.find(
-              (col) => {
-                const cLower =
-                  String(
-                    col
-                  ).toLowerCase();
-
-                return (
-                  cLower.includes(
-                    "date"
-                  ) ||
-                  cLower.includes(
-                    "time"
-                  )
-                );
-              }
-            ) ||
-            columns[0];
-
-          const labelColName =
-            labelCol
-              ? String(
-                  labelCol
-                )
-              : "";
-
-          const isDateLabel =
-            labelColName
-              .toLowerCase()
-              .includes(
-                "date"
-              ) ||
-            labelColName
-              .toLowerCase()
-              .includes(
-                "time"
-              );
-
-          // --------------------------------------------------------
-          // COLUMN ANALYSIS
-          // --------------------------------------------------------
-
-          const analysis =
-            columns.map(
-              (col) => {
-                const chartValues =
-                  rows.map(
-                    (r) =>
-                      toNumber(
-                        r[col]
-                      )
-                  );
-
-                const numeric =
-                  chartValues.filter(
-                    (v) =>
-                      v !==
-                      null
-                  );
-
-                const colName =
-                  String(
-                    col
-                  ).toLowerCase();
-
-                const isDateCol =
-                  colName.includes(
-                    "date"
-                  ) ||
-                  colName.includes(
-                    "time"
-                  );
-
-                const isNumeric =
-                  numeric.length >
-                    0 &&
-                  col !==
-                    labelCol &&
-                  !isDateCol;
-
-                let stats =
-                  null;
-
-                if (
-                  isNumeric
-                ) {
-                  const mid =
-                    Math.floor(
-                      numeric.length /
-                        2
-                    );
-
-                  const firstHalf =
-                    numeric.slice(
-                      0,
-                      mid
-                    );
-
-                  const secondHalf =
-                    numeric.slice(
-                      mid
-                    );
-
-                  const avg1 =
-                    firstHalf.reduce(
-                      (
-                        a,
-                        b
-                      ) =>
-                        a +
-                        b,
-                      0
-                    ) /
-                    (
-                      firstHalf.length ||
-                      1
-                    );
-
-                  const avg2 =
-                    secondHalf.reduce(
-                      (
-                        a,
-                        b
-                      ) =>
-                        a +
-                        b,
-                      0
-                    ) /
-                    (
-                      secondHalf.length ||
-                      1
-                    );
-
-                  const trendVal =
-                    avg1 ===
-                    0
-                      ? 0
-                      : (
-                          (
-                            avg2 -
-                            avg1
-                          ) /
-                          avg1
-                        ) *
-                        100;
-
-                  stats = {
-                    avg:
-                      numeric.reduce(
-                        (
-                          a,
-                          b
-                        ) =>
-                          a +
-                          b,
-                        0
-                      ) /
-                      numeric.length,
-
-                    min:
-                      Math.min(
-                        ...numeric
-                      ),
-
-                    max:
-                      Math.max(
-                        ...numeric
-                      ),
-
-                    sum:
-                      numeric.reduce(
-                        (
-                          a,
-                          b
-                        ) =>
-                          a +
-                          b,
-                        0
-                      ),
-
-                    trend:
-                      Math.abs(
-                        trendVal
-                      ).toFixed(
-                        1
-                      ),
-
-                    trendDir:
-                      trendVal >=
-                      0
-                        ? "up"
-                        : "down"
-                  };
-                }
-
-                const freq =
-                  {};
-
-                if (
-                  !isNumeric
-                ) {
-                  rows.forEach(
-                    (r) => {
-                      const val =
-                        r[
-                          col
-                        ] ||
-                        "N/A";
-
-                      freq[
-                        val
-                      ] =
-                        (
-                          freq[
-                            val
-                          ] ||
-                          0
-                        ) +
-                        1;
-                    }
-                  );
-                }
-
-                return {
-                  col,
-                  isNumeric,
-                  numeric,
-                  chartValues,
-                  stats,
-                  freq
-                };
-              }
-            );
-
-          return {
-            ...ds,
-            rows,
-            columns,
-            analysis,
-            labelCol,
-            isDateLabel,
-
-            labels:
-              rows.map(
-                (r) =>
-                  labelCol
-                    ? r[
-                        labelCol
-                      ] ||
-                      "N/A"
-                    : "N/A"
-              )
-          };
-        }
-      );
-    }, [
-      activeDatasets,
-      refreshKey
-    ]);
+  // Preserve the original imported data for AI and cross-analysis.
+  // Chart planning is separate and never mutates source records.
+  const parsed = useMemo(() => activeDatasets.map(ds => {
+    const matrix = Array.isArray(ds.data) ? ds.data : [];
+    const isMatrix = Array.isArray(matrix[0]);
+    const columns = isMatrix ? matrix[0].map(String) : Object.keys(matrix[0] || {});
+    const rows = isMatrix
+      ? matrix.slice(1).map(values => Object.fromEntries(columns.map((col, index) => [col, values?.[index] ?? null])))
+      : matrix;
+    let visualization;
+    try {
+      visualization = buildVisualizationPlan({ name: ds.name, data: ds.data }, {
+        maxCharts: 6,
+        maxKpis: 8,
+        maxCategories: 12
+      });
+    } catch (error) {
+      console.error("[Metria Visualization] Chart planning failed:", error);
+      visualization = { kpis: [], charts: [], warnings: ["Unable to interpret this dataset automatically. Your original records remain available."] };
+    }
+    return { ...ds, columns, rows, visualization };
+  }), [activeDatasets, refreshKey]);
 
   const selectedDataset =
     parsed.find(
@@ -1617,25 +1278,7 @@ export const Visualizer = ({
 
       {parsed.map(
         (ds) => {
-          const numericCols =
-            ds.analysis.filter(
-              (c) =>
-                c.isNumeric
-            );
-
-          const categoricalCols =
-            ds.analysis.filter(
-              (c) =>
-                !c.isNumeric &&
-                Object.keys(
-                  c.freq
-                ).length >
-                  1 &&
-                Object.keys(
-                  c.freq
-                ).length <
-                  15
-            );
+          const { kpis = [], charts = [], warnings = [] } = ds.visualization || {};
 
           /*
            * CROSS MODE:
@@ -1855,489 +1498,96 @@ export const Visualizer = ({
 
               <div className="space-y-16">
 
-                {/* =============================================== */}
-                {/* STAT CARDS                                      */}
-                {/* =============================================== */}
+                {/* KPI cards are derived from validated aggregates, not row averages. */}
+                {kpis.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {kpis.map((kpi, idx) => (
+                      <div key={kpi.key} className="relative overflow-hidden bg-[#0d0d12] border border-white/10 rounded-[2.5rem] p-8 text-white shadow-2xl hover:border-[#7000FF]/30 transition-all">
+                        <div className="absolute top-0 left-0 w-full h-[3px]" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em] mb-5">{kpi.label}</p>
+                        <p className="text-3xl md:text-4xl font-black tracking-tight break-words">
+                          {formatMetric(kpi.value, kpi.unit)}
+                        </p>
+                        <p className="text-[10px] text-zinc-600 mt-5 uppercase tracking-wider">
+                          {kpi.aggregation === "ratio" ? "Calculated ratio" : kpi.aggregation === "sum" ? "Total across records" : kpi.aggregation === "average" || kpi.aggregation === "avg" ? "Average" : kpi.aggregation || "Metric"}
+                        </p>
+                        {kpi.formula && <p className="text-[10px] text-zinc-500 mt-2 break-words">{kpi.formula}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {warnings.length > 0 && (
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] px-6 py-4 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Data interpretation notes</p>
+                    {warnings.map((warning, index) => <p key={index} className="text-xs text-zinc-400">{warning}</p>)}
+                  </div>
+                )}
 
-                  {numericCols
-                    .slice(
-                      0,
-                      4
-                    )
-                    .map(
-                      (
-                        col,
-                        idx
-                      ) => (
-                        <div
-                          key={
-                            col.col
+                {charts.length ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+                    {charts.map((chart, idx) => {
+                      const key = `${ds.id}-${chart.id}`;
+                      const activeType = localChartTypes[key] || chart.type;
+                      const color = COLORS[idx % COLORS.length];
+                      const chartData = toChartJsData({ ...chart, type: activeType }, [color]);
+                      const options = {
+                        ...chartOptions,
+                        plugins: {
+                          ...chartOptions.plugins,
+                          tooltip: {
+                            ...chartOptions.plugins.tooltip,
+                            callbacks: {
+                              label: context => `${context.dataset.label}: ${formatMetric(context.parsed.y, chart.unit)}`
+                            }
                           }
-                          className="relative overflow-hidden bg-[#0d0d12] border border-white/10 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl group hover:border-[#7000FF]/30 transition-all"
-                        >
-
-                          <div
-                            className={`absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r ${
-                              idx %
-                                  2 ===
-                              0
-                                ? "from-[#7000FF]"
-                                : "from-zinc-600"
-                            } to-transparent`}
-                          />
-
-                          <div className="flex justify-between items-start mb-6">
-
-                            <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em] truncate max-w-[70%]">
-                              {
-                                col.col
-                              }
-                            </p>
-
-                            {col
-                              .stats
-                              ?.trend && (
-                              <div
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[8px] font-black ${
-                                  col
-                                    .stats
-                                    .trendDir ===
-                                  "up"
-                                    ? "bg-emerald-500/10 text-emerald-500"
-                                    : "bg-rose-500/10 text-rose-500"
-                                }`}
-                              >
-
-                                {col
-                                  .stats
-                                  .trendDir ===
-                                "up" ? (
-                                  <FiTrendingUp className="w-3 h-3" />
-                                ) : (
-                                  <FiTrendingDown className="w-3 h-3" />
-                                )}
-
-                                {
-                                  col
-                                    .stats
-                                    .trend
-                                }
-                                %
-
-                              </div>
-                            )}
-
-                          </div>
-
-                          <div className="flex items-baseline gap-3 mb-8">
-
-                            <span className="text-5xl md:text-6xl font-black tracking-tighter group-hover:text-[#a5b4fc] transition-colors">
-
-                              {col.stats
-                                ?.avg
-                                .toLocaleString(
-                                  undefined,
-                                  {
-                                    maximumFractionDigits:
-                                      1
-                                  }
-                                )}
-
-                            </span>
-
-                            <span className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em]">
-                              avg_val
-                            </span>
-
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3 border-t border-white/5 pt-8">
-
-                            <div>
-
-                              <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
-                                Min_Range
-                              </p>
-
-                              <p className="text-[12px] font-bold text-zinc-300">
-                                {col.stats
-                                  ?.min
-                                  .toLocaleString()}
-                              </p>
-
-                            </div>
-
-                            <div className="border-x border-white/5 px-3 text-center">
-
-                              <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
-                                Peak_Cap
-                              </p>
-
-                              <p className="text-[12px] font-bold text-zinc-300">
-                                {col.stats
-                                  ?.max
-                                  .toLocaleString()}
-                              </p>
-
-                            </div>
-
-                            <div className="text-right">
-
-                              <p className="text-[8px] text-zinc-600 uppercase font-black mb-2">
-                                Net_Agg
-                              </p>
-
-                              <p className="text-[12px] font-bold text-[#7000FF] truncate">
-
-                                {col.stats
-                                  ?.sum >
-                                1e6
-                                  ? (
-                                      col
-                                        .stats
-                                        .sum /
-                                      1e6
-                                    ).toFixed(
-                                      1
-                                    ) +
-                                    "M"
-                                  : col.stats
-                                      ?.sum
-                                      .toLocaleString()}
-
-                              </p>
-
-                            </div>
-
-                          </div>
-
-                        </div>
-                      )
-                    )}
-
-                </div>
-
-                {/* =============================================== */}
-                {/* GRAPHS                                          */}
-                {/* =============================================== */}
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-
-                  {numericCols.map(
-                    (
-                      col,
-                      idx
-                    ) => {
-                      const defaultChartType =
-                        ds.isDateLabel
-                          ? "line"
-                          : "bar";
-
-                      const currentChartType =
-                        localChartTypes[
-                          `${ds.id}-${col.col}`
-                        ] ||
-                        defaultChartType;
-
-                      const activeColor =
-                        COLORS[
-                          idx %
-                            COLORS.length
-                        ];
-
-                      const chartData = {
-                        labels:
-                          ds.labels,
-
-                        datasets: [
-                          {
-                            label:
-                              col.col,
-
-                            data:
-                              col.chartValues,
-
-                            borderColor:
-                              activeColor,
-
-                            backgroundColor:
-                              currentChartType ===
-                              "bar"
-                                ? `${activeColor}CC`
-                                : `${activeColor}15`,
-
-                            borderWidth:
-                              currentChartType ===
-                              "bar"
-                                ? 1
-                                : 3,
-
-                            borderRadius:
-                              currentChartType ===
-                              "bar"
-                                ? 6
-                                : 0,
-
-                            minBarLength:
-                              4,
-
-                            tension:
-                              0.3,
-
-                            fill:
-                              currentChartType ===
-                              "line",
-
-                            pointRadius:
-                              ds.isDateLabel
-                                ? 3
-                                : 0
+                        },
+                        scales: {
+                          ...chartOptions.scales,
+                          x: {
+                            ...chartOptions.scales.x,
+                            ticks: { ...chartOptions.scales.x.ticks, autoSkip: true, maxTicksLimit: 12, maxRotation: 35, minRotation: 0 }
+                          },
+                          y: {
+                            ...chartOptions.scales.y,
+                            beginAtZero: chart.values.every(value => value >= 0),
+                            ticks: {
+                              ...chartOptions.scales.y.ticks,
+                              callback: value => formatMetric(Number(value), chart.unit)
+                            }
                           }
-                        ]
+                        }
                       };
-
                       return (
-                        <div
-                          key={
-                            `${col.col}-${refreshKey}`
-                          }
-                          className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20"
-                        >
-
-                          <div className="flex justify-between items-start mb-10">
-
-                            <div className="min-w-0 pr-4">
-
+                        <div key={key} className="group relative border border-white/10 rounded-[3rem] p-8 md:p-12 bg-[#0a0a0f] shadow-2xl transition-all flex flex-col hover:border-white/20">
+                          <div className="flex justify-between items-start mb-8 gap-4">
+                            <div className="min-w-0">
                               <div className="flex items-center gap-3 mb-3">
-
-                                <div
-                                  className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]"
-                                  style={{
-                                    backgroundColor:
-                                      activeColor
-                                  }}
-                                />
-
-                                <h4 className="text-white text-[11px] font-black uppercase tracking-[0.5em] truncate">
-                                  {
-                                    col.col
-                                  }
-                                </h4>
-
+                                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 12px ${color}77` }} />
+                                <h4 className="text-white text-[11px] font-black uppercase tracking-[0.25em] break-words">{chart.title}</h4>
                               </div>
-
-                              <p className="text-zinc-700 text-[10px] font-mono uppercase tracking-[0.3em]">
-                                Mapped_By_
-                                {
-                                  ds.labelCol
-                                }
-                              </p>
-
+                              <p className="text-zinc-500 text-[11px] leading-relaxed">{chart.subtitle}</p>
+                              {chart.note && <p className="text-amber-300/70 text-[10px] mt-2">{chart.note}</p>}
                             </div>
-
                             <div className="flex gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/5 shrink-0">
-
-                              <button
-                                onClick={() =>
-                                  setExpandedChart(
-                                    {
-                                      title:
-                                        col.col,
-
-                                      data:
-                                        chartData,
-
-                                      type:
-                                        currentChartType
-                                    }
-                                  )
-                                }
-                                className="p-2 text-zinc-500 hover:text-white transition-colors"
-                              >
-
+                              <button type="button" aria-label={`Expand ${chart.title}`} onClick={() => setExpandedChart({ title: chart.title, data: chartData, type: activeType, options })} className="p-2 text-zinc-500 hover:text-white transition-colors">
                                 <FiMaximize2 className="w-5 h-5" />
-
                               </button>
-
-                              <button
-                                onClick={() =>
-                                  toggleLocalChartType(
-                                    ds.id,
-                                    col.col
-                                  )
-                                }
-                                className="p-2 text-zinc-500 hover:text-white transition-colors"
-                              >
-
-                                {currentChartType ===
-                                "line" ? (
-                                  <FiBarChart2 className="w-5 h-5" />
-                                ) : (
-                                  <FiTrendingUp className="w-5 h-5" />
-                                )}
-
+                              <button type="button" aria-label={`Switch chart type for ${chart.title}`} onClick={() => setLocalChartTypes(prev => ({ ...prev, [key]: activeType === "line" ? "bar" : "line" }))} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                                {activeType === "line" ? <FiBarChart2 className="w-5 h-5" /> : <FiTrendingUp className="w-5 h-5" />}
                               </button>
-
                             </div>
-
                           </div>
-
                           <div className="w-full aspect-[4/3] sm:aspect-[16/9] relative">
-
-                            {currentChartType ===
-                            "bar" ? (
-                              <Bar
-                                data={
-                                  chartData
-                                }
-                                options={
-                                  chartOptions
-                                }
-                              />
-                            ) : (
-                              <Line
-                                data={
-                                  chartData
-                                }
-                                options={
-                                  chartOptions
-                                }
-                              />
-                            )}
-
+                            {activeType === "line" ? <Line data={chartData} options={options} /> : <Bar data={chartData} options={options} />}
                           </div>
-
                         </div>
                       );
-                    }
-                  )}
-
-                </div>
-
-                {/* =============================================== */}
-                {/* PIE CHARTS                                      */}
-                {/* =============================================== */}
-
-                {categoricalCols.length >
-                  0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 mt-16">
-
-                    {categoricalCols
-                      .slice(
-                        0,
-                        3
-                      )
-                      .map(
-                        (
-                          col
-                        ) => (
-                          <div
-                            key={
-                              `${col.col}-${refreshKey}`
-                            }
-                            className="p-10 md:p-14 border border-white/10 rounded-[3rem] bg-[#0d0d12] shadow-2xl relative overflow-hidden group hover:border-[#7000FF]/30 transition-all"
-                          >
-
-                            <div className="absolute top-6 right-8 px-4 py-1.5 bg-[#7000FF]/10 border border-[#7000FF]/20 rounded-full">
-
-                              <span className="text-[8px] font-black text-[#7000FF] uppercase tracking-widest italic">
-                                Categorical_Split
-                              </span>
-
-                            </div>
-
-                            <div className="flex items-center gap-4 mb-10">
-
-                              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-
-                                <FiPieChart className="text-[#a5b4fc] w-5 h-5" />
-
-                              </div>
-
-                              <h4 className="text-white/50 text-[11px] font-black uppercase tracking-[0.4em] truncate pr-16">
-                                {
-                                  col.col
-                                }
-                              </h4>
-
-                            </div>
-
-                            <div className="aspect-square relative w-full">
-
-                              <Pie
-                                data={{
-                                  labels:
-                                    Object.keys(
-                                      col.freq
-                                    ),
-
-                                  datasets:
-                                    [
-                                      {
-                                        data:
-                                          Object.values(
-                                            col.freq
-                                          ),
-
-                                        backgroundColor:
-                                          COLORS,
-
-                                        borderWidth:
-                                          4,
-
-                                        borderColor:
-                                          "#0d0d12",
-
-                                        hoverOffset:
-                                          20
-                                      }
-                                    ]
-                                }}
-
-                                options={{
-                                  maintainAspectRatio:
-                                    false,
-
-                                  plugins:
-                                    {
-                                      legend:
-                                        {
-                                          position:
-                                            "bottom",
-
-                                          labels:
-                                            {
-                                              color:
-                                                "#666",
-
-                                              font:
-                                                {
-                                                  size:
-                                                    9,
-
-                                                  weight:
-                                                    "bold"
-                                                },
-
-                                              padding:
-                                                20,
-
-                                              usePointStyle:
-                                                true
-                                            }
-                                        }
-                                    }
-                                }}
-                              />
-
-                            </div>
-
-                          </div>
-                        )
-                      )}
-
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-8 border border-white/10 rounded-[2rem] bg-[#0a0a0f] text-zinc-400 text-sm">
+                    No reliable automatic charts were inferred from this dataset. Your records remain available above.
                   </div>
                 )}
 
@@ -2385,7 +1635,7 @@ export const Visualizer = ({
                     expandedChart.data
                   }
                   options={
-                    chartOptions
+                    expandedChart.options || chartOptions
                   }
                 />
               ) : (
@@ -2394,7 +1644,7 @@ export const Visualizer = ({
                     expandedChart.data
                   }
                   options={
-                    chartOptions
+                    expandedChart.options || chartOptions
                   }
                 />
               )}
