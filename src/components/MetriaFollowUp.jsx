@@ -29,6 +29,8 @@ import {
 const API_BASE_URL =
     "https://ai-data-analyst-backend-1nuw.onrender.com";
 
+// Paddle price is configured on the FastAPI server.
+
 const INTRO_STORAGE_KEY =
     "metria_intro_seen";
 
@@ -156,6 +158,61 @@ export const MetriaFollowUp = ({
         isExpanded,
         setIsExpanded
     ] = useState(false);
+
+    const [subscriptionNotice, setSubscriptionNotice] = useState("");
+    const [checkoutPending, setCheckoutPending] = useState(false);
+
+    const openSubscriptionCheckout = async () => {
+        if (checkoutPending) return;
+        const token = authToken || localStorage.getItem("adt_token");
+        if (!token) {
+            setSubscriptionNotice("Please sign in again to continue with a subscription.");
+            return;
+        }
+        if (!window.Paddle?.Checkout?.open) {
+            setSubscriptionNotice("Checkout is loading. Please try again in a moment.");
+            return;
+        }
+        setCheckoutPending(true);
+        setSubscriptionNotice("Opening secure Paddle checkout…");
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/api/billing/checkout`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const transactionId = response.data?.transaction_id;
+            if (!transactionId) throw new Error("Checkout transaction was not created.");
+            window.Paddle.Checkout.open({ transactionId });
+            setSubscriptionNotice("Complete checkout to unlock unlimited questions. Access activates after payment verification.");
+        } catch (error) {
+            if (error.response?.status === 409) {
+                try {
+                    const status = await axios.get(`${API_BASE_URL}/auth/me`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (status.data?.is_pro) {
+                        setSubscriptionNotice("Your subscription is already active. You can continue asking Metria.");
+                        return;
+                    }
+                } catch (_) { /* Show the original checkout error. */ }
+            }
+            console.error("Paddle checkout failed:", error);
+            const detail = error.response?.data?.detail;
+            setSubscriptionNotice(
+                (typeof detail === "string" && detail) || error.message ||
+                "Unable to open checkout. Please try again."
+            );
+        } finally {
+            setCheckoutPending(false);
+        }
+    };
+
+    const isSubscriptionRequired = (status, data) => {
+        const detail = data?.detail;
+        const code = typeof detail === "object" ? detail?.code : null;
+        return status === 402 || code === "FREE_QUESTION_USED" || code === "SUBSCRIPTION_REQUIRED";
+    };
 
     // ============================================================
     // REFS
@@ -2556,9 +2613,14 @@ const playMetriaIntroduction = async () => {
                     if (
                         !response.ok
                     ) {
-                        const errorText =
-                            await response.text();
-
+                        const errorText = await response.text();
+                        let errorData = {};
+                        try { errorData = JSON.parse(errorText); } catch (_) { /* plain text */ }
+                        if (isSubscriptionRequired(response.status, errorData)) {
+                            const paywallError = new Error("SUBSCRIPTION_REQUIRED");
+                            paywallError.subscriptionRequired = true;
+                            throw paywallError;
+                        }
                         throw new Error(
                             `Voice response failed (${response.status}): ${errorText}`
                         );
@@ -2810,6 +2872,16 @@ const playMetriaIntroduction = async () => {
                         return;
                     }
 
+                    if (error?.subscriptionRequired) {
+                        setIsAnalyzing(false);
+                        setIsSpeaking(false);
+                        setLiveTranscript("");
+                        // Do not present the blocked question as a completed conversation.
+                        setMessages(messages);
+                        openSubscriptionCheckout();
+                        return;
+                    }
+
                     console.error(
                         "Metria live voice failed:",
                         error
@@ -2908,6 +2980,13 @@ const playMetriaIntroduction = async () => {
                     false
                 );
             } catch (err) {
+                if (isSubscriptionRequired(err.response?.status, err.response?.data)) {
+                    setIsAnalyzing(false);
+                    setMessages(messages);
+                    openSubscriptionCheckout();
+                    return;
+                }
+
                 console.error(
                     "Metria query failed:",
                     err.response?.data ||
@@ -3241,6 +3320,15 @@ const playMetriaIntroduction = async () => {
                     : "w-full mx-auto my-6 flex flex-col"
             }
         >
+            {subscriptionNotice && (
+                <div className="mb-4 rounded-2xl border border-purple-500/30 bg-[#10091c] px-5 py-4 text-sm text-purple-100 flex flex-wrap items-center justify-between gap-3">
+                    <span>{subscriptionNotice}</span>
+                    <div className="flex gap-2">
+                        <button type="button" onClick={openSubscriptionCheckout} disabled={checkoutPending} className="rounded-xl bg-purple-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Upgrade to Pro</button>
+                        <button type="button" onClick={() => setSubscriptionNotice("")} aria-label="Dismiss notice" className="rounded-xl border border-white/10 px-3 py-2 text-slate-300"><FiX /></button>
+                    </div>
+                </div>
+            )}
             <div
                 className={`transition-all duration-700 transform ${
                     isVisible

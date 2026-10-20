@@ -14,7 +14,7 @@ import {
 const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 // Replace with your actual Paddle Price ID from your Paddle Dashboard
-const PADDLE_PRICE_ID = "pri_01kz4eavw3bf6rddns5qn88w5y";
+// Paddle price is configured on the FastAPI server.
 
 // Sub-component: Audio Waveform
 const AudioWaveform = ({ color = "#bc13fe" }) => (
@@ -338,26 +338,41 @@ const AIAnalysisPanel = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userToken]);
 
-    const openPaddleCheckout = () => {
-        const profile = (() => {
-            try { return JSON.parse(localStorage.getItem("adt_profile") || "{}"); }
-            catch { return {}; }
-        })();
-        const userId = profile.user_id || profile.id || profile.userId;
-        if (!userId) {
-            setAnalysisError("Your session is missing a user ID. Please sign in again.");
+    const openPaddleCheckout = async () => {
+        setAnalysisError("");
+        const token = localStorage.getItem("adt_token");
+        if (!token) {
+            setAnalysisError("Please sign in again to subscribe.");
             return;
         }
-        if (!window.Paddle?.Checkout) {
+        if (!window.Paddle?.Checkout?.open) {
             setAnalysisError("Checkout is still loading. Please try again.");
             return;
         }
-        const options = {
-            items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-            customData: { user_id: String(userId) }
-        };
-        if (profile.email) options.customer = { email: profile.email };
-        window.Paddle.Checkout.open(options);
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/api/billing/checkout`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const transactionId = response.data?.transaction_id;
+            if (!transactionId) throw new Error("Checkout transaction was not created.");
+            window.Paddle.Checkout.open({ transactionId });
+        } catch (error) {
+            if (error.response?.status === 409) {
+                try {
+                    const access = await getAnalysisAccess();
+                    if (access.is_pro) {
+                        setAnalysisError("Your subscription is active. You can continue using Metria.");
+                        return;
+                    }
+                } catch (_) { /* Preserve original checkout error below. */ }
+            }
+            setAnalysisError(
+                error.response?.data?.detail || error.message ||
+                "Unable to start checkout. Please try again."
+            );
+        }
     };
 
     const executeAnalysisCall = async () => {
