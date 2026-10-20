@@ -3293,53 +3293,47 @@ return (
             ) : (
 
                 // =============================================
-
-                // EMPTY STATE
-
+                // FIRST-RUN ONBOARDING EMPTY STATE
                 // =============================================
-
-                <div className="px-6 lg:px-10 pb-12 mt-12">
-
-                    <div className="text-center py-52 bg-white/[0.01] border-y border-white/5 relative overflow-hidden rounded-[3rem]">
-
-                        <div className="absolute inset-0 bg-radial-gradient from-purple-500/10 to-transparent opacity-40 pointer-events-none" />
-
-                        <MdOutlineAnalytics
-
-                            size={100}
-
-                            className="mx-auto text-slate-900 mb-8"
-
-                        />
-
-                        <h3 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">
-
-                            Neural Link Disconnected
-
-                        </h3>
-
-                        <button
-
-                            onClick={() =>
-
-                                setShowModal(
-
-                                    true
-
-                                )
-
-                            }
-
-                            className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
-
-                        >
-
-                            Initialize Stream
-
-                        </button>
-
-                    </div>
-
+                <div className="px-4 sm:px-6 lg:px-10 pb-12 mt-8 sm:mt-12">
+                    <section className="relative overflow-hidden rounded-[2rem] sm:rounded-[3rem] border border-white/10 bg-white/[0.015] px-6 py-14 sm:px-10 sm:py-20 text-center">
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-purple-600/[0.09] via-transparent to-transparent" />
+                        <div className="relative z-10 mx-auto max-w-2xl">
+                            <div className="mx-auto mb-7 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-500/25 bg-purple-500/10">
+                                <MdOutlineAnalytics size={32} className="text-purple-300" aria-hidden="true" />
+                            </div>
+                            <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-purple-300">Your first analysis</p>
+                            <h3 className="mb-5 text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
+                                Your analytics workspace is ready.
+                            </h3>
+                            <p className="mx-auto mb-8 max-w-xl text-sm sm:text-base leading-relaxed text-zinc-400">
+                                Import your business data and let Metria uncover trends, opportunities, and insights you can act on.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(true)}
+                                className="inline-flex min-h-14 w-full sm:w-auto items-center justify-center gap-3 rounded-2xl bg-purple-600 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-purple-600/20 transition-all hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400"
+                            >
+                                <FiPlus size={19} aria-hidden="true" />
+                                Import your first dataset
+                            </button>
+                            <p className="mt-4 text-xs text-zinc-500">Google Sheets · Microsoft Excel · CSV</p>
+                            <p className="mt-3 text-xs font-semibold text-purple-300">Your first AI analysis is free</p>
+                            <div className="mt-12 grid grid-cols-1 gap-4 border-t border-white/10 pt-8 sm:grid-cols-3 sm:gap-6">
+                                {[
+                                    { number: "01", title: "Import data", detail: "Choose a spreadsheet or CSV" },
+                                    { number: "02", title: "Get insights", detail: "Run your first AI analysis" },
+                                    { number: "03", title: "Explore results", detail: "Review trends and next steps" }
+                                ].map((step) => (
+                                    <div key={step.number} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-5 text-left">
+                                        <span className="text-xs font-bold text-purple-400">{step.number}</span>
+                                        <p className="mt-2 text-sm font-bold text-white">{step.title}</p>
+                                        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{step.detail}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
             )}

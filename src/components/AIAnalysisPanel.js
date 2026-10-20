@@ -141,6 +141,10 @@ const AIAnalysisPanel = ({
     onRunCrossAnalysis
 }) => {
     const [loading, setLoading] = useState(false);
+    const [analysisError, setAnalysisError] = useState("");
+    const [accessInfo, setAccessInfo] = useState(null);
+    const [verifyingPayment, setVerifyingPayment] = useState(false);
+    const paymentPollRef = useRef(false);
     const [analysisPhase, setAnalysisPhase] = useState(0);
     const [expandedCard, setExpandedCard] = useState(null);
     const [isFullReportOpen, setIsFullReportOpen] = useState(false);
@@ -314,166 +318,161 @@ const AIAnalysisPanel = ({
         window.speechSynthesis.speak(utterance);
     };
 
+    // Subscription and trial status are always read from the backend.
+    const getAnalysisAccess = async () => {
+        const token = localStorage.getItem("adt_token");
+        if (!token) throw new Error("Please sign in again.");
+        const response = await axios.get(`${API_BASE_URL}/ai/analysis-access`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        setAccessInfo(response.data);
+        return response.data;
+    };
+
+    useEffect(() => {
+        if (!userToken) return;
+        getAnalysisAccess().catch(err => {
+            console.warn("Could not load analysis entitlement", err);
+        });
+        // Refresh entitlement when account changes or panel mounts.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userToken]);
+
+    const openPaddleCheckout = () => {
+        const profile = (() => {
+            try { return JSON.parse(localStorage.getItem("adt_profile") || "{}"); }
+            catch { return {}; }
+        })();
+        const userId = profile.user_id || profile.id || profile.userId;
+        if (!userId) {
+            setAnalysisError("Your session is missing a user ID. Please sign in again.");
+            return;
+        }
+        if (!window.Paddle?.Checkout) {
+            setAnalysisError("Checkout is still loading. Please try again.");
+            return;
+        }
+        const options = {
+            items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+            customData: { user_id: String(userId) }
+        };
+        if (profile.email) options.customer = { email: profile.email };
+        window.Paddle.Checkout.open(options);
+    };
+
     const executeAnalysisCall = async () => {
+        if (loading) return;
         setLoading(true);
-
+        setAnalysisError("");
         try {
-            // ---------------------------------------------------------
-            // CROSS ANALYSIS
-            // ---------------------------------------------------------
             if (isCrossAnalysis) {
-                if (typeof onRunCrossAnalysis === "function") {
-                    await onRunCrossAnalysis(datasets);
-                } else {
-                    console.warn(
-                        "Cross analysis requested but onRunCrossAnalysis was not provided."
-                    );
+                if (typeof onRunCrossAnalysis !== "function") {
+                    throw new Error("Cross-analysis is unavailable. Please try again.");
                 }
-
-                return;
-            }
-
-            // ---------------------------------------------------------
-            // NORMAL / INDIVIDUAL ANALYSIS
-            // ---------------------------------------------------------
-            const dataset = activeDataset;
-
-            if (!dataset) {
-                console.warn("AI Analysis aborted: No active dataset.");
-                return;
-            }
-
-            const rawRows =
-                dataset.rows ||
-                dataset.data ||
-                dataset.raw ||
-                dataset.records ||
-                [];
-
-            const payloadContext =
-                rawRows.length > 0 ? rawRows : dataset;
-
-            const response = await axios.post(
-                `${API_BASE_URL}/ai/analyze`,
-                {
-                    context: payloadContext
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${userToken}`,
-                        'Content-Type': 'application/json'
-                    }
+                // The parent cross-analysis handler must call the protected
+                // /ai/analyze endpoint. This frontend check is not enforcement.
+                await onRunCrossAnalysis(datasets);
+            } else {
+                const dataset = activeDataset;
+                if (!dataset) throw new Error("Select a dataset first.");
+                const rawRows = dataset.rows || dataset.data ||
+                    dataset.raw || dataset.records || [];
+                const payloadContext = rawRows.length > 0 ? rawRows : dataset;
+                const response = await axios.post(
+                    `${API_BASE_URL}/ai/analyze`,
+                    { context: payloadContext },
+                    { headers: {
+                        Authorization: `Bearer ${localStorage.getItem("adt_token")}`,
+                        "Content-Type": "application/json"
+                    } }
+                );
+                if (response.data && typeof onUpdateAI === "function") {
+                    onUpdateAI(dataset.id, response.data);
                 }
-            );
-
-            if (response.data && typeof onUpdateAI === "function") {
-                onUpdateAI(dataset.id, response.data);
             }
-
+            await getAnalysisAccess();
         } catch (error) {
-            console.error(
-                "AI Analysis failed:",
-                error.response?.data || error.message
-            );
+            const detail = error.response?.data?.detail;
+            const code = typeof detail === "object" ? detail?.code : null;
+            if (error.response?.status === 402 || code === "SUBSCRIPTION_REQUIRED") {
+                setAccessInfo(prev => ({ ...prev, can_analyze: false, free_analysis_available: false }));
+                setAnalysisError("Your free analysis has been used. Upgrade to generate another.");
+                openPaddleCheckout();
+            } else if (error.response?.status === 409) {
+                setAnalysisError("An analysis is already running. Please wait a moment.");
+            } else {
+                setAnalysisError(
+                    (typeof detail === "string" && detail) ||
+                    error.message || "Analysis failed. Please try again."
+                );
+            }
+            console.error("AI Analysis failed:", error);
         } finally {
             setLoading(false);
         }
     };
 
     const runAnalysis = async () => {
-        if (datasets.length === 0 || !userToken) {
-            console.warn("Analysis aborted: No datasets or missing token.");
+        if (loading || verifyingPayment) return;
+        if (datasets.length === 0 || !localStorage.getItem("adt_token")) {
+            setAnalysisError("Please sign in and import a dataset first.");
             return;
         }
-
-        // Check subscription status from user profile
-        const isSubscribed =
-            userProfile?.isPro ||
-            userProfile?.is_pro ||
-            userProfile?.isSubscribed;
-
-        if (!isSubscribed) {
-            const userId =
-                userProfile?.user_id ||
-                userProfile?.id ||
-                userProfile?.userId;
-
-            if (!userId) {
-                alert("User session missing ID. Please log in again.");
+        setAnalysisError("");
+        try {
+            const access = await getAnalysisAccess();
+            if (!access.can_analyze) {
+                openPaddleCheckout();
                 return;
             }
-
-            if (window.Paddle) {
-                const checkoutOptions = {
-                    items: [
-                        {
-                            priceId: PADDLE_PRICE_ID,
-                            quantity: 1
-                        }
-                    ],
-                    customData: {
-                        user_id: String(userId)
-                    }
-                };
-
-                // Only attach customer object if email exists
-                if (userProfile?.email) {
-                    checkoutOptions.customer = {
-                        email: userProfile.email
-                    };
-                }
-
-                window.Paddle.Checkout.open(checkoutOptions);
-            } else {
-                alert(
-                    "Payment gateway is initializing, please try again in a moment."
-                );
-            }
-
-            return;
+            await executeAnalysisCall();
+        } catch (error) {
+            setAnalysisError("Couldn't verify your analysis access. Please try again.");
         }
-
-        // IF SUBSCRIBED -> Execute analysis directly
-        await executeAnalysisCall();
     };
 
-    // Auto-close checkout overlay and resume analysis when Paddle payment succeeds
+    // Paddle checkout completion is not proof of an active subscription.
+    // Poll the authenticated backend until the verified webhook has updated it.
     useEffect(() => {
-        if (window.Paddle) {
-            window.Paddle.Update({
-                eventCallback: (event) => {
-                    if (event.name === "checkout.completed") {
-                        console.log(
-                            "[Paddle] Payment completed successfully!"
-                        );
-
-                        // 1. Explicitly close the Paddle modal overlay
-                        if (window.Paddle.Checkout) {
-                            window.Paddle.Checkout.close();
-                        }
-
-                        // 2. Update local storage profile representation
-                        const currentProfile = JSON.parse(
-                            localStorage.getItem("adt_profile") || "{}"
-                        );
-
-                        currentProfile.isPro = true;
-                        currentProfile.is_pro = true;
-
-                        localStorage.setItem(
-                            "adt_profile",
-                            JSON.stringify(currentProfile)
-                        );
-
-                        // 3. Wait for overlay closing animation before starting analysis
-                        setTimeout(() => {
-                            executeAnalysisCall();
-                        }, 500);
+        if (!window.Paddle?.Update) return;
+        const onCheckoutEvent = async event => {
+            if (event.name !== "checkout.completed" || paymentPollRef.current) return;
+            window.Paddle.Checkout?.close();
+            paymentPollRef.current = true;
+            setVerifyingPayment(true);
+            setAnalysisError("");
+            try {
+                let verified = false;
+                for (let attempt = 0; attempt < 12; attempt++) {
+                    const token = localStorage.getItem("adt_token");
+                    const result = await axios.get(`${API_BASE_URL}/ai/analysis-access`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    setAccessInfo(result.data);
+                    if (result.data.is_pro) {
+                        verified = true;
+                        break;
                     }
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
-            });
-        }
-    }, [datasets, userToken]);
+                if (verified) {
+                    const profile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
+                    localStorage.setItem("adt_profile", JSON.stringify({
+                        ...profile, isPro: true, is_pro: true
+                    }));
+                    setAnalysisError("Subscription activated. You can now generate another analysis.");
+                } else {
+                    setAnalysisError("Payment received. Subscription activation is still processing. Please retry shortly.");
+                }
+            } catch (error) {
+                setAnalysisError("We couldn't verify your subscription yet. Please retry shortly.");
+            } finally {
+                setVerifyingPayment(false);
+                paymentPollRef.current = false;
+            }
+        };
+        window.Paddle.Update({ eventCallback: onCheckoutEvent });
+    }, []);
 
     return (
         <div
@@ -547,6 +546,22 @@ const AIAnalysisPanel = ({
                 )}
             </div>
 
+            {(analysisError || verifyingPayment) && (
+                <div role="status" className="relative z-10 mb-8 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-6 py-4 text-sm text-white">
+                    {verifyingPayment ? "Verifying your subscription with Paddle…" : analysisError}
+                    {!verifyingPayment && accessInfo?.can_analyze === false && (
+                        <button type="button" onClick={openPaddleCheckout}
+                            className="ml-4 rounded-lg bg-indigo-400 px-4 py-2 font-bold text-black hover:bg-white">
+                            Upgrade
+                        </button>
+                    )}
+                </div>
+            )}
+            {!aiInsights && accessInfo?.free_analysis_available && (
+                <p className="relative z-10 mb-6 text-center text-sm text-indigo-300">
+                    Your first AI analysis is free.
+                </p>
+            )}
             <AnimatePresence mode="wait">
                 {loading ? (
                     <motion.div
