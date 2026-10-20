@@ -1,684 +1,1157 @@
 import React, { useState, useEffect, useRef } from "react";
+
 import axios from "axios";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
+
     Chart as ChartJS,
+
     CategoryScale,
+
     LinearScale,
+
     BarElement,
+
     PointElement,
+
     LineElement,
+
     ArcElement,
+
     Title,
+
     Tooltip,
+
     Legend,
+
     Filler
+
 } from "chart.js";
 
 import { FaSpinner } from "react-icons/fa";
 
 import {
+
     MdOutlineAnalytics,
+
     MdOutlineTableChart
+
 } from "react-icons/md";
 
 import {
+
     FiTrash2,
+
     FiPlus
+
 } from "react-icons/fi";
 
 import { WorkbenchHeader } from "../components/WorkbenchHeader";
+
 import { Visualizer } from "../components/Visualizer";
+
 import { ImportModal } from "../components/ImportModal";
 
 ChartJS.register(
+
     CategoryScale,
+
     LinearScale,
+
     BarElement,
+
     PointElement,
+
     LineElement,
+
     ArcElement,
+
     Title,
+
     Tooltip,
+
     Legend,
+
     Filler
+
 );
 
 const API_BASE_URL =
+
 "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-const AUTH_TOKEN_KEY = "adt\_token";
+const AUTH_TOKEN_KEY = "adt_token";
 
 export default function Analytics() {
+const location = useLocation();
+const navigate = useNavigate();
+const handledIntegrationNavigation = useRef(null);
+
 const userToken = localStorage.getItem(
+
 AUTH_TOKEN_KEY
+
 );
 
 // ============================================================
+
 // CORE DATA STATE
+
 // ============================================================
 
 const [allDatasets, setAllDatasets] =
+
     useState([]);
 
 const [activeDatasets, setActiveDatasets] =
+
     useState([]);
 
 const [chartType, setChartType] =
+
     useState("line");
 
 // ============================================================
+
 // AI ANALYSIS STATE
+
 // ============================================================
 
 const [analysisMode, setAnalysisMode] =
+
     useState("single");
 
 const [
+
     activeDatasetIndex,
+
     setActiveDatasetIndex
+
 ] = useState(0);
 
 const [
+
     crossAnalysis,
+
     setCrossAnalysis
+
 ] = useState(null);
 
 // ============================================================
+
 // UI LOGIC STATE
+
 // ============================================================
 
 const [showModal, setShowModal] =
+
     useState(false);
 
 const [isImporting, setIsImporting] =
+
     useState(false);
 
 const [
+
     isInitializing,
+
     setIsInitializing
+
 ] = useState(true);
 
 const [isSaving, setIsSaving] =
+
     useState(false);
 
 // ============================================================
+
 // IMPORT FLOW STATE
+
 // ============================================================
 
 const [
+
     selectedApps,
+
     setSelectedApps
+
 ] = useState([]);
 
 const [
+
     sheetsList,
+
     setSheetsList
+
 ] = useState([]);
 
 const [
+
     selectedSheet,
+
     setSelectedSheet
+
 ] = useState("");
 
 const [
+
     csvToImport,
+
     setCsvToImport
+
 ] = useState(null);
 
 const datasetColors = [
+
     "#bc13fe",
+
     "#22C55E",
+
     "#F97316",
+
     "#EAB308"
+
 ];
 
 /**
+
  * Prevent autosave from firing until the existing
+
  * server-side session has completely hydrated.
+
  */
+
 const hasHydratedSession =
+
     useRef(false);
 
 // ============================================================
+
 // DATA UTILITIES
+
 // ============================================================
 
 const sanitizeCellValue = (value) => {
+
     if (
+
         value === null ||
+
         value === undefined ||
+
         value === ""
+
     ) {
+
         return "";
+
     }
 
     const str =
+
         String(value).trim();
 
     const numericValue =
+
         Number(
+
             str.replace(/,/g, "")
+
         );
 
     return (
+
         !isNaN(numericValue) &&
+
         str.length > 0
+
     )
+
         ? numericValue
+
         : str;
+
 };
 
 const calculateHealthScore = (
+
     dataset
+
 ) => {
+
     if (
+
         !dataset.data ||
+
         dataset.data.length < 2
+
     ) {
+
         return 0;
+
     }
 
     const rows =
+
         dataset.data.slice(1);
 
     const numericIdx =
+
         dataset.numericCols?.[0] ??
+
         0;
 
     let issues = 0;
 
     const vals = rows
+
         .map((r) =>
+
             sanitizeCellValue(
+
                 r[numericIdx]
+
             )
+
         )
+
         .filter(
+
             (v) =>
+
                 typeof v ===
+
                 "number"
+
         );
 
     const avg =
+
         vals.length > 0
+
             ? vals.reduce(
+
                   (a, b) =>
+
                       a + b,
+
                   0
+
               ) /
+
               vals.length
+
             : 0;
 
     rows.forEach((row) => {
+
         const val =
+
             sanitizeCellValue(
+
                 row[numericIdx]
+
             );
 
         if (
+
             val === "" ||
+
             val === null ||
+
             val === undefined
+
         ) {
+
             issues++;
+
         }
 
         if (
+
             typeof val ===
+
                 "number" &&
+
             val > avg * 5 &&
+
             avg !== 0
+
         ) {
+
             issues += 0.5;
+
         }
+
     });
 
     const score =
+
         Math.max(
+
             0,
+
             100 -
+
                 (
+
                     issues /
+
                     (
+
                         rows.length ||
+
                         1
+
                     )
+
                 ) *
+
                     100
+
         );
 
     return Math.round(score);
+
 };
 
 const parseCSVFile = async (
+
     file
+
 ) => {
+
     const text =
+
         await file.text();
 
     const rows = text
+
         .split(/\r?\n/)
+
         .filter(Boolean);
 
     return rows.map((r) =>
+
         r
+
             .split(
+
                 /,(?=(?:(?:[^"]*"){2})*[^"]*$)/
+
             )
+
             .map((c) =>
+
                 c
+
                     .trim()
+
                     .replace(
+
                         /^"|"$/g,
+
                         ""
+
                     )
+
                     .replace(
+
                         /""/g,
+
                         '"'
+
                     )
+
             )
+
     );
+
 };
 
 const detectNumericColumns = (
+
     values
+
 ) => {
+
     if (
+
         !values ||
+
         values.length < 2
+
     ) {
+
         return [];
+
     }
 
     return values[0]
+
         .map(
+
             (
+
                 _,
+
                 colIndex
+
             ) => {
+
                 const sample =
+
                     values
+
                         .slice(
+
                             1,
+
                             6
+
                         )
+
                         .map(
+
                             (
+
                                 r
+
                             ) =>
+
                                 sanitizeCellValue(
+
                                     r[
+
                                         colIndex
+
                                     ]
+
                                 )
+
                         );
 
                 return sample.some(
+
                     (v) =>
+
                         typeof v ===
+
                         "number"
+
                 )
+
                     ? colIndex
+
                     : null;
+
             }
+
         )
+
         .filter(
+
             (i) =>
+
                 i !== null
+
         );
+
 };
 
 const detectCategoryColumn = (
+
     values,
+
     numericIndexes
+
 ) => {
+
     if (
+
         !values ||
+
         !values[0]
+
     ) {
+
         return null;
+
     }
 
     for (
+
         let i = 0;
+
         i <
+
         values[0].length;
+
         i++
+
     ) {
+
         if (
+
             !numericIndexes.includes(
+
                 i
+
             )
+
         ) {
+
             return {
+
                 colIndex: i,
+
                 header:
+
                     values[0][i]
+
             };
+
         }
+
     }
 
     return null;
+
 };
 
 const computeMetrics = (
+
     values,
+
     numericIndexes
+
 ) => {
+
     const metrics = {};
 
     if (
+
         !values ||
+
         !values[0]
+
     ) {
+
         return metrics;
+
     }
 
     numericIndexes.forEach(
+
         (idx) => {
+
             const colName =
+
                 values[0][idx];
 
             const arr = values
+
                 .slice(1)
+
                 .map((r) =>
+
                     sanitizeCellValue(
+
                         r[idx]
+
                     )
+
                 )
+
                 .filter(
+
                     (n) =>
+
                         typeof n ===
+
                         "number"
+
                 );
 
             const total =
+
                 arr.reduce(
+
                     (a, b) =>
+
                         a + b,
+
                     0
+
                 );
 
             metrics[colName] = {
+
                 total,
 
                 avg:
+
                     total /
+
                     (
+
                         arr.length ||
+
                         1
+
                     ),
 
                 max:
+
                     arr.length > 0
+
                         ? Math.max(
+
                               ...arr
+
                           )
+
                         : 0,
 
                 min:
+
                     arr.length > 0
+
                         ? Math.min(
+
                               ...arr
+
                           )
+
                         : 0,
 
                 count:
+
                     arr.length
+
             };
+
         }
+
     );
 
     return metrics;
+
 };
 
-
 // ============================================================
+
 // WORKBOOK INGESTION
+
 // ============================================================
 
 const normalizeMatrix = (values = []) => {
+
     if (!Array.isArray(values)) {
+
         return [];
+
     }
 
     return values
+
         .filter((row) => Array.isArray(row))
+
         .map((row, rowIndex) =>
+
             rowIndex === 0
+
                 ? row
+
                 : row.map(sanitizeCellValue)
+
         );
+
 };
 
 const getPrimaryAnalyticalTable = (responseData = {}) => {
+
     const detectedTables =
+
         Array.isArray(responseData.detected_tables)
+
             ? responseData.detected_tables
+
             : [];
 
     const firstDetectedTable =
+
         detectedTables.find(
+
             (table) =>
+
                 Array.isArray(table?.headers) &&
+
                 table.headers.length > 0 &&
+
                 Array.isArray(table?.rows) &&
+
                 table.rows.length > 0
+
         );
 
     if (firstDetectedTable) {
+
         return {
+
             table: firstDetectedTable,
+
             matrix: normalizeMatrix([
+
                 firstDetectedTable.headers,
+
                 ...firstDetectedTable.rows
+
             ])
+
         };
+
     }
 
     const sheets =
+
         Array.isArray(responseData.sheets)
+
             ? responseData.sheets
+
             : [];
 
     const firstNonEmptySheet =
+
         sheets.find(
+
             (sheet) =>
+
                 Array.isArray(sheet?.values) &&
+
                 sheet.values.length > 0
+
         );
 
     if (firstNonEmptySheet) {
+
         return {
+
             table: null,
+
             matrix: normalizeMatrix(
+
                 firstNonEmptySheet.values
+
             )
+
         };
+
     }
 
     return {
+
         table: null,
+
         matrix: normalizeMatrix(
+
             responseData.values || []
+
         )
+
     };
+
 };
 
 const buildWorkbookDataset = ({
+
     responseData,
+
     sourceId,
+
     sourceName,
+
     sourceType,
+
     color,
+
     previousDataset = null
+
 }) => {
+
     const sheets =
+
         Array.isArray(responseData?.sheets)
+
             ? responseData.sheets
+
             : [];
 
     const detectedTables =
+
         Array.isArray(responseData?.detected_tables)
+
             ? responseData.detected_tables
+
             : sheets.flatMap(
+
                   (sheet) =>
+
                       Array.isArray(sheet?.tables)
+
                           ? sheet.tables
+
                           : []
+
               );
 
     const { table, matrix } =
+
         getPrimaryAnalyticalTable({
+
             ...responseData,
+
             detected_tables:
+
                 detectedTables
+
         });
 
     const numeric =
+
         detectNumericColumns(
+
             matrix
+
         );
 
     const category =
+
         detectCategoryColumn(
+
             matrix,
+
             numeric
+
         );
 
     const workbookSummary =
+
         responseData?.workbook || {
+
             sheet_count:
+
                 responseData?.sheet_count ??
+
                 sheets.length,
+
             table_count:
+
                 detectedTables.length,
+
             raw_row_count:
+
                 responseData?.total_rows ??
+
                 sheets.reduce(
+
                     (total, sheet) =>
+
                         total +
+
                         (
+
                             sheet?.row_count ??
+
                             sheet?.values?.length ??
+
                             0
+
                         ),
+
                     0
+
                 )
+
         };
 
     return {
+
         id:
+
             `${sourceType}:${sourceId}`,
 
         sourceId,
+
         sourceType,
 
         name:
+
             sourceName ||
+
             responseData?.title ||
+
             previousDataset?.name ||
+
             "Workbook",
 
         workbookName:
+
             responseData?.title ||
+
             sourceName ||
+
             previousDataset?.workbookName ||
+
             "Workbook",
 
         isWorkbook:
+
             true,
 
         color:
+
             previousDataset?.color ||
+
             color,
 
         sheets,
+
         detected_tables:
+
             detectedTables,
 
         available_sheets:
+
             responseData?.available_sheets ||
+
             sheets.map(
+
                 (sheet) => sheet.name
+
             ),
 
         workbook:
+
             workbookSummary,
 
         sheetCount:
+
             workbookSummary?.sheet_count ??
+
             sheets.length,
 
         tableCount:
+
             workbookSummary?.table_count ??
+
             detectedTables.length,
 
         primaryTableId:
+
             table?.id ||
+
             null,
 
         primarySheetName:
+
             table?.sheet_name ||
+
             responseData?.sheet_name ||
+
             null,
 
         rows:
+
             Math.max(
+
                 matrix.length - 1,
+
                 0
+
             ),
 
         cols:
+
             matrix[0]?.length ||
+
             0,
 
         data:
+
             matrix,
 
         numericCols:
+
             numeric,
 
         metrics:
+
             computeMetrics(
+
                 matrix,
+
                 numeric
+
             ),
 
         categoryCol:
+
             category,
 
         aiStorage:
+
             previousDataset?.aiStorage ||
+
             null,
 
         ingestionVersion:
+
             responseData?.ingestion_version ||
+
             "2.0"
+
     };
+
 };
 
 // ============================================================
+
 // PAGE STATE FACTORY
+
 // ============================================================
 
 /**
+
  * Creates the exact state object persisted by both
+
  * manual save and autosave.
+
  *
+
  * Cross analysis is included here so refresh/navigation
+
  * restores the completed cross brief.
+
  */
+
 const buildPageState = (
+
     crossOverride =
+
         crossAnalysis
+
 ) => ({
+
     allDatasets,
 
     activeDatasetIds:
+
         activeDatasets.map(
+
             (d) => d.id
+
         ),
 
     chartType,
@@ -688,970 +1161,1719 @@ const buildPageState = (
     activeDatasetIndex,
 
     crossAnalysis:
+
         crossOverride,
 
     uiContext: {
+
         showModal,
+
         selectedApps,
+
         selectedSheet
+
     }
+
 });
 
 // ============================================================
+
 // LIVE SYNC
+
 // ============================================================
 
 const handleLiveSync = async () => {
+
     if (
+
         !userToken ||
+
         activeDatasets.length === 0
+
     ) {
+
         return;
+
     }
 
     try {
+
         const updatedDatasets =
+
             await Promise.all(
+
                 activeDatasets.map(
+
                     async (ds) => {
+
                         if (
+
                             !ds?.isWorkbook ||
+
                             !ds?.sourceId ||
+
                             !ds?.sourceType
+
                         ) {
+
                             return ds;
+
                         }
 
                         const endpoint =
+
                             ds.sourceType ===
+
                             "excel_onedrive"
+
                                 ? `${API_BASE_URL}/excel/sheets/${ds.sourceId}`
+
                                 : `${API_BASE_URL}/google/sheets/${ds.sourceId}`;
 
                         const res =
+
                             await axios.get(
+
                                 endpoint,
+
                                 {
+
                                     headers: {
+
                                         Authorization:
+
                                             `Bearer ${userToken}`
+
                                     }
+
                                 }
+
                             );
 
                         return buildWorkbookDataset({
+
                             responseData:
+
                                 res.data,
+
                             sourceId:
+
                                 ds.sourceId,
+
                             sourceName:
+
                                 ds.name,
+
                             sourceType:
+
                                 ds.sourceType,
+
                             color:
+
                                 ds.color,
+
                             previousDataset:
+
                                 ds
+
                         });
+
                     }
+
                 )
+
             );
 
         setActiveDatasets(
+
             updatedDatasets
+
         );
 
         setAllDatasets(
+
             (prev) =>
+
                 prev.map(
+
                     (dataset) => {
+
                         const match =
+
                             updatedDatasets.find(
+
                                 (updated) =>
+
                                     updated.id ===
+
                                     dataset.id
+
                             );
 
                         return (
+
                             match ||
+
                             dataset
+
                         );
+
                     }
+
                 )
+
         );
+
     } catch (e) {
+
         console.error(
+
             "Live sync failed:",
+
             e
+
         );
+
     }
+
 };
 
 useEffect(() => {
+
     const pollInterval =
+
         setInterval(
+
             () => {
+
                 handleLiveSync();
+
             },
+
             60000
+
         );
 
     return () =>
+
         clearInterval(
+
             pollInterval
+
         );
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
 }, [
+
     activeDatasets,
+
     userToken
+
 ]);
 
 // ============================================================
+
 // SESSION LOAD / HYDRATION
+
 // ============================================================
 
 useEffect(() => {
+
     const loadSession =
+
         async () => {
+
             if (!userToken) {
+
                 hasHydratedSession.current =
+
                     true;
 
                 setIsInitializing(
+
                     false
+
                 );
 
                 return;
+
             }
 
             try {
+
                 const res =
+
                     await axios.get(
+
                         `${API_BASE_URL}/analysis/current`,
+
                         {
+
                             headers: {
+
                                 Authorization:
+
                                     `Bearer ${userToken}`
+
                             }
+
                         }
+
                     );
 
                 if (
+
                     res.data
+
                         ?.page_state
+
                 ) {
+
                     const {
+
                         allDatasets:
+
                             loadedDatasets,
 
                         activeDatasetIds,
 
                         chartType:
+
                             loadedChartType,
 
                         analysisMode:
+
                             loadedAnalysisMode,
 
                         activeDatasetIndex:
+
                             loadedActiveDatasetIndex,
 
                         crossAnalysis:
+
                             loadedCrossAnalysis,
 
                         uiContext
+
                     } =
+
                         res.data
+
                             .page_state;
 
                     setAllDatasets(
+
                         loadedDatasets ||
+
                             []
+
                     );
 
                     setChartType(
+
                         loadedChartType ||
+
                             "line"
+
                     );
 
                     setAnalysisMode(
+
                         loadedAnalysisMode ||
+
                             "single"
+
                     );
 
                     setActiveDatasetIndex(
+
                         typeof loadedActiveDatasetIndex ===
+
                             "number"
+
                             ? loadedActiveDatasetIndex
+
                             : 0
+
                     );
 
                     /**
+
                      * IMPORTANT:
+
                      *
+
                      * This restores the cross-analysis brief itself.
+
                      * We do NOT clear it during session hydration.
+
                      */
+
                     setCrossAnalysis(
+
                         loadedCrossAnalysis ||
+
                             null
+
                     );
 
                     if (
+
                         Array.isArray(
+
                             activeDatasetIds
+
                         ) &&
+
                         Array.isArray(
+
                             loadedDatasets
+
                         )
+
                     ) {
+
                         const active =
+
                             loadedDatasets.filter(
+
                                 (d) =>
+
                                     activeDatasetIds.includes(
+
                                         d.id
+
                                     )
+
                             );
 
                         setActiveDatasets(
+
                             active
+
                         );
+
                     }
 
                     if (
+
                         uiContext
+
                     ) {
+
                         setShowModal(
+
                             !!uiContext.showModal
+
                         );
 
                         setSelectedApps(
+
                             uiContext.selectedApps ||
+
                                 []
+
                         );
 
                         setSelectedSheet(
+
                             uiContext.selectedSheet ||
+
                                 ""
+
                         );
+
                     }
+
                 }
+
             } catch (e) {
+
                 console.error(
+
                     "Session load failed:",
+
                     e
+
                 );
+
             } finally {
+
                 /**
+
                  * This MUST happen after the server load attempt,
+
                  * otherwise blank initial React state could
+
                  * overwrite the persisted dashboard.
+
                  */
+
                 hasHydratedSession.current =
+
                     true;
 
                 setIsInitializing(
+
                     false
+
                 );
+
             }
+
         };
 
     loadSession();
+
 }, [userToken]);
 
 // ============================================================
+// INTEGRATIONS -> ANALYTICS IMPORT HANDOFF
+// ============================================================
+// Wait until the saved session is hydrated, otherwise its UI state
+// can overwrite the requested import modal/source.
+useEffect(() => {
+    if (isInitializing || !location.state?.openImport) return;
+    if (handledIntegrationNavigation.current === location.key) return;
+    handledIntegrationNavigation.current = location.key;
+
+    const preferred = location.state.preferredDataSource;
+    const selected = preferred === "file" ? "other"
+        : preferred === "google_sheets" || preferred === "excel"
+            ? preferred
+            : null;
+
+    setSelectedApps(selected ? [selected] : []);
+    setSelectedSheet("");
+    setSheetsList([]);
+    setCsvToImport(null);
+    setShowModal(true);
+
+    // Consume this one-time request so returning to Analytics later
+    // doesn't unexpectedly reopen the import modal.
+    navigate(location.pathname + location.search, {
+        replace: true,
+        state: null
+    });
+}, [isInitializing, location, navigate]);
+
+// ============================================================
+
 // GENERAL AUTOSAVE
+
 // ============================================================
 
 useEffect(() => {
+
     if (
+
         !hasHydratedSession.current ||
+
         !userToken ||
+
         isInitializing
+
     ) {
+
         return;
+
     }
 
     const autosave =
+
         async () => {
+
             setIsSaving(true);
 
             try {
+
                 const pageState =
+
                     buildPageState();
 
                 await axios.post(
+
                     `${API_BASE_URL}/analysis/save`,
+
                     {
+
                         name:
+
                             "Autosave Dashboard",
 
                         page_state:
+
                             pageState
+
                     },
+
                     {
+
                         headers:
+
                             {
+
                                 Authorization:
+
                                     `Bearer ${userToken}`
+
                             }
+
                     }
+
                 );
+
             } catch (e) {
+
                 console.warn(
+
                     "Autosave failed",
+
                     e
+
                 );
+
             } finally {
+
                 setIsSaving(
+
                     false
+
                 );
+
             }
+
         };
 
     const timer =
+
         setTimeout(
+
             autosave,
+
             1500
+
         );
 
     return () =>
+
         clearTimeout(timer);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
 }, [
+
     allDatasets,
+
     activeDatasets,
+
     chartType,
+
     analysisMode,
+
     activeDatasetIndex,
+
     crossAnalysis,
+
     showModal,
+
     selectedApps,
+
     selectedSheet,
+
     userToken,
+
     isInitializing
+
 ]);
 
 // ============================================================
+
 // IMMEDIATE CROSS ANALYSIS SAVE
+
 // ============================================================
 
 /**
+
  * IMPORTANT FIX:
+
  *
+
  * Visualizer receives the REAL React setCrossAnalysis setter.
+
  *
+
  * We do persistence separately here.
+
  *
+
  * This prevents the successful cross-analysis result from
+
  * disappearing because the setter contract was replaced by
+
  * an async callback.
+
  */
+
 useEffect(() => {
+
     if (
+
         !hasHydratedSession.current ||
+
         isInitializing ||
+
         !userToken ||
+
         !crossAnalysis ||
+
         analysisMode !==
+
             "cross"
+
     ) {
+
         return;
+
     }
 
     const saveCrossAnalysis =
+
         async () => {
+
             try {
+
                 const pageState =
+
                     buildPageState(
+
                         crossAnalysis
+
                     );
 
                 await axios.post(
+
                     `${API_BASE_URL}/analysis/save`,
+
                     {
+
                         name:
+
                             "Cross Analysis Autosave",
 
                         page_state:
+
                             pageState
+
                     },
+
                     {
+
                         headers:
+
                             {
+
                                 Authorization:
+
                                     `Bearer ${userToken}`
+
                             }
+
                     }
+
                 );
 
                 console.log(
+
                     "[Cross Analysis] Saved successfully"
+
                 );
+
             } catch (e) {
+
                 console.error(
+
                     "[Cross Analysis] Immediate save failed:",
+
                     e
+
                 );
+
             }
+
         };
 
     saveCrossAnalysis();
 
     // Intentionally triggered by completed cross analysis.
+
     // General autosave handles all other state changes.
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
 }, [crossAnalysis]);
 
 // ============================================================
 
 // RESTORE CROSS MODE WHEN DATASETS RETURN
+
 // ============================================================
 
 useEffect(() => {
+
 if (
+
 activeDatasets.length > 1 &&
+
 crossAnalysis &&
+
 analysisMode !== "cross"
+
 ) {
+
 setAnalysisMode("cross");
+
 }
+
 }, [
+
 activeDatasets,
+
 crossAnalysis,
+
 analysisMode
+
 ]);
 
 // ============================================================
+
 // AI ACTIONS
+
 // ============================================================
 
 const handleAIUpdate = (
+
     datasetId,
+
     aiData
+
 ) => {
+
     const applyUpdate =
+
         (list) =>
+
             list.map(
+
                 (ds) =>
+
                     ds.id ===
+
                     datasetId
+
                         ? {
+
                               ...ds,
 
                               aiStorage:
+
                                   aiData
+
                           }
+
                         : ds
+
             );
 
     setAllDatasets(
+
         (prev) =>
+
             applyUpdate(
+
                 prev
+
             )
+
     );
 
     setActiveDatasets(
+
         (prev) =>
+
             applyUpdate(
+
                 prev
+
             )
+
     );
+
 };
 
 const handleAnalysisModeChange = (
+
     mode
+
 ) => {
+
     setAnalysisMode(
+
         mode
+
     );
 
     /**
+
      * Only clear cross analysis if the user deliberately
+
      * switches AWAY from cross mode.
+
      *
+
      * Refresh hydration does not call this handler,
+
      * so persisted cross analysis survives refresh.
+
      */
+
     if (
+
         mode !==
+
         "cross"
+
     ) {
+
         setCrossAnalysis(
+
             null
+
         );
+
     }
 
     if (
+
         mode ===
+
         "individual"
+
     ) {
+
         setActiveDatasetIndex(
+
             0
+
         );
+
     }
+
 };
 
 const handleActiveDatasetChange = (
+
     index
+
 ) => {
+
     setActiveDatasetIndex(
+
         index
+
     );
+
 };
 
 // ============================================================
+
 // DATASET ACTIVE / STANDBY TOGGLE
+
 // ============================================================
 
 /**
+
  * Changing which datasets participate changes the cross-analysis
+
  * context. Therefore an old cross result must be invalidated.
+
  */
 
 const handleToggleDataset = (
+
 dataset
+
 ) => {
+
 const isActive =
+
 activeDatasets.some(
+
 (item) =>
+
 item.id ===
+
 dataset.id
+
 );
 
 setActiveDatasets(
+
     (prev) =>
+
         isActive
+
             ? prev.filter(
+
                   (item) =>
+
                       item.id !==
+
                       dataset.id
+
               )
+
             : [
+
                   ...prev,
+
                   dataset
+
               ]
+
 );
+
 setActiveDatasetIndex(
+
     0
+
 );
 
 };
 
 // ============================================================
+
 // SAVE
+
 // ============================================================
 
 const handleSave = async () => {
+
     if (!userToken) {
+
         return;
+
     }
 
     setIsSaving(true);
 
     try {
+
         const pageState =
+
             buildPageState();
 
         await axios.post(
+
             `${API_BASE_URL}/analysis/save`,
+
             {
+
                 name:
+
                     `Manual Save ${new Date().toLocaleTimeString()}`,
 
                 page_state:
+
                     pageState
+
             },
+
             {
+
                 headers: {
+
                     Authorization:
+
                         `Bearer ${userToken}`
+
                 }
+
             }
+
         );
 
         alert(
+
             "Workspace snapshot saved!"
+
         );
+
     } catch (e) {
+
         console.error(
+
             "Manual save failed:",
+
             e
+
         );
 
         alert(
+
             "Save failed."
+
         );
+
     } finally {
+
         setIsSaving(
+
             false
+
         );
+
     }
+
 };
 
 // ============================================================
+
 // IMPORT
+
 // ============================================================
 
 const importSelected = async (
+
     manualIds = [],
+
     manualNames = []
+
 ) => {
+
     setIsImporting(true);
 
     try {
+
         const importWorkbookFiles =
+
             async (
+
                 sourceType,
+
                 endpointPrefix
+
             ) => {
+
                 const imported =
+
                     await Promise.all(
+
                         manualIds.map(
+
                             async (
+
                                 sourceId,
+
                                 index
+
                             ) => {
+
                                 const res =
+
                                     await axios.get(
+
                                         `${API_BASE_URL}/${endpointPrefix}/${sourceId}`,
+
                                         {
+
                                             headers: {
+
                                                 Authorization:
+
                                                     `Bearer ${userToken}`
+
                                             }
+
                                         }
+
                                     );
 
                                 return buildWorkbookDataset({
+
                                     responseData:
+
                                         res.data,
+
                                     sourceId,
+
                                     sourceName:
+
                                         manualNames[index] ||
+
                                         res.data?.title,
+
                                     sourceType,
+
                                     color:
+
                                         datasetColors[
+
                                             (
+
                                                 allDatasets.length +
+
                                                 index
+
                                             ) %
+
                                                 datasetColors.length
+
                                         ]
+
                                 });
+
                             }
+
                         )
+
                     );
 
                 const valid =
+
                     imported.filter(
+
                         (dataset) =>
+
                             dataset &&
+
                             (
+
                                 dataset.data.length > 0 ||
+
                                 dataset.sheets.length > 0
+
                             )
+
                     );
 
                 setAllDatasets(
+
                     (prev) => {
+
                         const incomingIds =
+
                             new Set(
+
                                 valid.map(
+
                                     (dataset) =>
+
                                         dataset.id
+
                                 )
+
                             );
 
                         return [
+
                             ...prev.filter(
+
                                 (dataset) =>
+
                                     !incomingIds.has(
+
                                         dataset.id
+
                                     )
+
                             ),
+
                             ...valid
+
                         ];
+
                     }
+
                 );
 
                 setActiveDatasets(
+
                     (prev) => {
+
                         const incomingIds =
+
                             new Set(
+
                                 valid.map(
+
                                     (dataset) =>
+
                                         dataset.id
+
                                 )
+
                             );
 
                         return [
+
                             ...prev.filter(
+
                                 (dataset) =>
+
                                     !incomingIds.has(
+
                                         dataset.id
+
                                     )
+
                             ),
+
                             ...valid
+
                         ];
+
                     }
+
                 );
+
             };
 
         if (
+
             selectedApps.includes(
+
                 "google_sheets"
+
             ) &&
+
             Array.isArray(manualIds)
+
         ) {
+
             await importWorkbookFiles(
+
                 "google_drive",
+
                 "google/sheets"
+
             );
+
         } else if (
+
             selectedApps.includes(
+
                 "excel"
+
             ) &&
+
             Array.isArray(manualIds)
+
         ) {
+
             await importWorkbookFiles(
+
                 "excel_onedrive",
+
                 "excel/sheets"
+
             );
+
         } else if (
+
             selectedApps.includes(
+
                 "other"
+
             ) &&
+
             csvToImport
+
         ) {
+
             const sourceName =
+
                 csvToImport.name.replace(
+
                     /\.csv$/i,
+
                     ""
+
                 );
 
             const importedRows =
+
                 await parseCSVFile(
+
                     csvToImport
+
                 );
 
             if (
+
                 importedRows.length > 0
+
             ) {
+
                 const cleaned =
+
                     normalizeMatrix(
+
                         importedRows
+
                     );
 
                 const numeric =
+
                     detectNumericColumns(
+
                         cleaned
+
                     );
 
                 const category =
+
                     detectCategoryColumn(
+
                         cleaned,
+
                         numeric
+
                     );
 
                 const newDataset = {
+
                     id:
+
                         Date.now(),
 
                     name:
+
                         sourceName,
 
                     color:
+
                         datasetColors[
+
                             allDatasets.length %
+
                                 datasetColors.length
+
                         ],
 
                     rows:
+
                         Math.max(
+
                             cleaned.length - 1,
+
                             0
+
                         ),
 
                     cols:
+
                         cleaned[0]?.length ||
+
                         0,
 
                     data:
+
                         cleaned,
 
                     numericCols:
+
                         numeric,
 
                     metrics:
+
                         computeMetrics(
+
                             cleaned,
+
                             numeric
+
                         ),
 
                     categoryCol:
+
                         category,
 
                     aiStorage:
+
                         null,
 
                     isWorkbook:
+
                         false
+
                 };
 
                 setAllDatasets(
+
                     (prev) => [
+
                         ...prev,
+
                         newDataset
+
                     ]
+
                 );
 
                 setActiveDatasets(
+
                     (prev) => [
+
                         ...prev,
+
                         newDataset
+
                     ]
+
                 );
+
             }
+
         }
 
         setCrossAnalysis(null);
+
         setActiveDatasetIndex(0);
+
         setShowModal(false);
+
     } catch (e) {
+
         console.error(
+
             "Import error:",
+
             e
+
         );
 
         alert(
+
             "Import failed."
+
         );
+
     } finally {
+
         setIsImporting(false);
+
         setSelectedApps([]);
+
         setCsvToImport(null);
+
         setSelectedSheet("");
+
     }
+
 };
 
 // ============================================================
+
 // DELETE DATASET
+
 // ============================================================
 
 const handleDeleteDataset = (
+
     datasetId
+
 ) => {
+
     setAllDatasets(
+
         (prev) =>
+
             prev.filter(
+
                 (item) =>
+
                     item.id !==
+
                     datasetId
+
             )
+
     );
 
     setActiveDatasets(
+
         (prev) =>
+
             prev.filter(
+
                 (item) =>
+
                     item.id !==
+
                     datasetId
+
             )
+
     );
 
     /**
+
      * Dataset combination changed.
+
      * Existing cross-analysis is no longer valid.
+
      */
+
     setCrossAnalysis(
+
         null
+
     );
 
     setActiveDatasetIndex(
+
         0
+
     );
+
 };
 
 // ============================================================
+
 // ANALYSIS READINESS
+
 // ============================================================
 
 const readyToVisualize =
+
     activeDatasets.filter(
+
         (ds) =>
+
             Boolean(
+
                 ds.aiStorage
+
             )
+
     );
 
 /**
+
  * MULTI / INDIVIDUAL:
+
  * every active dataset must have its own brief.
+
  */
+
 const allActiveDatasetsAnalyzed =
+
     activeDatasets.length >
+
         0 &&
+
     activeDatasets.every(
+
         (ds) =>
+
             Boolean(
+
                 ds.aiStorage
+
             )
+
     );
 
 /**
+
  * SINGLE:
+
  * one dataset must have completed its brief.
+
  */
+
 const singleDatasetAnalyzed =
+
     activeDatasets.length ===
+
         1 &&
+
     Boolean(
+
         activeDatasets[0]
+
             ?.aiStorage
+
     );
 
 /**
+
  * CROSS:
+
  * only unlock once a real cross-analysis response exists.
+
  */
+
 const crossAnalysisReady =
+
     activeDatasets.length >
+
         1 &&
+
     analysisMode ===
+
         "cross" &&
+
     Boolean(
+
         crossAnalysis
+
     );
 
 /**
+
  * Controls MetriaFollowUp rendering.
+
  */
+
 const metriaAnalystReady =
+
     activeDatasets.length ===
+
     1
+
         ? singleDatasetAnalyzed
+
         : analysisMode ===
+
             "cross"
+
           ? crossAnalysisReady
+
           : allActiveDatasetsAnalyzed;
 
 // ============================================================
+
 // RENDER
+
 // ============================================================
 
 return (
+
     <div className="bg-black text-slate-200 w-full min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
 
         {/* ==================================================== */}
+
         {/* INITIALIZATION / IMPORT OVERLAY                       */}
+
         {/* ==================================================== */}
 
         {(isInitializing ||
+
             isImporting) && (
+
             <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
 
                 <div className="relative mb-6">
@@ -1659,8 +2881,11 @@ return (
                     <div className="absolute inset-0 bg-purple-500/20 blur-3xl animate-pulse" />
 
                     <FaSpinner
+
                         size={60}
+
                         className="text-purple-500 animate-spin relative"
+
                     />
 
                 </div>
@@ -1668,53 +2893,77 @@ return (
                 <p className="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">
 
                     {isImporting
+
                         ? "Processing Stream..."
+
                         : "MetriaAI Initializing..."
+
                     }
 
                 </p>
 
             </div>
+
         )}
 
         <div className="w-full">
 
             {/* ================================================= */}
+
             {/* HEADER                                            */}
+
             {/* ================================================= */}
 
             <div className="pt-8 px-6 lg:px-10">
 
                 <WorkbenchHeader
+
                     isSaving={
+
                         isSaving
+
                     }
+
                     onImport={() =>
+
                         setShowModal(
+
                             true
+
                         )
+
                     }
+
                     onSave={
+
                         handleSave
+
                     }
+
                     onOpenAI={() => {}}
+
                 />
 
             </div>
 
             {allDatasets.length >
+
             0 ? (
 
                 <div className="mt-12 space-y-12">
 
                     {/* ========================================= */}
+
                     {/* NEURAL STREAMS HEADER                     */}
+
                     {/* ========================================= */}
 
                     <div className="flex items-center gap-6 px-6 lg:px-10">
 
                         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.8em] whitespace-nowrap">
+
                             Neural Streams
+
                         </h3>
 
                         <div className="h-[1px] flex-1 bg-white/5" />
@@ -1722,50 +2971,85 @@ return (
                     </div>
 
                     {/* ========================================= */}
+
                     {/* DATASET CARDS                             */}
+
                     {/* ========================================= */}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6 lg:px-10">
 
                         {allDatasets.map(
+
                             (ds) => {
+
                                 const isActive =
+
                                     activeDatasets.some(
+
                                         (a) =>
+
                                             a.id ===
+
                                             ds.id
+
                                     );
 
                                 const health =
+
                                     calculateHealthScore(
+
                                         ds
+
                                     );
 
                                 return (
+
                                     <div
+
                                         key={
+
                                             ds.id
+
                                         }
+
                                         onClick={() =>
+
                                             handleToggleDataset(
+
                                                 ds
+
                                             )
+
                                         }
+
                                         className={`group relative overflow-hidden border rounded-[2rem] p-8 transition-all duration-500 cursor-pointer flex flex-col min-h-[220px] ${
+
                                             isActive
+
                                                 ? "bg-purple-900/20 border-purple-500/40 shadow-[0_0_50px_rgba(188,19,254,0.1)] scale-[1.02]"
+
                                                 : "bg-white/[0.03] border-white/10 hover:border-white/20"
+
                                         }`}
+
                                     >
 
                                         <div
+
                                             className="absolute inset-0 opacity-40 pointer-events-none"
+
                                             style={{
+
                                                 background:
+
                                                     isActive
+
                                                         ? "radial-gradient(circle at 10% 10%, rgba(188, 19, 254, 0.3), transparent 80%)"
+
                                                         : "radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05), transparent 80%)"
+
                                             }}
+
                                         />
 
                                         <div className="relative z-10 flex-1">
@@ -1773,33 +3057,59 @@ return (
                                             <div className="flex justify-between items-start mb-6">
 
                                                 <div
+
                                                     className={`p-4 rounded-2xl border transition-all duration-500 ${
+
                                                         isActive
+
                                                             ? "bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20"
+
                                                             : "bg-white border-white text-black"
+
                                                     }`}
+
                                                 >
+
                                                     <MdOutlineTableChart
+
                                                         size={
+
                                                             22
+
                                                         }
+
                                                     />
+
                                                 </div>
 
                                                 <span
+
                                                     className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest ${
+
                                                         health >
+
                                                         85
+
                                                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+
                                                             : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+
                                                     }`}
+
                                                 >
+
                                                     {
+
                                                         health
+
                                                     }
+
                                                     %
+
                                                     {" "}
+
                                                     Integrity
+
                                                 </span>
 
                                             </div>
@@ -1807,17 +3117,27 @@ return (
                                             <div className="mb-2">
 
                                                 <div className="text-xl font-black text-white uppercase tracking-tighter truncate leading-tight mb-1">
+
                                                     {
+
                                                         ds.name
+
                                                     }
+
                                                 </div>
 
                                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">
+
                                                     {
+
                                                         ds.rows
+
                                                     }
+
                                                     {" "}
+
                                                     Active Nodes
+
                                                 </div>
 
                                             </div>
@@ -1829,64 +3149,99 @@ return (
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
 
                                                 <div
+
                                                     className={`w-2 h-2 rounded-full ${
+
                                                         isActive
+
                                                             ? "bg-purple-500 animate-pulse"
+
                                                             : "bg-slate-700"
+
                                                     }`}
+
                                                 />
 
                                                 {isActive
+
                                                     ? "Broadcasting"
+
                                                     : "Standby"
+
                                                 }
 
                                             </span>
 
                                             <FiTrash2
+
                                                 onClick={(
+
                                                     e
+
                                                 ) => {
+
                                                     e.stopPropagation();
 
                                                     handleDeleteDataset(
+
                                                         ds.id
+
                                                     );
+
                                                 }}
+
                                                 className="text-slate-600 hover:text-red-400 transition-colors"
+
                                                 size={
+
                                                     18
+
                                                 }
+
                                             />
 
                                         </div>
 
                                     </div>
+
                                 );
+
                             }
+
                         )}
 
                         {/* ADD STREAM */}
 
                         <button
+
                             onClick={() =>
+
                                 setShowModal(
+
                                     true
+
                                 )
+
                             }
+
                             className="h-full min-h-[220px] rounded-[2rem] border-2 border-dashed border-white/5 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center gap-4 text-slate-600 hover:text-purple-400 group"
+
                         >
 
                             <div className="p-4 rounded-full border-2 border-dashed border-slate-800 group-hover:border-purple-500/50 transition-all">
 
                                 <FiPlus
+
                                     size={28}
+
                                 />
 
                             </div>
 
                             <span className="text-[11px] font-black uppercase tracking-[0.5em]">
+
                                 Sync Stream
+
                             </span>
 
                         </button>
@@ -1894,25 +3249,43 @@ return (
                     </div>
 
                     {/* ========================================= */}
+
                     {/* VISUALIZER                                */}
+
                     {/* ========================================= */}
 
                   <div className="px-6 lg:px-10 pb-12">
+
                     <Visualizer
+
                         activeDatasets={activeDatasets}
+
                         readyDatasets={readyToVisualize}
+
                         chartType={chartType}
+
                         chartTypeSet={setChartType}
+
                         authToken={userToken}
+
                         onAIUpdate={handleAIUpdate}
+
                         analysisMode={analysisMode}
+
                         setAnalysisMode={handleAnalysisModeChange}
+
                         activeDatasetIndex={activeDatasetIndex}
+
                         setActiveDatasetIndex={handleActiveDatasetChange}
+
                         crossAnalysis={crossAnalysis}
+
                         setCrossAnalysis={setCrossAnalysis}
+
                         interactiveAnalystReady={metriaAnalystReady}
+
                     />
+
                 </div>
 
                 </div>
@@ -1920,7 +3293,9 @@ return (
             ) : (
 
                 // =============================================
+
                 // EMPTY STATE
+
                 // =============================================
 
                 <div className="px-6 lg:px-10 pb-12 mt-12">
@@ -1930,105 +3305,163 @@ return (
                         <div className="absolute inset-0 bg-radial-gradient from-purple-500/10 to-transparent opacity-40 pointer-events-none" />
 
                         <MdOutlineAnalytics
+
                             size={100}
+
                             className="mx-auto text-slate-900 mb-8"
+
                         />
 
                         <h3 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">
+
                             Neural Link Disconnected
+
                         </h3>
 
                         <button
+
                             onClick={() =>
+
                                 setShowModal(
+
                                     true
+
                                 )
+
                             }
+
                             className="px-16 py-6 bg-purple-600 text-white rounded-full font-black text-xs uppercase tracking-[0.6em] transition-all hover:scale-105 shadow-2xl shadow-purple-500/20"
+
                         >
+
                             Initialize Stream
+
                         </button>
 
                     </div>
 
                 </div>
+
             )}
 
         </div>
 
         {/* ==================================================== */}
+
         {/* IMPORT MODAL                                         */}
+
         {/* ==================================================== */}
 
         {showModal && (
+
             <ImportModal
+
                 onClose={() => {
+
                     setShowModal(
+
                         false
+
                     );
 
                     setSelectedApps(
+
                         []
+
                     );
 
                     setSheetsList(
+
                         []
+
                     );
 
                     setCsvToImport(
+
                         null
+
                     );
 
                     setSelectedSheet(
+
                         ""
+
                     );
+
                 }}
 
                 selectedApps={
+
                     selectedApps
+
                 }
 
                 setSelectedApps={
+
                     setSelectedApps
+
                 }
 
                 sheetsList={
+
                     sheetsList
+
                 }
 
                 setSheetsList={
+
                     setSheetsList
+
                 }
 
                 selectedSheet={
+
                     selectedSheet
+
                 }
 
                 setSelectedSheet={
+
                     setSelectedSheet
+
                 }
 
                 setCsvToImport={
+
                     setCsvToImport
+
                 }
 
                 csvToImport={
+
                     csvToImport
+
                 }
 
                 onImport={(
+
                     ids,
+
                     names
+
                 ) =>
+
                     importSelected(
+
                         ids,
+
                         names
+
                     )
+
                 }
+
             />
+
         )}
 
     </div>
+
 );
 
 }

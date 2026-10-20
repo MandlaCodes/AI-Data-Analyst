@@ -1,297 +1,289 @@
-import React, { useState, useRef } from "react";
-import { FiX, FiUploadCloud, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiPlus, FiTrash2, FiExternalLink } from "react-icons/fi";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { FiX, FiDatabase, FiFileText, FiCheck, FiAlertTriangle, FiLoader, FiExternalLink, FiUploadCloud } from "react-icons/fi";
 import { SiGooglesheets } from "react-icons/si";
 import { FaFileExcel } from "react-icons/fa";
 
-const API_BASE_URL = 'https://ai-data-analyst-backend-1nuw.onrender.com';
+const API_BASE_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-export const ImportModal = ({ 
-    onClose, 
-    selectedApps, 
-    setSelectedApps, 
-    sheetsList = [],
-    setSheetsList = () => {},
-    selectedSheet, 
-    setSelectedSheet, 
-    setCsvToImport, 
-    csvToImport, 
-    onImport 
+export const ImportModal = ({
+  onClose,
+  selectedApps = [],
+  setSelectedApps,
+  sheetsList = [],
+  setSheetsList = () => {},
+  selectedSheet,
+  setSelectedSheet,
+  setCsvToImport,
+  csvToImport,
+  onImport,
 }) => {
-    const [isPickerLoading, setIsPickerLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState(null);
-    const fileInputRef = useRef(null);
-    
-    const [sheetIds, setSheetIds] = useState([]); 
-    const [sheetNames, setSheetNames] = useState([]);
+  const initialSource = ["google_sheets", "excel", "other"].includes(selectedApps?.[0])
+    ? selectedApps[0] : null;
+  const [source, setSource] = useState(initialSource);
+  const [loadingSource, setLoadingSource] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [sheetIds, setSheetIds] = useState([]);
+  const [sheetNames, setSheetNames] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
+  const requestVersion = useRef(0);
+  const mounted = useRef(true);
+  const initialized = useRef(false);
+  const googlePickerRef = useRef(null);
+  const [googlePickerOpen, setGooglePickerOpen] = useState(false);
+  const [pickerButtonPosition, setPickerButtonPosition] = useState({ top: 12, right: 16 });
 
-    const handleGoogleSheetSelect = async () => {
-        setIsPickerLoading(true);
-        setErrorMessage(null);
-        const internalToken = localStorage.getItem("adt_token"); 
+  // Anchor the close control just ABOVE the Google dialog, not in the
+  // browser corner. Google inserts the picker outside our React tree.
+  useEffect(() => {
+    if (!googlePickerOpen) return;
+    const updatePosition = () => {
+      const dialog = document.querySelector('.picker-dialog');
+      const iframe = document.querySelector('iframe[src*="picker"]');
+      const element = dialog || iframe;
+      if (!element) return;
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 200 || rect.height < 100) return;
+      setPickerButtonPosition(prev => {
+        const next = {
+          top: Math.max(8, rect.top - 54),
+          right: Math.max(8, window.innerWidth - rect.right),
+        };
+        return prev.top === next.top && prev.right === next.right ? prev : next;
+      });
+    };
+    updatePosition();
+    const interval = window.setInterval(updatePosition, 200);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [googlePickerOpen]);
 
-        if (!window.google || !window.google.picker) {
-            setErrorMessage("Google SDK not ready. Please refresh.");
-            setIsPickerLoading(false);
-            return;
-        }
+  const closeGooglePicker = () => {
+    try { googlePickerRef.current?.setVisible(false); } catch (error) {
+      console.warn("Could not hide Google Picker:", error);
+    }
+    googlePickerRef.current = null;
+    setGooglePickerOpen(false);
+    setLoadingSource(null);
+  };
 
-        try {
-            const tokenRes = await fetch(`${API_BASE_URL}/google-token`, {
-                headers: { 'Authorization': `Bearer ${internalToken}` }
+  const chooseSource = (nextSource, openFile = true) => {
+    requestVersion.current += 1;
+    closeGooglePicker();
+    setSource(nextSource);
+    setSelectedApps([nextSource]);
+    setErrorMessage(null);
+    setLoadingSource(null);
+    setSheetIds([]);
+    setSheetNames([]);
+    setSelectedSheet("");
+    setSheetsList([]);
+    setCsvToImport(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (nextSource === "other" && openFile) fileInputRef.current?.click();
+    if (nextSource === "excel") loadExcel(requestVersion.current);
+    if (nextSource === "google_sheets") openGooglePicker(requestVersion.current);
+  };
+
+  const loadExcel = async (version) => {
+    setLoadingSource("excel");
+    try {
+      const token = localStorage.getItem("adt_token");
+      if (!token) throw new Error("Please sign in again to access your workbooks.");
+      const response = await fetch(`${API_BASE_URL}/excel/sheets`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.status === 401) throw new Error("Microsoft Account Not Linked");
+      if (!response.ok) throw new Error("Could not load OneDrive workbooks. Please try again.");
+      const data = await response.json();
+      if (!mounted.current || version !== requestVersion.current) return;
+      const files = Array.isArray(data.files) ? data.files : [];
+      setSheetsList(files);
+      if (!files.length) setErrorMessage("No Excel workbooks were found in your OneDrive account.");
+    } catch (error) {
+      if (mounted.current && version === requestVersion.current) setErrorMessage(error.message || "Could not load workbooks.");
+    } finally {
+      if (mounted.current && version === requestVersion.current) setLoadingSource(null);
+    }
+  };
+
+  const openGooglePicker = async (version) => {
+    setLoadingSource("google_sheets");
+    try {
+      const token = localStorage.getItem("adt_token");
+      if (!token) throw new Error("Please sign in again to access Google Sheets.");
+      if (!window.google?.picker) throw new Error("Google Picker is still loading. Click Google Sheets again in a moment.");
+      const response = await fetch(`${API_BASE_URL}/google-token`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(response.status === 401 ? "Google Account Not Linked" : "Could not access Google Sheets. Please try again.");
+      const data = await response.json();
+      if (!data.access_token) throw new Error("Google access token was unavailable.");
+      if (!mounted.current || version !== requestVersion.current) return;
+      const picker = new window.google.picker.PickerBuilder()
+        .setDeveloperKey(process.env.REACT_APP_GOOGLE_DEVELOPER_KEY)
+        .setAppId(process.env.REACT_APP_GOOGLE_APP_ID)
+        .setOAuthToken(data.access_token)
+        .addView(new window.google.picker.DocsView(window.google.picker.ViewId.SPREADSHEETS))
+        .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
+        .setOrigin(window.location.protocol + "//" + window.location.host)
+        .setCallback((result) => {
+          if (!mounted.current || version !== requestVersion.current) return;
+          if (result.action === window.google.picker.Action.PICKED) {
+            const docs = Array.isArray(result.docs) ? result.docs : [];
+            const nextIds = [...sheetIds];
+            const nextNames = [...sheetNames];
+            docs.forEach((doc) => {
+              if (!nextIds.includes(doc.id)) {
+                nextIds.push(doc.id);
+                nextNames.push(doc.name || "Untitled spreadsheet");
+              }
             });
+            setSheetIds(nextIds);
+            setSheetNames(nextNames);
+            setSelectedSheet(nextNames.join(", "));
+          }
+          if (result.action === window.google.picker.Action.PICKED || result.action === window.google.picker.Action.CANCEL) {
+            closeGooglePicker();
+          }
+        }).build();
+      googlePickerRef.current = picker;
+      picker.setVisible(true);
+      setGooglePickerOpen(true);
+      setLoadingSource(null);
+    } catch (error) {
+      if (mounted.current && version === requestVersion.current) {
+        setErrorMessage(error.message || "Unable to open Google Picker.");
+        setLoadingSource(null);
+      }
+    }
+  };
 
-            if (!tokenRes.ok) throw new Error("ACCESS_REQUIRED");
-            
-            const { access_token } = await tokenRes.json();
-
-            const picker = new window.google.picker.PickerBuilder()
-                .setDeveloperKey(process.env.REACT_APP_GOOGLE_DEVELOPER_KEY) 
-                .setAppId(process.env.REACT_APP_GOOGLE_APP_ID)
-                .setOAuthToken(access_token) 
-                .addView(new window.google.picker.DocsView(window.google.picker.ViewId.SPREADSHEETS))
-                .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
-                .setOrigin(window.location.protocol + "//" + window.location.host)
-                .setCallback((data) => {
-                    if (data.action === window.google.picker.Action.PICKED) {
-                        const docs = data.docs;
-                        setSheetIds(prev => [...new Set([...prev, ...docs.map(d => d.id)])]);
-                        setSheetNames(prev => {
-                            const combinedNames = [...prev, ...docs.map(d => d.name)];
-                            setSelectedSheet([...new Set(combinedNames)].join(", "));
-                            return [...new Set(combinedNames)];
-                        });
-                        setSelectedApps(["google_sheets"]);
-                    }
-                    if (data.action === window.google.picker.Action.PICKED || data.action === window.google.picker.Action.CANCEL) {
-                        setIsPickerLoading(false);
-                    }
-                })
-                .build();
-
-            picker.setVisible(true);
-        } catch (err) {
-            if (err.message === "ACCESS_REQUIRED") {
-                setErrorMessage("Google Account Not Linked");
-            } else {
-                setErrorMessage(err.message || "Failed to sync with Google Drive.");
-            }
-            setIsPickerLoading(false);
-        }
+  useEffect(() => {
+    mounted.current = true;
+    if (!initialized.current) {
+      initialized.current = true;
+      // Analytics has already selected the source. Load its content on arrival.
+      // File inputs require a user gesture, so the upload button stays visible.
+      if (initialSource === "excel") loadExcel(requestVersion.current);
+      if (initialSource === "google_sheets") openGooglePicker(requestVersion.current);
+    }
+    return () => {
+      mounted.current = false;
+      requestVersion.current += 1;
+      try { googlePickerRef.current?.setVisible(false); } catch (error) { /* already closed */ }
+      googlePickerRef.current = null;
     };
+    // Source selection is intentionally initialized once per modal mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const handleExcelSelect = async () => {
-        setIsPickerLoading(true);
-        setErrorMessage(null);
-        const internalToken = localStorage.getItem("adt_token");
+  const onFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setErrorMessage("Please choose a CSV file. Local Excel workbook import isn't supported yet.");
+      setCsvToImport(null);
+      return;
+    }
+    setCsvToImport(file);
+    setErrorMessage(null);
+  };
 
-        try {
-            const filesRes = await fetch(`${API_BASE_URL}/excel/sheets`, {
-                headers: { 'Authorization': `Bearer ${internalToken}` }
-            });
+  const canImport = !isSubmitting && !loadingSource && (
+    (source === "google_sheets" && sheetIds.length > 0) ||
+    (source === "excel" && sheetIds.length > 0) ||
+    (source === "other" && !!csvToImport)
+  );
 
-            if (filesRes.status === 401) {
-                throw new Error("EXCEL_ACCESS_REQUIRED");
-            }
+  const submit = async () => {
+    if (!canImport) return;
+    setIsSubmitting(true);
+    try { await onImport(source === "other" ? [] : sheetIds, source === "other" ? [] : sheetNames); }
+    finally { if (mounted.current) setIsSubmitting(false); }
+  };
 
-            if (!filesRes.ok) throw new Error("Failed to fetch files from OneDrive.");
+  const tile = (id, Icon, label, accent) => (
+    <button type="button" onClick={() => chooseSource(id)} aria-pressed={source === id}
+      className={`group flex min-h-[122px] flex-col items-center justify-center gap-3 rounded-[1.5rem] border-2 p-4 text-center transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-400 ${
+        source === id ? accent : "border-white/10 bg-white/[0.035] text-slate-400 hover:border-white/30 hover:bg-white/[0.075] hover:text-white"
+      }`}>
+      <Icon size={29} className="transition-transform duration-200 group-hover:-translate-y-0.5" />
+      <span className="text-[11px] font-bold leading-4">{label}</span>
+      {source === id && <span className="text-[10px] font-semibold opacity-80">Selected</span>}
+    </button>
+  );
 
-            const data = await filesRes.json();
-            const files = data.files || [];
+  const closeImportModal = () => {
+    requestVersion.current += 1;
+    closeGooglePicker();
+    onClose();
+  };
 
-            if (files.length === 0) {
-                setErrorMessage("No Excel files found in your OneDrive.");
-                setIsPickerLoading(false);
-                return;
-            }
-
-            setSheetsList(files); 
-            setSelectedApps(["excel"]);
-            setIsPickerLoading(false);
-
-        } catch (err) {
-            if (err.message === "EXCEL_ACCESS_REQUIRED") {
-                setErrorMessage("Microsoft Account Not Linked");
-            } else {
-                setErrorMessage(err.message || "Failed to sync with Microsoft OneDrive.");
-            }
-            setIsPickerLoading(false);
-        }
-    };
-
-    const removeSheet = (index) => {
-        const updatedNames = sheetNames.filter((_, i) => i !== index);
-        const updatedIds = sheetIds.filter((_, i) => i !== index);
-        setSheetNames(updatedNames);
-        setSheetIds(updatedIds);
-        setSelectedSheet(updatedNames.join(", "));
-    };
-
-    const handleAppToggle = (appId) => {
-        if (appId === "google_sheets") {
-            handleGoogleSheetSelect();
-        } else if (appId === "excel") {
-            handleExcelSelect();
-        } else {
-            setSelectedApps([appId]);
-            setSelectedSheet(""); 
-            setSheetIds([]);
-            setSheetNames([]);
-            fileInputRef.current?.click();
-        }
-    };
-
-    const handleFileChange = (e) => { 
-        if (e.target.files && e.target.files[0]) {
-            setCsvToImport(e.target.files[0]);
-        }
-    };
-
-    const canImport = (selectedApps.includes("google_sheets") && sheetIds.length > 0) || 
-                      (selectedApps.includes("excel") && sheetIds.length > 0) ||
-                      (selectedApps.includes("other") && csvToImport);
-
-    return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={onClose} />
-            
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
-                accept=".csv"
-            />
-
-            <div className="relative w-full max-w-2xl bg-[#050505] border border-white/10 rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300 max-h-[90vh]">
-                
-                <div className="p-10 border-b border-white/5 flex justify-between items-center">
-                    <div>
-                        <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Neural Core Ingest</h2>
-                        <p className="text-white text-[10px] font-bold uppercase tracking-[0.4em] mt-1 opacity-100">Select Data Stream</p>
-                    </div>
-                    <button onClick={onClose} className="p-4 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-all">
-                        <FiX size={24} />
-                    </button>
-                </div>
-
-                <div className="p-10 space-y-6 overflow-y-auto">
-                    {errorMessage === "Google Account Not Linked" && (
-                        <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center text-center gap-3 animate-pulse">
-                            <FiAlertTriangle className="text-amber-500" size={24} />
-                            <div>
-                                <h4 className="text-white font-black text-[11px] uppercase tracking-widest">Connection Required</h4>
-                                <p className="text-white text-[11px] mt-1 font-medium">Google Sheets is not authorized. Go to the Integrations Page.</p>
-                            </div>
-                            <button 
-                                onClick={() => { onClose(); window.location.href = '/dashboard/integrations'; }} 
-                                className="mt-2 flex items-center gap-2 text-white bg-amber-600/20 px-4 py-2 rounded-full border border-white/20 font-black text-[9px] uppercase tracking-widest hover:bg-amber-500 transition-all"
-                            >
-                                Go to Integrations <FiExternalLink />
-                            </button>
-                        </div>
-                    )}
-
-                    {errorMessage === "Microsoft Account Not Linked" && (
-                        <div className="p-6 bg-blue-500/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center text-center gap-3 animate-pulse">
-                            <FiAlertTriangle className="text-blue-500" size={24} />
-                            <div>
-                                <h4 className="text-white font-black text-[11px] uppercase tracking-widest">Microsoft Connection Required</h4>
-                                <p className="text-white text-[11px] mt-1 font-medium">Excel is not authorized. Go to the Integrations Page to connect your account.</p>
-                            </div>
-                            <button 
-                                onClick={() => { 
-                                    const token = localStorage.getItem("adt_token");
-                                    onClose(); 
-                                    window.location.href = `${API_BASE_URL}/auth/excel?token=${token}`; 
-                                }} 
-                                className="mt-2 flex items-center gap-2 text-white bg-blue-600/20 px-4 py-2 rounded-full border border-white/20 font-black text-[9px] uppercase tracking-widest hover:bg-blue-500 transition-all"
-                            >
-                                Connect Excel <FiExternalLink />
-                            </button>
-                        </div>
-                    )}
-
-                    {errorMessage && errorMessage !== "Google Account Not Linked" && errorMessage !== "Microsoft Account Not Linked" && (
-                        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3">
-                            <FiAlertTriangle /> {errorMessage}
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-3 gap-4">
-                        <button onClick={() => handleAppToggle("google_sheets")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("google_sheets") ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
-                            <SiGooglesheets size={32} />
-                            <span className="text-[9px] font-black uppercase tracking-wider">Google Sheets</span>
-                        </button>
-                        
-                        <button
-                            onClick={() => handleAppToggle("excel")}
-                            className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${
-                                selectedApps.includes("excel")
-                                ? "bg-blue-500/10 border-blue-500 text-blue-400"
-                                : "bg-white/5 border-transparent text-slate-600"
-                            }`}
-                        >
-                            {isPickerLoading ? (
-                                <FiLoader className="animate-spin" size={32} />
-                            ) : (
-                                <FaFileExcel size={32} />
-                            )}
-                            <span className="text-[9px] font-black uppercase tracking-wider">
-                                Microsoft Excel
-                            </span>
-                        </button>
-
-                        <button onClick={() => handleAppToggle("other")} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${selectedApps.includes("other") ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-white/5 border-transparent text-slate-600'}`}>
-                            <FiFileText size={32} />
-                            <span className="text-[9px] font-black uppercase tracking-wider">{csvToImport ? csvToImport.name : "Local CSV"}</span>
-                        </button>
-                    </div>
-
-                    {/* Excel File Picker View */}
-                    {selectedApps.includes("excel") && sheetsList.length > 0 && (
-                        <div className="p-6 bg-blue-500/5 border border-blue-500/20 rounded-[2rem] space-y-4">
-                            <h4 className="text-white font-black text-[11px] uppercase tracking-widest">Select Excel Workbook</h4>
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                                {sheetsList.map((file) => {
-                                    const isSelected = sheetIds.includes(file.id);
-                                    return (
-                                        <div 
-                                            key={file.id}
-                                            onClick={() => {
-                                                setSheetIds([file.id]);
-                                                setSheetNames([file.name]);
-                                                setSelectedSheet(file.name);
-                                            }}
-                                            className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                                                isSelected 
-                                                    ? 'bg-blue-600/20 border-blue-500 text-white' 
-                                                    : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20 hover:text-white'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <FaFileExcel className="text-blue-400" size={18} />
-                                                <span className="text-xs font-bold">{file.name}</span>
-                                            </div>
-                                            {isSelected && <FiCheck className="text-blue-400" size={16} />}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="p-10 bg-white/[0.01] border-t border-white/5 mt-auto">
-                    <button 
-                        disabled={!canImport}
-                        onClick={() => onImport(sheetIds, sheetNames)} 
-                        className="w-full py-7 bg-white text-black rounded-3xl font-black text-xs uppercase tracking-[0.5em] hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-5 flex items-center justify-center gap-4 group"
-                    >
-                        <FiDatabase size={20} />
-                        Import Streams
-                    </button>
-                </div>
-            </div>
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4" role="presentation">
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-lg" onClick={closeImportModal} />
+      <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChange} />
+      <div role="dialog" aria-modal="true" aria-labelledby="import-modal-title" className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0c0c11] text-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-6 sm:px-9">
+          <div>
+            <h2 id="import-modal-title" className="text-2xl font-extrabold tracking-tight">Import your data</h2>
+            <p className="mt-2 text-sm text-slate-400">Choose where your data lives, then select what to analyze.</p>
+          </div>
+          <button type="button" onClick={closeImportModal} aria-label="Close import modal" className="rounded-full p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"><FiX size={22} /></button>
         </div>
-    );
+        <div className="space-y-6 overflow-y-auto px-6 py-6 sm:px-9">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {tile("google_sheets", SiGooglesheets, "Google Sheets", "border-emerald-500 bg-emerald-500/10 text-emerald-300")}
+            {tile("excel", FaFileExcel, "Microsoft Excel", "border-blue-500 bg-blue-500/10 text-blue-300")}
+            {tile("other", FiFileText, "Upload CSV", "border-purple-500 bg-purple-500/10 text-purple-300")}
+          </div>
+
+          {loadingSource && <div role="status" className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300"><FiLoader className="animate-spin text-purple-400" size={18} />{loadingSource === "excel" ? "Loading your OneDrive workbooks…" : "Opening Google Sheets…"}</div>}
+
+          {errorMessage && <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+            <div className="flex items-start gap-2"><FiAlertTriangle className="mt-0.5 shrink-0" /><span>{errorMessage}</span></div>
+            {(errorMessage === "Google Account Not Linked" || errorMessage === "Microsoft Account Not Linked") && <button type="button" onClick={() => { onClose(); window.location.assign("/dashboard/integrations"); }} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 font-semibold text-black hover:bg-slate-200">Go to Integrations <FiExternalLink /></button>}
+          </div>}
+
+          {source === "google_sheets" && !loadingSource && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+            <div className="flex items-center justify-between gap-3"><h3 className="font-bold">Google spreadsheets</h3><button type="button" onClick={() => openGooglePicker(requestVersion.current)} className="rounded-lg bg-emerald-500/20 px-4 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/30">{sheetIds.length ? "Add spreadsheets" : "Choose spreadsheets"}</button></div>
+            {sheetIds.length ? <div className="mt-4 space-y-2">{sheetIds.map((id, index) => <div key={id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"><span className="min-w-0 truncate">{sheetNames[index]}</span><button type="button" aria-label={`Remove ${sheetNames[index]}`} onClick={() => { const ids = sheetIds.filter((_, i) => i !== index); const names = sheetNames.filter((_, i) => i !== index); setSheetIds(ids); setSheetNames(names); setSelectedSheet(names.join(", ")); }} className="text-slate-400 hover:text-white"><FiX /></button></div>)}</div> : <p className="mt-3 text-sm text-slate-400">Select one or more spreadsheets using Google Picker.</p>}
+          </div>}
+
+          {source === "excel" && !loadingSource && <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
+            <div className="flex items-center justify-between gap-3"><h3 className="font-bold">OneDrive workbooks</h3><button type="button" onClick={() => loadExcel(requestVersion.current)} className="rounded-lg bg-blue-500/20 px-4 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/30">Refresh</button></div>
+            {sheetsList.length ? <div className="mt-4 max-h-52 space-y-2 overflow-y-auto">{sheetsList.map(file => <button type="button" key={file.id} onClick={() => { setSheetIds([file.id]); setSheetNames([file.name]); setSelectedSheet(file.name); }} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors ${sheetIds.includes(file.id) ? "border-blue-500 bg-blue-500/20 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:border-blue-400/50"}`}><span className="flex min-w-0 items-center gap-3"><FaFileExcel className="shrink-0 text-blue-400" /><span className="truncate">{file.name}</span></span>{sheetIds.includes(file.id) && <FiCheck className="shrink-0 text-blue-300" />}</button>)}</div> : !errorMessage && <p className="mt-3 text-sm text-slate-400">No workbooks to display.</p>}
+          </div>}
+
+          {source === "other" && <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5">
+            <h3 className="font-bold">Upload a CSV file</h3>
+            <p className="mt-2 text-sm text-slate-400">Choose a CSV file from your device. You can change your selection before importing.</p>
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-purple-400/40 bg-purple-500/15 px-5 py-3 text-sm font-bold text-purple-200 hover:bg-purple-500/25"><FiUploadCloud size={18} />{csvToImport ? "Choose a different file" : "Browse files"}</button>
+            {csvToImport && <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"><span className="min-w-0 truncate">{csvToImport.name}</span><FiCheck className="shrink-0 text-emerald-400" /></div>}
+          </div>}
+        </div>
+        <div className="border-t border-white/10 px-6 py-5 sm:px-9">
+          <button type="button" disabled={!canImport} onClick={submit} className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#6c4cff] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#5438dd] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">{isSubmitting ? <FiLoader className="animate-spin" size={18} /> : <FiDatabase size={18} />}{isSubmitting ? "Importing…" : "Import selected data"}</button>
+        </div>
+      </div>
+      {googlePickerOpen && createPortal(
+        <button
+          type="button"
+          onClick={closeGooglePicker}
+          aria-label="Close Google Sheets picker"
+          title="Close Google Sheets picker"
+          style={{ position: "fixed", top: pickerButtonPosition.top, right: pickerButtonPosition.right, zIndex: 2147483647 }}
+          className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-2xl hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-purple-500"
+        >
+          <FiX size={20} /> Close Google Picker
+        </button>,
+        document.body
+      )}
+    </div>
+  );
 };
