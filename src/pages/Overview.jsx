@@ -12,8 +12,6 @@ import React, {
 
 } from "react";
 
-
-
 import {
 
   Activity,
@@ -60,41 +58,30 @@ import {
 
 } from "lucide-react";
 
-
-
 import { useNavigate } from "react-router-dom";
-
-
 
 /* ============================================================
 
    CONFIG
 
-\============================================================ */
-
-
+============================================================ */
 
 const API_BASE_URL =
 
-  "https\://ai-data-analyst-backend-1nuw\.onrender.com";
-
-
+  "https://ai-data-analyst-backend-1nuw.onrender.com";
 
 // Both Analytics and Ask Metria use the EXISTING Analytics page.
 
 // Change this one route only if your React Router uses another path.
 
 const ANALYTICS_ROUTE = "/dashboard/analytics";
-
-
+const INTEGRATIONS_ROUTE = "/dashboard/integrations";
 
 /* ============================================================
 
    HELPERS
 
-\============================================================ */
-
-
+============================================================ */
 
 const getToken = () =>
 
@@ -103,8 +90,6 @@ const getToken = () =>
   localStorage.getItem("token") ||
 
   "";
-
-
 
 const safeString = (value, fallback = "") => {
 
@@ -116,8 +101,6 @@ const safeString = (value, fallback = "") => {
 
 };
 
-
-
 const sentenceCase = (value) => {
 
   const text = safeString(value);
@@ -128,33 +111,19 @@ const sentenceCase = (value) => {
 
 };
 
-
-
 const formatGeneratedTime = (value) => {
 
   if (!value) return "Just now";
 
-
-
   const date = new Date(value);
-
-
 
   if (Number.isNaN(date.getTime())) return "Recently";
 
-
-
   const diff = Date.now() - date.getTime();
-
-
 
   if (diff < 0) return date.toLocaleString();
 
-
-
   const minutes = Math.floor(diff / 60000);
-
-
 
   if (minutes < 1) return "Just now";
 
@@ -162,27 +131,17 @@ const formatGeneratedTime = (value) => {
 
   if (minutes < 60) return `${minutes} mins ago`;
 
-
-
   const hours = Math.floor(minutes / 60);
-
-
 
   if (hours === 1) return "1 hour ago";
 
   if (hours < 24) return `${hours} hours ago`;
 
-
-
   const days = Math.floor(hours / 24);
-
-
 
   if (days === 1) return "Yesterday";
 
   if (days < 7) return `${days} days ago`;
-
-
 
   return date.toLocaleDateString(undefined, {
 
@@ -195,8 +154,6 @@ const formatGeneratedTime = (value) => {
   });
 
 };
-
-
 
 const getHealthConfig = (status) => {
 
@@ -214,8 +171,6 @@ const getHealthConfig = (status) => {
 
       };
 
-
-
     case "stable":
 
       return {
@@ -227,8 +182,6 @@ const getHealthConfig = (status) => {
         icon: Activity,
 
       };
-
-
 
     case "watch":
 
@@ -242,8 +195,6 @@ const getHealthConfig = (status) => {
 
       };
 
-
-
     case "critical":
 
       return {
@@ -255,8 +206,6 @@ const getHealthConfig = (status) => {
         icon: AlertTriangle,
 
       };
-
-
 
     default:
 
@@ -274,8 +223,6 @@ const getHealthConfig = (status) => {
 
 };
 
-
-
 const getDirectionConfig = (direction) => {
 
   switch (safeString(direction).toLowerCase()) {
@@ -292,8 +239,6 @@ const getDirectionConfig = (direction) => {
 
       };
 
-
-
     case "down":
 
       return {
@@ -305,8 +250,6 @@ const getDirectionConfig = (direction) => {
         className: "signal-direction signal-direction--down",
 
       };
-
-
 
     case "mixed":
 
@@ -320,8 +263,6 @@ const getDirectionConfig = (direction) => {
 
       };
 
-
-
     case "flat":
 
       return {
@@ -333,8 +274,6 @@ const getDirectionConfig = (direction) => {
         className: "signal-direction signal-direction--flat",
 
       };
-
-
 
     default:
 
@@ -351,8 +290,6 @@ const getDirectionConfig = (direction) => {
   }
 
 };
-
-
 
 const getRiskClass = (severity) => {
 
@@ -378,13 +315,9 @@ const getRiskClass = (severity) => {
 
 };
 
-
-
 const normaliseQuestions = (questions) => {
 
   if (!Array.isArray(questions)) return [];
-
-
 
   return questions
 
@@ -398,13 +331,9 @@ const normaliseQuestions = (questions) => {
 
 };
 
-
-
 const normaliseWatchlist = (watchlist) => {
 
   if (!Array.isArray(watchlist)) return [];
-
-
 
   return watchlist
 
@@ -414,57 +343,86 @@ const normaliseWatchlist = (watchlist) => {
 
 };
 
-
-
 /* ============================================================
 
    SMALL COMPONENTS
 
-\============================================================ */
-
-
+============================================================ */
 
 function TypewriterText({ text, delay = 0, speed = 12 }) {
+
   const value = text == null ? "" : String(text);
+
   const [visible, setVisible] = useState("");
+
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
+
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
     if (reduceMotion || !value) {
+
       setVisible(value);
+
       setFinished(true);
+
       return;
+
     }
 
     setVisible("");
+
     setFinished(false);
+
     let intervalId;
+
     const startId = window.setTimeout(() => {
+
       let position = 0;
+
       // Reveal in small groups for a smooth, ChatGPT-like streaming effect.
+
       intervalId = window.setInterval(() => {
+
         position = Math.min(position + 2, value.length);
+
         setVisible(value.slice(0, position));
+
         if (position >= value.length) {
+
           window.clearInterval(intervalId);
+
           setFinished(true);
+
         }
+
       }, speed);
+
     }, delay);
 
     return () => {
+
       window.clearTimeout(startId);
+
       window.clearInterval(intervalId);
+
     };
+
   }, [value, delay, speed]);
 
   return (
+
     <span className="overview-typewriter" aria-label={value}>
+
       <span aria-hidden="true">{visible}</span>
+
       {!finished && <span className="overview-typewriter__cursor" aria-hidden="true" />}
+
     </span>
+
   );
+
 }
 
 function SectionHeading({
@@ -497,8 +455,6 @@ function SectionHeading({
 
         ) : null}
 
-
-
         <div>
 
           {eyebrow ? (
@@ -507,19 +463,13 @@ function SectionHeading({
 
           ) : null}
 
-
-
           <h2>{title}</h2>
-
-
 
           {description ? <p>{description}</p> : null}
 
         </div>
 
       </div>
-
-
 
       {action ? (
 
@@ -536,8 +486,6 @@ function SectionHeading({
   );
 
 }
-
-
 
 function IntelligenceCard({
 
@@ -571,25 +519,17 @@ function IntelligenceCard({
 
         </div>
 
-
-
         <span>{eyebrow}</span>
 
       </div>
 
-
-
       <h3><TypewriterText text={title || "Not enough information yet"} delay={1250} /></h3>
-
-
 
       <p>
 
         <TypewriterText text={body || "Metria needs more analytical evidence before making a reliable call."} delay={1500} />
 
       </p>
-
-
 
       {footer ? (
 
@@ -607,8 +547,6 @@ function IntelligenceCard({
 
 }
 
-
-
 function LoadingOverview() {
 
   return (
@@ -623,11 +561,7 @@ function LoadingOverview() {
 
       </div>
 
-
-
       <h2>Metria is reading your business</h2>
-
-
 
       <p>
 
@@ -636,8 +570,6 @@ function LoadingOverview() {
         relevant Ask Metria context.
 
       </p>
-
-
 
       <div className="overview-loading__bars">
 
@@ -655,127 +587,51 @@ function LoadingOverview() {
 
 }
 
-
-
-function EmptyOverview({ onOpenAnalytics }) {
-
+function EmptyOverview({ onConnectData, onOpenAnalytics }) {
   return (
-
     <div className="overview-empty">
-
       <div className="overview-empty__visual">
-
         <div className="overview-empty__icon">
-
-          <BarChart3 size={32} strokeWidth={1.8} />
-
+          <Database size={32} strokeWidth={1.8} />
         </div>
-
-
-
         <span className="overview-empty__dot overview-empty__dot--1" />
-
         <span className="overview-empty__dot overview-empty__dot--2" />
-
         <span className="overview-empty__dot overview-empty__dot--3" />
-
       </div>
-
-
-
-      <div className="overview-eyebrow">
-
-        Your business operating system
-
-      </div>
-
-
-
-      <h1>Give Metria something to watch.</h1>
-
-
-
+      <div className="overview-eyebrow">Your business operating system</div>
+      <h1>Let's connect your business data.</h1>
       <p>
-
-        Once you analyse business data, your Overview becomes a
-
-        living executive briefing — showing what changed, what
-
-        matters, what needs attention and what to do next.
-
+        Connect where your data lives, then choose a dataset to analyse.
+        Metria will turn it into a clear business briefing, charts and
+        recommendations.
       </p>
-
-
-
-      <button
-
-        type="button"
-
-        className="overview-primary-button"
-
-        onClick={onOpenAnalytics}
-
-      >
-
-        <Sparkles size={17} />
-
-        Analyse business data
-
-        <ArrowRight size={17} />
-
-      </button>
-
-
-
-      <div className="overview-empty__features">
-
-        <span>
-
-          <Activity size={15} />
-
-          Business health
-
-        </span>
-
-
-
-        <span>
-
-          <ShieldAlert size={15} />
-
-          Risks
-
-        </span>
-
-
-
-        <span>
-
-          <TrendingUp size={15} />
-
-          Opportunities
-
-        </span>
-
-
-
-        <span>
-
-          <Brain size={15} />
-
-          AI priorities
-
-        </span>
-
+      <div className="overview-empty__actions">
+        <button
+          type="button"
+          className="overview-primary-button"
+          onClick={onConnectData}
+        >
+          <Database size={17} />
+          Connect your data source
+          <ArrowRight size={17} />
+        </button>
+        <button
+          type="button"
+          className="overview-ghost-button"
+          onClick={onOpenAnalytics}
+        >
+          Upload a CSV or Excel file
+        </button>
       </div>
-
+      <div className="overview-empty__features">
+        <span><Activity size={15} /> Business health</span>
+        <span><ShieldAlert size={15} /> Risks</span>
+        <span><TrendingUp size={15} /> Opportunities</span>
+        <span><Brain size={15} /> AI priorities</span>
+      </div>
     </div>
-
   );
-
 }
-
-
 
 function ErrorOverview({ message, onRetry }) {
 
@@ -789,11 +645,7 @@ function ErrorOverview({ message, onRetry }) {
 
       </div>
 
-
-
       <h2>Metria couldn't load your overview</h2>
-
-
 
       <p>
 
@@ -802,8 +654,6 @@ function ErrorOverview({ message, onRetry }) {
           "The intelligence service could not be reached. Your saved analytics have not been affected."}
 
       </p>
-
-
 
       <button
 
@@ -827,21 +677,15 @@ function ErrorOverview({ message, onRetry }) {
 
 }
 
-
-
 /* ============================================================
 
    MAIN COMPONENT
 
-\============================================================ */
-
-
+============================================================ */
 
 export default function Overview() {
 
   const navigate = useNavigate();
-
-
 
   const [overview, setOverview] = useState(null);
 
@@ -851,15 +695,11 @@ export default function Overview() {
 
   const [error, setError] = useState("");
 
-
-
   const fetchOverview = useCallback(
 
     async ({ force = false } = {}) => {
 
       const token = getToken();
-
-
 
       if (!token) {
 
@@ -877,8 +717,6 @@ export default function Overview() {
 
       }
 
-
-
       if (force) {
 
         setRefreshing(true);
@@ -889,11 +727,7 @@ export default function Overview() {
 
       }
 
-
-
       setError("");
-
-
 
       try {
 
@@ -923,11 +757,7 @@ export default function Overview() {
 
         );
 
-
-
         let data = null;
-
-
 
         try {
 
@@ -938,8 +768,6 @@ export default function Overview() {
           data = null;
 
         }
-
-
 
         if (!response.ok) {
 
@@ -953,8 +781,6 @@ export default function Overview() {
 
           }
 
-
-
           throw new Error(
 
             data?.detail ||
@@ -964,8 +790,6 @@ export default function Overview() {
           );
 
         }
-
-
 
         setOverview(data);
 
@@ -978,8 +802,6 @@ export default function Overview() {
           requestError
 
         );
-
-
 
         setError(
 
@@ -1003,19 +825,13 @@ export default function Overview() {
 
   );
 
-
-
   useEffect(() => {
 
     fetchOverview();
 
   }, [fetchOverview]);
 
-
-
   const brief = overview?.brief || null;
-
-
 
   const healthConfig = useMemo(
 
@@ -1025,8 +841,6 @@ export default function Overview() {
 
   );
 
-
-
   const directionConfig = useMemo(
 
     () => getDirectionConfig(brief?.change?.direction),
@@ -1034,8 +848,6 @@ export default function Overview() {
     [brief?.change?.direction]
 
   );
-
-
 
   const questions = useMemo(
 
@@ -1045,8 +857,6 @@ export default function Overview() {
 
   );
 
-
-
   const watchlist = useMemo(
 
     () => normaliseWatchlist(brief?.watchlist),
@@ -1055,13 +865,9 @@ export default function Overview() {
 
   );
 
-
-
   const HealthIcon = healthConfig.icon;
 
   const DirectionIcon = directionConfig.icon;
-
-
 
   const organization =
 
@@ -1069,21 +875,15 @@ export default function Overview() {
 
     "Your business";
 
-
-
   const industry =
 
     safeString(brief?.meta?.industry) ||
 
     "Business";
 
-
-
   const datasetCount =
 
     Number(brief?.meta?.dataset_count) || 0;
-
-
 
   const confidence =
 
@@ -1093,13 +893,9 @@ export default function Overview() {
 
       : null;
 
-
-
   /* ============================================================
 
      NAVIGATION
-
-
 
      IMPORTANT:
 
@@ -1107,31 +903,23 @@ export default function Overview() {
 
      INSIDE Analytics.
 
-
-
      There is no separate /ask-metria page.
-
-
 
      The route state below is forwarded by Analytics.jsx
 
      and Visualizer.jsx to MetriaFollowUp.jsx.
 
-
-
      The question is PREFILLED, not automatically submitted.
 
-  \============================================================ */
-
-
+  ============================================================ */
 
   const openAnalytics = () => {
-
     navigate(ANALYTICS_ROUTE);
-
   };
 
-
+  const openIntegrations = () => {
+    navigate(INTEGRATIONS_ROUTE);
+  };
 
   const openAskMetria = (question = "") => {
 
@@ -1142,8 +930,6 @@ export default function Overview() {
         ? question.trim()
 
         : "";
-
-
 
     navigate(ANALYTICS_ROUTE, {
 
@@ -1167,15 +953,11 @@ export default function Overview() {
 
   };
 
-
-
   /* ============================================================
 
      LOADING
 
-  \============================================================ */
-
-
+  ============================================================ */
 
   if (loading) {
 
@@ -1184,8 +966,6 @@ export default function Overview() {
       <>
 
         <OverviewStyles />
-
-
 
         <main className="metria-overview">
 
@@ -1199,15 +979,11 @@ export default function Overview() {
 
   }
 
-
-
   /* ============================================================
 
      ERROR
 
-  \============================================================ */
-
-
+  ============================================================ */
 
   if (error && !overview) {
 
@@ -1216,8 +992,6 @@ export default function Overview() {
       <>
 
         <OverviewStyles />
-
-
 
         <main className="metria-overview">
 
@@ -1237,15 +1011,11 @@ export default function Overview() {
 
   }
 
-
-
   /* ============================================================
 
      EMPTY STATE
 
-  \============================================================ */
-
-
+  ============================================================ */
 
   if (
 
@@ -1263,13 +1033,12 @@ export default function Overview() {
 
         <OverviewStyles />
 
-
-
         <main className="metria-overview">
 
           <EmptyOverview
 
             onOpenAnalytics={openAnalytics}
+          onConnectData={openIntegrations}
 
           />
 
@@ -1281,15 +1050,11 @@ export default function Overview() {
 
   }
 
-
-
   return (
 
     <>
 
       <OverviewStyles />
-
-
 
       <main className="metria-overview">
 
@@ -1297,9 +1062,7 @@ export default function Overview() {
 
             TOP BAR
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         <header className="overview-topbar">
 
@@ -1311,13 +1074,9 @@ export default function Overview() {
 
             </div>
 
-
-
             <h1>Overview</h1>
 
           </div>
-
-
 
           <div className="overview-topbar__actions">
 
@@ -1325,13 +1084,9 @@ export default function Overview() {
 
               <span className="overview-live-dot" />
 
-
-
               <div>
 
                 <span>Business intelligence</span>
-
-
 
                 <strong>
 
@@ -1348,8 +1103,6 @@ export default function Overview() {
               </div>
 
             </div>
-
-
 
             <button
 
@@ -1385,8 +1138,6 @@ export default function Overview() {
 
               />
 
-
-
               {refreshing
 
                 ? "Refreshing"
@@ -1398,8 +1149,6 @@ export default function Overview() {
           </div>
 
         </header>
-
-
 
         {error ? (
 
@@ -1413,21 +1162,15 @@ export default function Overview() {
 
         ) : null}
 
-
-
         {/* ====================================================
 
             HERO / EXECUTIVE BRIEF
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         <section className="overview-hero">
 
           <div className="overview-hero__glow" />
-
-
 
           <div className="overview-hero__content">
 
@@ -1439,8 +1182,6 @@ export default function Overview() {
 
               </span>
 
-
-
               <span className="overview-industry">
 
                 {industry}
@@ -1448,8 +1189,6 @@ export default function Overview() {
               </span>
 
             </div>
-
-
 
             <div className="overview-hero__status-row">
 
@@ -1463,8 +1202,6 @@ export default function Overview() {
 
               </div>
 
-
-
               <span className="overview-hero__timestamp">
 
                 <Clock3 size={14} />
@@ -1475,23 +1212,17 @@ export default function Overview() {
 
             </div>
 
-
-
             <h2>
 
               <TypewriterText text={brief?.headline || "Metria is monitoring your business."} delay={100} speed={15} />
 
             </h2>
 
-
-
             <p className="overview-hero__brief">
 
               <TypewriterText text={brief?.executive_brief || "Your latest business intelligence is ready."} delay={450} speed={11} />
 
             </p>
-
-
 
             <div className="overview-hero__actions">
 
@@ -1513,8 +1244,6 @@ export default function Overview() {
 
               </button>
 
-
-
               <button
 
                 type="button"
@@ -1535,8 +1264,6 @@ export default function Overview() {
 
           </div>
 
-
-
           <div className="overview-hero__side">
 
             <div className="health-panel">
@@ -1549,8 +1276,6 @@ export default function Overview() {
 
               </div>
 
-
-
               <div className="health-panel__status">
 
                 {brief?.health?.label ||
@@ -1559,15 +1284,11 @@ export default function Overview() {
 
               </div>
 
-
-
               <p>
 
                 <TypewriterText text={brief?.health?.reason || "Metria does not yet have enough evidence to explain the current health state."} delay={700} speed={10} />
 
               </p>
-
-
 
               <div className="health-panel__footer">
 
@@ -1584,8 +1305,6 @@ export default function Overview() {
                     : "datasets"}
 
                 </span>
-
-
 
                 {confidence !== null ? (
 
@@ -1629,15 +1348,11 @@ export default function Overview() {
 
         </section>
 
-
-
         {/* ====================================================
 
             WHAT CHANGED + PRIORITY
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         <section className="overview-section">
 
@@ -1653,8 +1368,6 @@ export default function Overview() {
 
           />
 
-
-
           <div className="overview-focus-grid">
 
             <article className="focus-card focus-card--change">
@@ -1668,8 +1381,6 @@ export default function Overview() {
                   Biggest change
 
                 </div>
-
-
 
                 <div
 
@@ -1689,15 +1400,11 @@ export default function Overview() {
 
               </div>
 
-
-
               <h3>
 
                 <TypewriterText text={brief?.change?.headline || "No reliable change detected yet"} delay={850} speed={12} />
 
               </h3>
-
-
 
               <p>
 
@@ -1706,8 +1413,6 @@ export default function Overview() {
               </p>
 
             </article>
-
-
 
             <article className="focus-card focus-card--priority">
 
@@ -1721,8 +1426,6 @@ export default function Overview() {
 
                 </div>
 
-
-
                 <span className="priority-chip">
 
                   Do next
@@ -1731,15 +1434,11 @@ export default function Overview() {
 
               </div>
 
-
-
               <h3>
 
                 <TypewriterText text={brief?.priority?.title || "Continue building business signal"} delay={950} speed={12} />
 
               </h3>
-
-
 
               <p>
 
@@ -1747,15 +1446,11 @@ export default function Overview() {
 
               </p>
 
-
-
               {brief?.priority?.expected_impact ? (
 
                 <div className="expected-impact">
 
                   <TrendingUp size={15} />
-
-
 
                   <div>
 
@@ -1785,15 +1480,11 @@ export default function Overview() {
 
         </section>
 
-
-
         {/* ====================================================
 
             RISK + OPPORTUNITY
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         <section className="overview-section">
 
@@ -1808,8 +1499,6 @@ export default function Overview() {
             icon={Brain}
 
           />
-
-
 
           <div className="overview-intelligence-grid">
 
@@ -1852,8 +1541,6 @@ export default function Overview() {
               }
 
             />
-
-
 
             <IntelligenceCard
 
@@ -1905,15 +1592,11 @@ export default function Overview() {
 
         </section>
 
-
-
         {/* ====================================================
 
             PERSONALIZATION
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         {brief?.personalization?.focus ? (
 
@@ -1927,8 +1610,6 @@ export default function Overview() {
 
               </div>
 
-
-
               <div className="personalized-card__content">
 
                 <div className="overview-eyebrow">
@@ -1937,15 +1618,11 @@ export default function Overview() {
 
                 </div>
 
-
-
                 <h3>
 
-                  <TypewriterText text=<TypewriterText text={brief.personalization.focus} delay={1650} /> delay={1650} />
+                  <TypewriterText text={brief.personalization.focus} delay={1650} />
 
                 </h3>
-
-
 
                 {brief?.personalization?.reason ? (
 
@@ -1958,8 +1635,6 @@ export default function Overview() {
                 ) : null}
 
               </div>
-
-
 
               <div className="personalized-card__badge">
 
@@ -1975,15 +1650,11 @@ export default function Overview() {
 
         ) : null}
 
-
-
         {/* ====================================================
 
             WATCHLIST
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         {watchlist.length > 0 ? (
 
@@ -2000,8 +1671,6 @@ export default function Overview() {
               icon={Activity}
 
             />
-
-
 
             <div className="watchlist-grid">
 
@@ -2027,8 +1696,6 @@ export default function Overview() {
 
                   </div>
 
-
-
                   <div>
 
                     <h3>
@@ -2036,8 +1703,6 @@ export default function Overview() {
                       <TypewriterText text={item?.label || "Business signal"} delay={1900 + index * 180} />
 
                     </h3>
-
-
 
                     <p>
 
@@ -2057,17 +1722,11 @@ export default function Overview() {
 
         ) : null}
 
-
-
-
-
         {/* ====================================================
 
             FOOTER META
 
-        \==================================================== */}
-
-
+        ==================================================== */}
 
         <footer className="overview-footer">
 
@@ -2078,8 +1737,6 @@ export default function Overview() {
             Metria intelligence active
 
           </div>
-
-
 
           <div>
 
@@ -2105,15 +1762,11 @@ export default function Overview() {
 
 }
 
-
-
 /* ============================================================
 
    STYLES — ORIGINAL OVERVIEW DESIGN
 
-\============================================================ */
-
-
+============================================================ */
 
 function OverviewStyles() {
 
@@ -2123,41 +1776,41 @@ function OverviewStyles() {
 
       :root {
 
-        \--overview-bg: #dbdde3;
+        --overview-bg: #dbdde3;
 
-        \--overview-card: #ffffff;
+        --overview-card: #ffffff;
 
-        \--overview-text: #111827;
+        --overview-text: #111827;
 
-        \--overview-muted: #667085;
+        --overview-muted: #667085;
 
-        \--overview-subtle: #98a2b3;
+        --overview-subtle: #98a2b3;
 
-        \--overview-border: #e8eaf0;
+        --overview-border: #e8eaf0;
 
-        \--overview-purple: #6c4cff;
+        --overview-purple: #6c4cff;
 
-        \--overview-purple-dark: #5138d8;
+        --overview-purple-dark: #5138d8;
 
-        \--overview-purple-soft: #f2efff;
+        --overview-purple-soft: #f2efff;
 
-        \--overview-green: #138a5b;
+        --overview-green: #138a5b;
 
-        \--overview-green-soft: #eaf8f1;
+        --overview-green-soft: #eaf8f1;
 
-        \--overview-yellow: #a66b00;
+        --overview-yellow: #a66b00;
 
-        \--overview-yellow-soft: #fff7df;
+        --overview-yellow-soft: #fff7df;
 
-        \--overview-red: #c43d4b;
+        --overview-red: #c43d4b;
 
-        \--overview-red-soft: #fff0f1;
+        --overview-red-soft: #fff0f1;
 
-        \--overview-blue: #2774d8;
+        --overview-blue: #2774d8;
 
-        \--overview-blue-soft: #eef6ff;
+        --overview-blue-soft: #eef6ff;
 
-        \--overview-shadow:
+        --overview-shadow:
 
           0 1px 2px rgba(16, 24, 40, 0.03),
 
@@ -2165,15 +1818,11 @@ function OverviewStyles() {
 
       }
 
-
-
       * {
 
         box-sizing: border-box;
 
       }
-
-
 
       .metria-overview {
 
@@ -2201,8 +1850,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-eyebrow {
 
         margin-bottom: 7px;
@@ -2218,8 +1865,6 @@ function OverviewStyles() {
         text-transform: uppercase;
 
       }
-
-
 
       .overview-topbar {
 
@@ -2237,8 +1882,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-topbar h1 {
 
         margin: 0;
@@ -2251,8 +1894,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-topbar__actions {
 
         display: flex;
@@ -2262,8 +1903,6 @@ function OverviewStyles() {
         gap: 12px;
 
       }
-
-
 
       .overview-freshness {
 
@@ -2283,8 +1922,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-freshness div {
 
         display: flex;
@@ -2294,8 +1931,6 @@ function OverviewStyles() {
         gap: 1px;
 
       }
-
-
 
       .overview-freshness span {
 
@@ -2307,8 +1942,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-freshness strong {
 
         font-size: 11px;
@@ -2316,8 +1949,6 @@ function OverviewStyles() {
         font-weight: 700;
 
       }
-
-
 
       .overview-live-dot {
 
@@ -2334,8 +1965,6 @@ function OverviewStyles() {
         box-shadow: 0 0 0 4px rgba(28,166,111,0.1);
 
       }
-
-
 
       .overview-refresh-button,
 
@@ -2363,8 +1992,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-refresh-button {
 
         height: 43px;
@@ -2391,8 +2018,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-refresh-button:hover:not(:disabled),
 
       .overview-secondary-button:hover,
@@ -2405,8 +2030,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-refresh-button:disabled {
 
         cursor: wait;
@@ -2414,8 +2037,6 @@ function OverviewStyles() {
         opacity: 0.65;
 
       }
-
-
 
       .overview-primary-button {
 
@@ -2457,8 +2078,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-primary-button:hover {
 
         transform: translateY(-1px);
@@ -2468,8 +2087,6 @@ function OverviewStyles() {
           0 10px 24px rgba(108,76,255,0.24);
 
       }
-
-
 
       .overview-ghost-button,
 
@@ -2501,8 +2118,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-inline-error {
 
         max-width: 1440px;
@@ -2528,8 +2143,6 @@ function OverviewStyles() {
         font-size: 12px;
 
       }
-
-
 
       .overview-hero {
 
@@ -2573,8 +2186,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero__glow {
 
         position: absolute;
@@ -2605,8 +2216,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero__content,
 
       .overview-hero__side {
@@ -2617,8 +2226,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero__content {
 
         display: flex;
@@ -2628,8 +2235,6 @@ function OverviewStyles() {
         justify-content: center;
 
       }
-
-
 
       .overview-hero__identity {
 
@@ -2644,8 +2249,6 @@ function OverviewStyles() {
         margin-bottom: 22px;
 
       }
-
-
 
       .overview-company-pill {
 
@@ -2665,8 +2268,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-industry {
 
         color: var(--overview-muted);
@@ -2676,8 +2277,6 @@ function OverviewStyles() {
         font-weight: 600;
 
       }
-
-
 
       .overview-hero__status-row {
 
@@ -2690,8 +2289,6 @@ function OverviewStyles() {
         margin-bottom: 15px;
 
       }
-
-
 
       .overview-status {
 
@@ -2711,8 +2308,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-status--strong {
 
         background: var(--overview-green-soft);
@@ -2720,8 +2315,6 @@ function OverviewStyles() {
         color: var(--overview-green);
 
       }
-
-
 
       .overview-status--stable {
 
@@ -2731,8 +2324,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-status--watch {
 
         background: var(--overview-yellow-soft);
@@ -2740,8 +2331,6 @@ function OverviewStyles() {
         color: var(--overview-yellow);
 
       }
-
-
 
       .overview-status--critical {
 
@@ -2751,8 +2340,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-status--unknown {
 
         background: #f2f4f7;
@@ -2760,8 +2347,6 @@ function OverviewStyles() {
         color: #667085;
 
       }
-
-
 
       .overview-hero__timestamp {
 
@@ -2779,8 +2364,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero h2 {
 
         max-width: 820px;
@@ -2797,8 +2380,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero__brief {
 
         max-width: 780px;
@@ -2813,8 +2394,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero__actions {
 
         display: flex;
@@ -2827,8 +2406,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-hero__side {
 
         display: flex;
@@ -2836,8 +2413,6 @@ function OverviewStyles() {
         align-items: center;
 
       }
-
-
 
       .health-panel {
 
@@ -2859,8 +2434,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .health-panel__top {
 
         display: flex;
@@ -2881,8 +2454,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .health-panel__status {
 
         margin-top: 23px;
@@ -2896,8 +2467,6 @@ function OverviewStyles() {
         letter-spacing: -0.04em;
 
       }
-
-
 
       .health-panel > p {
 
@@ -2913,8 +2482,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .health-panel__footer {
 
         display: flex;
@@ -2928,8 +2495,6 @@ function OverviewStyles() {
         border-top: 1px solid #ececf2;
 
       }
-
-
 
       .health-panel__footer span {
 
@@ -2947,8 +2512,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-section {
 
         max-width: 1440px;
@@ -2957,15 +2520,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-section--last {
 
         margin-bottom: 30px;
 
       }
-
-
 
       .overview-section-heading {
 
@@ -2981,8 +2540,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-section-heading__left {
 
         display: flex;
@@ -2992,8 +2549,6 @@ function OverviewStyles() {
         gap: 12px;
 
       }
-
-
 
       .overview-section-heading__icon {
 
@@ -3019,8 +2574,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-section-heading h2 {
 
         margin: 0;
@@ -3032,8 +2585,6 @@ function OverviewStyles() {
         letter-spacing: -0.025em;
 
       }
-
-
 
       .overview-section-heading p {
 
@@ -3049,8 +2600,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-focus-grid,
 
       .overview-intelligence-grid {
@@ -3062,8 +2611,6 @@ function OverviewStyles() {
         gap: 16px;
 
       }
-
-
 
       .focus-card,
 
@@ -3085,8 +2632,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .focus-card--change {
 
         background:
@@ -3102,8 +2647,6 @@ function OverviewStyles() {
           );
 
       }
-
-
 
       .focus-card--priority {
 
@@ -3123,8 +2666,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .focus-card__header {
 
         display: flex;
@@ -3136,8 +2677,6 @@ function OverviewStyles() {
         gap: 12px;
 
       }
-
-
 
       .focus-card__label {
 
@@ -3159,15 +2698,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .focus-card__label svg {
 
         color: var(--overview-purple);
 
       }
-
-
 
       .focus-card h3 {
 
@@ -3185,8 +2720,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .focus-card > p {
 
         max-width: 650px;
@@ -3200,8 +2733,6 @@ function OverviewStyles() {
         line-height: 1.7;
 
       }
-
-
 
       .signal-direction,
 
@@ -3223,8 +2754,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .signal-direction--up {
 
         color: var(--overview-green);
@@ -3232,8 +2761,6 @@ function OverviewStyles() {
         background: var(--overview-green-soft);
 
       }
-
-
 
       .signal-direction--down {
 
@@ -3243,8 +2770,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .signal-direction--mixed {
 
         color: var(--overview-yellow);
@@ -3252,8 +2777,6 @@ function OverviewStyles() {
         background: var(--overview-yellow-soft);
 
       }
-
-
 
       .signal-direction--flat,
 
@@ -3265,8 +2788,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .priority-chip {
 
         color: var(--overview-purple);
@@ -3274,8 +2795,6 @@ function OverviewStyles() {
         background: var(--overview-purple-soft);
 
       }
-
-
 
       .expected-impact {
 
@@ -3301,8 +2820,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .expected-impact div {
 
         display: flex;
@@ -3312,8 +2829,6 @@ function OverviewStyles() {
         gap: 1px;
 
       }
-
-
 
       .expected-impact span {
 
@@ -3325,23 +2840,17 @@ function OverviewStyles() {
 
       }
 
-
-
       .expected-impact strong {
 
         font-size: 11px;
 
       }
 
-
-
       .intelligence-card {
 
         min-height: 250px;
 
       }
-
-
 
       .intelligence-card--risk {
 
@@ -3359,8 +2868,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .intelligence-card--opportunity {
 
         background:
@@ -3376,8 +2883,6 @@ function OverviewStyles() {
           );
 
       }
-
-
 
       .intelligence-card__top {
 
@@ -3399,8 +2904,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .intelligence-card__icon {
 
         width: 34px;
@@ -3419,8 +2922,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .intelligence-card--risk
 
         .intelligence-card__icon {
@@ -3431,8 +2932,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .intelligence-card--opportunity
 
         .intelligence-card__icon {
@@ -3442,8 +2941,6 @@ function OverviewStyles() {
         background: var(--overview-green-soft);
 
       }
-
-
 
       .intelligence-card h3 {
 
@@ -3457,8 +2954,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .intelligence-card > p {
 
         margin: 0;
@@ -3471,15 +2966,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .intelligence-card__footer {
 
         margin-top: 22px;
 
       }
-
-
 
       .risk-badge {
 
@@ -3495,8 +2986,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .risk-badge--high {
 
         color: var(--overview-red);
@@ -3504,8 +2993,6 @@ function OverviewStyles() {
         background: var(--overview-red-soft);
 
       }
-
-
 
       .risk-badge--medium {
 
@@ -3515,8 +3002,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .risk-badge--low {
 
         color: var(--overview-green);
@@ -3525,8 +3010,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .risk-badge--unknown {
 
         color: #667085;
@@ -3534,8 +3017,6 @@ function OverviewStyles() {
         background: #f2f4f7;
 
       }
-
-
 
       .text-action {
 
@@ -3561,15 +3042,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .text-action:hover {
 
         text-decoration: underline;
 
       }
-
-
 
       .personalized-card {
 
@@ -3601,8 +3078,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .personalized-card__icon {
 
         width: 46px;
@@ -3625,8 +3100,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .personalized-card h3 {
 
         margin: 0;
@@ -3636,8 +3109,6 @@ function OverviewStyles() {
         letter-spacing: -0.02em;
 
       }
-
-
 
       .personalized-card p {
 
@@ -3650,8 +3121,6 @@ function OverviewStyles() {
         line-height: 1.6;
 
       }
-
-
 
       .personalized-card__badge {
 
@@ -3679,8 +3148,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .watchlist-grid {
 
         display: grid;
@@ -3690,8 +3157,6 @@ function OverviewStyles() {
         gap: 12px;
 
       }
-
-
 
       .watchlist-item {
 
@@ -3712,8 +3177,6 @@ function OverviewStyles() {
         background: white;
 
       }
-
-
 
       .watchlist-item__number {
 
@@ -3737,8 +3200,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .watchlist-item h3 {
 
         margin: 1px 0 5px;
@@ -3746,8 +3207,6 @@ function OverviewStyles() {
         font-size: 13px;
 
       }
-
-
 
       .watchlist-item p {
 
@@ -3760,8 +3219,6 @@ function OverviewStyles() {
         line-height: 1.6;
 
       }
-
-
 
       .ask-metria-panel {
 
@@ -3801,8 +3258,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .ask-metria-panel::after {
 
         content: "";
@@ -3835,8 +3290,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .ask-metria-panel__intro {
 
         position: relative;
@@ -3850,8 +3303,6 @@ function OverviewStyles() {
         gap: 15px;
 
       }
-
-
 
       .ask-metria-panel__icon {
 
@@ -3875,8 +3326,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .ask-metria-panel h2 {
 
         margin: 0;
@@ -3886,8 +3335,6 @@ function OverviewStyles() {
         letter-spacing: -0.025em;
 
       }
-
-
 
       .ask-metria-panel p {
 
@@ -3901,15 +3348,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .ask-metria-panel .overview-eyebrow {
 
         color: #a996ff;
 
       }
-
-
 
       .suggested-questions {
 
@@ -3924,8 +3367,6 @@ function OverviewStyles() {
         gap: 8px;
 
       }
-
-
 
       .suggested-questions button {
 
@@ -3971,8 +3412,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .suggested-questions button:hover {
 
         transform: translateX(2px);
@@ -3983,8 +3422,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .suggested-questions button svg {
 
         flex: 0 0 auto;
@@ -3992,8 +3429,6 @@ function OverviewStyles() {
         color: #a996ff;
 
       }
-
-
 
       .overview-footer {
 
@@ -4017,8 +3452,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-footer div:first-child {
 
         display: flex;
@@ -4029,8 +3462,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-footer .overview-live-dot {
 
         width: 6px;
@@ -4040,8 +3471,6 @@ function OverviewStyles() {
         box-shadow: none;
 
       }
-
-
 
       .overview-loading,
 
@@ -4066,8 +3495,6 @@ function OverviewStyles() {
         text-align: center;
 
       }
-
-
 
       .overview-loading__orb,
 
@@ -4095,8 +3522,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-loading__pulse {
 
         position: absolute;
@@ -4110,8 +3535,6 @@ function OverviewStyles() {
         animation: pulseOverview 1.8s ease-in-out infinite;
 
       }
-
-
 
       .overview-loading h2,
 
@@ -4127,8 +3550,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-loading h2,
 
       .overview-error h2 {
@@ -4137,8 +3558,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-empty h1 {
 
         max-width: 560px;
@@ -4146,8 +3565,6 @@ function OverviewStyles() {
         font-size: clamp(30px, 5vw, 46px);
 
       }
-
-
 
       .overview-loading p,
 
@@ -4167,8 +3584,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-loading__bars {
 
         display: flex;
@@ -4178,8 +3593,6 @@ function OverviewStyles() {
         margin-top: 5px;
 
       }
-
-
 
       .overview-loading__bars span {
 
@@ -4195,15 +3608,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-loading__bars span:nth-child(2) {
 
         animation-delay: 0.12s;
 
       }
-
-
 
       .overview-loading__bars span:nth-child(3) {
 
@@ -4211,15 +3620,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-empty__visual {
 
         position: relative;
 
       }
-
-
 
       .overview-empty__dot {
 
@@ -4235,8 +3640,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-empty__dot--1 {
 
         top: -5px;
@@ -4244,8 +3647,6 @@ function OverviewStyles() {
         right: -12px;
 
       }
-
-
 
       .overview-empty__dot--2 {
 
@@ -4257,8 +3658,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-empty__dot--3 {
 
         bottom: -9px;
@@ -4268,8 +3667,6 @@ function OverviewStyles() {
         opacity: 0.3;
 
       }
-
-
 
       .overview-empty__features {
 
@@ -4284,8 +3681,6 @@ function OverviewStyles() {
         margin-top: 26px;
 
       }
-
-
 
       .overview-empty__features span {
 
@@ -4311,8 +3706,6 @@ function OverviewStyles() {
 
       }
 
-
-
       .overview-error__icon {
 
         background: var(--overview-red-soft);
@@ -4321,15 +3714,11 @@ function OverviewStyles() {
 
       }
 
-
-
       .spin {
 
         animation: spinOverview 0.85s linear infinite;
 
       }
-
-
 
       @keyframes spinOverview {
 
@@ -4340,8 +3729,6 @@ function OverviewStyles() {
         }
 
       }
-
-
 
       @keyframes pulseOverview {
 
@@ -4355,8 +3742,6 @@ function OverviewStyles() {
 
         }
 
-
-
         50% {
 
           transform: scale(1.06);
@@ -4366,8 +3751,6 @@ function OverviewStyles() {
         }
 
       }
-
-
 
       @keyframes overviewBars {
 
@@ -4381,8 +3764,6 @@ function OverviewStyles() {
 
         }
 
-
-
         50% {
 
           transform: scaleY(1);
@@ -4393,8 +3774,6 @@ function OverviewStyles() {
 
       }
 
-
-
       @media (max-width: 1050px) {
 
         .metria-overview {
@@ -4403,23 +3782,17 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-hero {
 
           grid-template-columns: 1fr;
 
         }
 
-
-
         .overview-hero__side {
 
           max-width: 600px;
 
         }
-
-
 
         .ask-metria-panel {
 
@@ -4429,8 +3802,6 @@ function OverviewStyles() {
 
       }
 
-
-
       @media (max-width: 760px) {
 
         .metria-overview {
@@ -4438,8 +3809,6 @@ function OverviewStyles() {
           padding: 24px 16px 35px;
 
         }
-
-
 
         .overview-topbar {
 
@@ -4449,8 +3818,6 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-topbar__actions {
 
           width: 100%;
@@ -4459,15 +3826,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-freshness {
 
           flex: 1;
 
         }
-
-
 
         .overview-hero {
 
@@ -4477,15 +3840,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-hero h2 {
 
           font-size: 32px;
 
         }
-
-
 
         .overview-focus-grid,
 
@@ -4497,15 +3856,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .personalized-card {
 
           grid-template-columns: auto 1fr;
 
         }
-
-
 
         .personalized-card__badge {
 
@@ -4515,15 +3870,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-section {
 
           margin-top: 43px;
 
         }
-
-
 
         .overview-section-heading {
 
@@ -4531,15 +3882,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .ask-metria-panel {
 
           padding: 23px 18px;
 
         }
-
-
 
         .overview-footer {
 
@@ -4551,8 +3898,6 @@ function OverviewStyles() {
 
       }
 
-
-
       @media (max-width: 500px) {
 
         .overview-topbar__actions {
@@ -4563,15 +3908,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-refresh-button {
 
           justify-content: center;
 
         }
-
-
 
         .overview-hero__status-row {
 
@@ -4581,15 +3922,11 @@ function OverviewStyles() {
 
         }
 
-
-
         .overview-hero__actions {
 
           flex-direction: column;
 
         }
-
-
 
         .overview-primary-button,
 
@@ -4599,8 +3936,6 @@ function OverviewStyles() {
 
         }
 
-
-
         .focus-card,
 
         .intelligence-card {
@@ -4609,23 +3944,17 @@ function OverviewStyles() {
 
         }
 
-
-
         .focus-card__header {
 
           align-items: flex-start;
 
         }
 
-
-
         .personalized-card {
 
           grid-template-columns: 1fr;
 
         }
-
-
 
         .ask-metria-panel__intro {
 
@@ -4634,8 +3963,6 @@ function OverviewStyles() {
         }
 
       }
-
-
 
       @media (prefers-reduced-motion: reduce) {
 
@@ -4657,55 +3984,118 @@ function OverviewStyles() {
 
       }
 
-  
     /* Readability: enlarge previously tiny labels, metadata and descriptions. */
+
     .metria-overview { font-size: 16px; line-height: 1.6; }
+
     .metria-overview .overview-eyebrow { font-size: 13px; letter-spacing: .09em; }
+
     .metria-overview .overview-section-heading p,
+
     .metria-overview .overview-hero__brief,
+
     .metria-overview .focus-card p,
+
     .metria-overview .intelligence-card p,
+
     .metria-overview .health-panel p,
+
     .metria-overview .personalized-card p,
+
     .metria-overview .watchlist-item p,
+
     .metria-overview .overview-empty p,
+
     .metria-overview .overview-loading p,
+
     .metria-overview .overview-error p { font-size: 15px; line-height: 1.75; }
+
     .metria-overview .overview-section-heading h2 { font-size: clamp(23px, 2vw, 29px); }
+
     .metria-overview .focus-card h3,
+
     .metria-overview .intelligence-card h3,
+
     .metria-overview .personalized-card h3 { font-size: clamp(18px, 1.55vw, 22px); line-height: 1.4; }
+
     .metria-overview .watchlist-item h3 { font-size: 16px; }
+
     .metria-overview .overview-freshness span,
+
     .metria-overview .overview-freshness strong,
+
     .metria-overview .overview-company-pill,
+
     .metria-overview .overview-industry,
+
     .metria-overview .overview-status,
+
     .metria-overview .overview-hero__timestamp,
+
     .metria-overview .overview-footer,
+
     .metria-overview .health-panel__footer,
+
     .metria-overview .intelligence-card__top span,
+
     .metria-overview .focus-card__label,
+
     .metria-overview .priority-chip,
+
     .metria-overview .risk-badge,
+
     .metria-overview .personalized-card__badge { font-size: 13px; line-height: 1.5; }
+
     .metria-overview .overview-primary-button,
+
     .metria-overview .overview-secondary-button,
+
     .metria-overview .overview-ghost-button,
+
     .metria-overview .overview-refresh-button,
+
     .metria-overview .text-action { font-size: 14px; }
+
     .metria-overview .watchlist-item__number { font-size: 13px; }
+
     .metria-overview .overview-hero h2 { line-height: 1.25; }
+
     .overview-typewriter { white-space: pre-wrap; }
+
     .overview-typewriter__cursor {
+
       display: inline-block; width: 2px; height: 1em;
+
       margin-left: 2px; vertical-align: -0.12em;
+
       background: #6c4cff; animation: overview-cursor-blink .8s step-end infinite;
+
     }
+
     @keyframes overview-cursor-blink { 50% { opacity: 0; } }
+
     @media (prefers-reduced-motion: reduce) {
+
       .overview-typewriter__cursor { animation: none; }
+
     }
+
+  .overview-empty__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px;
+  }
+  .overview-empty__actions .overview-primary-button,
+  .overview-empty__actions .overview-ghost-button {
+    min-height: 46px;
+  }
+  @media (max-width: 600px) {
+    .overview-empty__actions { flex-direction: column; width: 100%; }
+    .overview-empty__actions button { width: min(100%, 320px); }
+  }
   `}</style>
 
   );

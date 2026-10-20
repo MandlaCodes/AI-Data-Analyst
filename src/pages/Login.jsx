@@ -1,15 +1,36 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaUser, FaLock, FaBuilding, FaBriefcase, FaArrowRight, FaShieldAlt, FaArrowLeft, FaDesktop } from "react-icons/fa";
-import { FiLoader, FiCheckCircle, FiMail, FiChevronDown } from "react-icons/fi";
+import { FiLoader, FiCheckCircle, FiMail, FiChevronDown, FiEye, FiEyeOff } from "react-icons/fi";
 
 const INDUSTRIES = [
   "Finance & Banking", "Healthcare", "E-commerce",
-  "SaaS & Tech", "Manufacturing", "Marketing", "Fitness", "Fashion", "Warehouse", "Real Estate"
+  "SaaS & Tech", "Manufacturing", "Marketing Agency", "Marketing", "Fitness", "Fashion", "Warehouse", "Real Estate"
 ];
 
 export default function Login({ onLoginSuccess }) {
-  const [isSignup, setIsSignup] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isSignup, setIsSignup] = useState(searchParams.get("mode") === "signup");
+  const redirectTimer = useRef(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    setIsSignup(searchParams.get("mode") === "signup");
+    setStep(1);
+    setStatus(null);
+  }, [searchParams]);
+
+  useEffect(() => () => {
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+  }, []);
+
+  const switchMode = (signup) => {
+    setSearchParams(signup ? { mode: "signup" } : {});
+    setIsSignup(signup);
+    setStep(1);
+    setStatus(null);
+  };
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     email: "", password: "", firstName: "", lastName: "", org: "", industry: ""
@@ -17,21 +38,34 @@ export default function Login({ onLoginSuccess }) {
   const [status, setStatus] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    if (status?.type === "error") setStatus(null);
+  };
 
-  // Logic for the Strength Meter
+  // Keep signup rules simple and consistent with the visible guidance.
+  // The server must enforce its own password policy too.
+  const passwordValid = (password) => password.length >= 8;
   const getPasswordStrength = (pass) => {
     if (!pass) return 0;
-    let score = 0;
-    if (pass.length > 6) score++;
-    if (/[A-Z]/.test(pass)) score++;
-    if (/[0-9]/.test(pass)) score++;
-    if (/[^A-Za-z0-9]/.test(pass)) score++;
+    let score = pass.length >= 8 ? 1 : 0;
+    if (pass.length >= 12) score++;
+    if (/[A-Za-z]/.test(pass) && /[0-9]/.test(pass)) score++;
+    if (pass.length >= 16 && /[^A-Za-z0-9]/.test(pass)) score++;
     return score;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    if (isSignup && step === 1 && !passwordValid(formData.password)) {
+      setStatus({
+        message: "Your password needs at least 8 characters. Letters, numbers and symbols are all allowed.",
+        type: "error",
+      });
+      return;
+    }
+    setIsSubmitting(true);
 
     // STEP 1 VALIDATION: Check email before proceeding
     if (isSignup && step === 1) {
@@ -43,20 +77,22 @@ export default function Login({ onLoginSuccess }) {
           body: JSON.stringify({ email: formData.email }),
         });
         
-        const checkData = await checkRes.json();
+        const checkData = await checkRes.json().catch(() => ({}));
         
         if (!checkRes.ok) {
-          setStatus({ message: checkData.detail || "This email is already registered.", type: "error" });
+          const detail = typeof checkData.detail === "string" ? checkData.detail : null;
+          setStatus({ message: detail || (checkRes.status === 409 ? "This email is already registered. Try logging in." : "We couldn't check that email right now. Please try again."), type: "error" });
+          setIsSubmitting(false);
           return;
         }
         
         setStatus(null);
+        setIsSubmitting(false);
         setStep(2);
         return;
       } catch (err) {
-        // Fallback for dev if endpoint isn't ready: allow to step 2
-        setStatus(null);
-        setStep(2);
+        setStatus({ message: "Unable to verify email. Check your connection and try again.", type: "error" });
+        setIsSubmitting(false);
         return;
       }
     }
@@ -80,10 +116,10 @@ export default function Login({ onLoginSuccess }) {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setStatus({ message: data.detail || data.error || "Action Failed.", type: "error" });
+        setStatus({ message: typeof data.detail === "string" ? data.detail : (data.error || "Action failed. Please try again."), type: "error" });
         return;
       }
 
@@ -93,12 +129,16 @@ export default function Login({ onLoginSuccess }) {
           localStorage.setItem("adt_profile", JSON.stringify(data.user));
         }
         setIsLoggedIn(true);
-        setTimeout(() => {
-          onLoginSuccess(data.user_id, data.token);
+        redirectTimer.current = setTimeout(() => {
+          if (typeof onLoginSuccess === "function") onLoginSuccess(data.user_id, data.token);
         }, 1500);
+      } else {
+        setStatus({ message: "Authentication succeeded but no session token was returned. Please try again.", type: "error" });
       }
     } catch (err) {
-      setStatus({ message: "Network Error. Please try again.", type: "error" });
+      setStatus({ message: "Network error. Please try again.", type: "error" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -158,14 +198,14 @@ export default function Login({ onLoginSuccess }) {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-[9px] font-bold uppercase tracking-[0.2em] mb-8">
             <FaShieldAlt className="animate-pulse" /> Secure Connection
           </div>
-          <h2 className="text-8xl font-black italic tracking-tighter leading-none mb-6">
-            METRIA<span className="text-purple-500">.</span>
+          <h2 className="text-7xl xl:text-8xl font-black italic tracking-tighter leading-none mb-6">
+            METRIA<span className="text-purple-500">AI</span>
           </h2>
           <p className="text-slate-400 text-lg font-medium italic tracking-wide mb-12 max-w-sm mx-auto">
             Advanced AI for your business data. Simple, fast, and powerful.
           </p>
           <button
-            onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
+            onClick={() => switchMode(!isSignup)}
             className="group px-10 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-500"
           >
             {isSignup ? "Go to Login" : "Create an Account"}
@@ -198,23 +238,29 @@ export default function Login({ onLoginSuccess }) {
             <p className="text-slate-500 text-[10px] font-mono uppercase tracking-[0.3em]">
               {isSignup ? `Step ${step} of 2` : "Enter your details below"}
             </p>
+            {isSignup && (
+              <div className="flex gap-2 pt-1" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={2} aria-label="Signup progress">
+                <span className="h-1 flex-1 rounded-full bg-purple-500" />
+                <span className={`h-1 flex-1 rounded-full ${step === 2 ? "bg-purple-500" : "bg-white/10"}`} />
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
             {isSignup && step === 2 ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                     <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                    <input name="firstName" placeholder="FIRST NAME" value={formData.firstName} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                    <input name="firstName" autoComplete="given-name" placeholder="FIRST NAME" value={formData.firstName} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                   </div>
                   <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
-                    <input name="lastName" placeholder="LAST NAME" value={formData.lastName} onChange={handleChange} required className="w-full bg-transparent p-4 text-xs font-bold outline-none placeholder:text-white/20" />
+                    <input name="lastName" autoComplete="family-name" placeholder="LAST NAME" value={formData.lastName} onChange={handleChange} required className="w-full bg-transparent p-4 text-xs font-bold outline-none placeholder:text-white/20" />
                   </div>
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input id="organization_name_input" name="org" placeholder="COMPANY NAME" autoComplete="off" value={formData.org} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  <input id="organization_name_input" name="org" placeholder="COMPANY NAME" autoComplete="organization" value={formData.org} onChange={handleChange} required className="w-full bg-transparent p-4 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaBriefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
@@ -229,22 +275,30 @@ export default function Login({ onLoginSuccess }) {
               <div className="space-y-4">
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  <input type="email" name="email" id="user_access_point" autoComplete="off" value={formData.email} placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
+                  <input type="email" name="email" id="user_access_point" autoComplete="email" value={formData.email} placeholder="EMAIL ADDRESS" onChange={handleChange} required className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" />
                 </div>
                 <div className="relative group input-focus-effect border border-white/10 bg-white/5 rounded-xl overflow-hidden transition-all">
                   <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-500/40 group-focus-within:text-purple-500 transition-colors" />
-                  {/* CLOAKED INPUT: Prevents 'alex' breach alert */}
+                  {/* Native password field for proper browser security semantics. */}
                   <input 
-                    type="text" 
+                    type={showPassword ? "text" : "password"} 
                     name="password" 
-                    autoComplete="off"
-                    style={{ WebkitTextSecurity: 'disc' }}
+                    autoComplete={isSignup ? "new-password" : "current-password"}
                     value={formData.password} 
                     placeholder="PASSWORD" 
                     onChange={handleChange} 
                     required 
-                    className="w-full bg-transparent p-5 pl-12 text-xs font-bold outline-none placeholder:text-white/20" 
+                    className="w-full bg-transparent p-5 pl-12 pr-14 text-xs font-bold outline-none placeholder:text-white/20"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="absolute right-4 top-5 text-slate-400 hover:text-purple-400 transition-colors"
+                  >
+                    {showPassword ? <FiEyeOff size={17} /> : <FiEye size={17} />}
+                  </button>
                   {/* Strength Meter */}
                   {isSignup && formData.password && (
                     <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/5 flex gap-1 px-1">
@@ -256,9 +310,14 @@ export default function Login({ onLoginSuccess }) {
                 </div>
               </div>
             )}
+            {isSignup && step === 1 && (
+              <p aria-live="polite" className={`text-xs leading-relaxed ${formData.password.length >= 8 ? "text-purple-300" : "text-slate-400"}`}>
+                {formData.password.length >= 8 ? "✓ Password length looks good. You can continue." : `Use at least 8 characters (${formData.password.length}/8). Letters, numbers and symbols are welcome.`}
+              </p>
+            )}
 
-            <button type="submit" className="w-full group relative flex items-center justify-center gap-3 py-5 bg-purple-600 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-300 shadow-2xl shadow-purple-500/20">
-              {status?.type === "info" ? <FiLoader className="animate-spin" size={18} /> : (
+            <button type="submit" disabled={isSubmitting} className="disabled:opacity-60 disabled:cursor-wait w-full group relative flex items-center justify-center gap-3 py-5 bg-purple-600 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all duration-300 shadow-2xl shadow-purple-500/20">
+              {isSubmitting ? <FiLoader className="animate-spin" size={18} /> : (
                 <>
                   {isSignup ? (step === 1 ? "Next Step" : "Create Account") : "Login Now"}
                   <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
@@ -273,13 +332,13 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          <div className="text-center lg:hidden pt-4 pb-12 stagger-3 animate-premium">
+          <div className="text-center pt-4 pb-8 stagger-3 animate-premium">
              <button
               type="button"
-              onClick={() => { setIsSignup(!isSignup); setStep(1); setStatus(null); }}
+              onClick={() => switchMode(!isSignup)}
               className="px-6 py-3 border border-white/5 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-purple-400 transition-all bg-white/5"
             >
-              {isSignup ? "Have an account? Login" : "No account? Create one"}
+              {isSignup ? "Already have an account? Log in" : "New to MetriaAI? Create an account"}
             </button>
           </div>
         </div>
