@@ -161,6 +161,38 @@ export const MetriaFollowUp = ({
 
     const [subscriptionNotice, setSubscriptionNotice] = useState("");
     const [checkoutPending, setCheckoutPending] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [upgradeModalEntered, setUpgradeModalEntered] = useState(false);
+    const [blockedQuestion, setBlockedQuestion] = useState("");
+
+    useEffect(() => {
+        if (!showUpgradeModal) {
+            setUpgradeModalEntered(false);
+            return;
+        }
+        const frame = window.requestAnimationFrame(() => setUpgradeModalEntered(true));
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            window.cancelAnimationFrame(frame);
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [showUpgradeModal]);
+
+    const promptForUpgrade = (question) => {
+        const pending = String(question || "").trim();
+        if (pending) {
+            setBlockedQuestion(pending);
+            setInputQuery(pending);
+        }
+        setSubscriptionNotice("");
+        setShowUpgradeModal(true);
+    };
+
+    const dismissUpgradeModal = () => {
+        if (checkoutPending) return;
+        setShowUpgradeModal(false);
+    };
 
     const openSubscriptionCheckout = async () => {
         if (checkoutPending) return;
@@ -184,6 +216,7 @@ export const MetriaFollowUp = ({
             const transactionId = response.data?.transaction_id;
             if (!transactionId) throw new Error("Checkout transaction was not created.");
             window.Paddle.Checkout.open({ transactionId });
+            setShowUpgradeModal(false);
             setSubscriptionNotice("Complete checkout to unlock unlimited questions. Access activates after payment verification.");
         } catch (error) {
             if (error.response?.status === 409) {
@@ -2878,7 +2911,7 @@ const playMetriaIntroduction = async () => {
                         setLiveTranscript("");
                         // Do not present the blocked question as a completed conversation.
                         setMessages(messages);
-                        openSubscriptionCheckout();
+                        promptForUpgrade(textToSend);
                         return;
                     }
 
@@ -2983,7 +3016,7 @@ const playMetriaIntroduction = async () => {
                 if (isSubscriptionRequired(err.response?.status, err.response?.data)) {
                     setIsAnalyzing(false);
                     setMessages(messages);
-                    openSubscriptionCheckout();
+                    promptForUpgrade(textToSend);
                     return;
                 }
 
@@ -3320,7 +3353,86 @@ const playMetriaIntroduction = async () => {
                     : "w-full mx-auto my-6 flex flex-col"
             }
         >
-            {subscriptionNotice && (
+            {showUpgradeModal && (
+                <div
+                    className={`fixed inset-0 z-[10050] flex items-center justify-center overflow-y-auto px-4 py-8 transition-all duration-300 ease-out ${upgradeModalEntered ? "bg-black/80 backdrop-blur-md opacity-100" : "bg-black/0 backdrop-blur-none opacity-0"}`}
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) dismissUpgradeModal();
+                    }}
+                    role="presentation"
+                >
+                    <section
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="metria-upgrade-title"
+                        className={`relative w-full max-w-[490px] overflow-hidden rounded-[30px] border border-purple-400/25 bg-[#0d0817] px-7 py-8 text-white shadow-[0_35px_130px_rgba(102,32,195,0.32)] transition-all duration-300 ease-out sm:px-9 sm:py-10 ${upgradeModalEntered ? "translate-y-0 scale-100 opacity-100" : "translate-y-5 scale-[0.96] opacity-0"}`}
+                        onKeyDown={(event) => {
+                            if (event.key === "Escape") dismissUpgradeModal();
+                        }}
+                    >
+                        <div className="pointer-events-none absolute -top-28 left-1/2 h-60 w-60 -translate-x-1/2 rounded-full bg-purple-600/20 blur-[85px]" />
+                        <button
+                            type="button"
+                            aria-label="Close upgrade dialog"
+                            onClick={dismissUpgradeModal}
+                            disabled={checkoutPending}
+                            className="absolute right-5 top-5 rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+                        >
+                            <FiX size={18} />
+                        </button>
+                        <div className="relative">
+                            <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-400/30 bg-purple-500/15 text-purple-300 shadow-[0_0_35px_rgba(168,85,247,0.18)]">
+                                <FiZap size={25} />
+                            </div>
+                            <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.24em] text-purple-300">MetriaAI Pro</div>
+                            <h2 id="metria-upgrade-title" className="mb-3 text-[27px] font-bold leading-tight tracking-tight sm:text-[31px]">Keep the conversation going.</h2>
+                            <p className="mb-7 text-sm leading-6 text-slate-400">
+                                You've used your free question. Upgrade to Pro to continue exploring your data with Metria in chat and voice.
+                            </p>
+                            {blockedQuestion && (
+                                <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+                                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Your question is saved</div>
+                                    <p className="line-clamp-2 text-sm text-slate-300">{blockedQuestion}</p>
+                                </div>
+                            )}
+                            <div className="mb-6 flex items-baseline gap-1.5">
+                                <span className="text-4xl font-bold tracking-tight">$89</span>
+                                <span className="text-sm text-slate-400">/ month</span>
+                            </div>
+                            <div className="mb-7 space-y-3 text-sm text-slate-200">
+                                {["Unlimited Ask Metria questions", "Chat and voice conversations", "Keep exploring your existing analyses"].map((benefit) => (
+                                    <div key={benefit} className="flex items-center gap-3">
+                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-xs text-purple-300">✓</span>
+                                        <span>{benefit}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {subscriptionNotice && (
+                                <p role="alert" className="mb-4 rounded-xl border border-purple-400/20 bg-purple-500/10 px-3 py-2 text-xs leading-5 text-purple-100">{subscriptionNotice}</p>
+                            )}
+                            <button
+                                type="button"
+                                onClick={openSubscriptionCheckout}
+                                disabled={checkoutPending}
+                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-5 py-4 text-sm font-bold text-white shadow-[0_10px_30px_rgba(147,51,234,0.25)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+                            >
+                                {checkoutPending ? "Opening secure checkout…" : "Upgrade to Pro"}
+                                {!checkoutPending && <FiChevronRight size={18} />}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={dismissUpgradeModal}
+                                disabled={checkoutPending}
+                                className="mt-4 w-full py-2 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
+                            >
+                                Not now
+                            </button>
+                            <p className="mt-3 text-center text-xs text-slate-500">Secure checkout powered by Paddle</p>
+                        </div>
+                    </section>
+                </div>
+            )}
+            {subscriptionNotice && !showUpgradeModal && (
                 <div className="mb-4 rounded-2xl border border-purple-500/30 bg-[#10091c] px-5 py-4 text-sm text-purple-100 flex flex-wrap items-center justify-between gap-3">
                     <span>{subscriptionNotice}</span>
                     <div className="flex gap-2">
