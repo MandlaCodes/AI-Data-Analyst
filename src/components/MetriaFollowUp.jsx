@@ -12,6 +12,7 @@ import {
     FiMic,
     FiMicOff,
     FiClock,
+    FiPlus,
     FiMessageSquare,
     FiVolume2,
     FiVolumeX,
@@ -1588,6 +1589,24 @@ const playMetriaIntroduction = async () => {
                 );
             }
         };
+
+    const startNewChat = () => {
+        if (queryInFlightRef.current || isAnalyzing || checkoutPending) return;
+
+        stopVoice();
+        closeRealtimeSession();
+        setIsListening(false);
+        setIsTranscribing(false);
+        setLiveTranscript("");
+        setInputQuery("");
+        setBlockedQuestion("");
+        setSubscriptionNotice("");
+        setShowHistoryDropdown(false);
+        setShowUpgradeModal(false);
+        setIsActivated(true);
+        setInterfaceMode("chat");
+        setMessages([]);
+    };
 
     // ============================================================
     // REALTIME VOICE CAPTURE + TRANSCRIPTION
@@ -3696,7 +3715,20 @@ const playMetriaIntroduction = async () => {
 
                                 </div>
 
-                                {/* HISTORY */}
+                                {/* NEW CHAT */}
+
+                                <button
+                                    type="button"
+                                    onClick={startNewChat}
+                                    disabled={isAnalyzing || checkoutPending}
+                                    title="Start a fresh conversation"
+                                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600/20 border border-purple-400/35 text-purple-100 hover:bg-purple-600/30 hover:border-purple-400/60 transition-all text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <FiPlus size={16} />
+                                    New chat
+                                </button>
+
+                                {/* RECENT CHATS */}
 
                                 <div className="relative">
 
@@ -3710,7 +3742,9 @@ const playMetriaIntroduction = async () => {
                                                     !prev
                                             )
                                         }
-                                        className="p-3 rounded-xl bg-white/[0.035] border border-white/10 hover:bg-white/[0.07] text-slate-400 hover:text-white transition-all"
+                                        aria-label="Recent chats"
+                                        aria-expanded={showHistoryDropdown}
+                                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.055] border border-white/15 hover:bg-white/[0.10] text-slate-200 hover:text-white transition-all text-xs font-bold"
                                     >
 
                                         <FiClock
@@ -3718,6 +3752,8 @@ const playMetriaIntroduction = async () => {
                                                 15
                                             }
                                         />
+
+                                        Recent chats
 
                                     </button>
 
@@ -3730,7 +3766,7 @@ const playMetriaIntroduction = async () => {
 
                                                     <FiClock className="text-purple-400" />
 
-                                                    Previous Conversations
+                                                    Recent chats
 
                                                 </div>
 
@@ -3803,7 +3839,7 @@ const playMetriaIntroduction = async () => {
                                                     )
                                                 ) : (
                                                     <div className="text-slate-600 text-xs text-center py-6">
-                                                        No previous conversations
+                                                        No recent chats yet
                                                     </div>
                                                 )}
 
