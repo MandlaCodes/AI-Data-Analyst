@@ -3715,6 +3715,8 @@ const playMetriaIntroduction = async () => {
 
                                 </div>
 
+                                {interfaceMode === "chat" && (
+                                    <>
                                 {/* NEW CHAT */}
 
                                 <button
@@ -3849,6 +3851,9 @@ const playMetriaIntroduction = async () => {
                                     )}
 
                                 </div>
+
+                                    </>
+                                )}
 
                                 {/* VOICE */}
 
