@@ -4,18 +4,13 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { FiCheckCircle } from "react-icons/fi";
-// 1. Import your Context providers
 import { DataProvider, useData } from "./contexts/DataContext";
 
-// Page Components
 import Landing from "./pages/Landing";
 import Login from "./pages/Login.jsx";
-import Dashboard from "./pages/Dashboard"; 
-import Blog from "./components/Blog"; 
+import Dashboard from "./pages/Dashboard";
+import Blog from "./components/Blog";
 
-/**
- * ScrollToTop - Automatically resets window position on route changes
- */
 const useScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -23,7 +18,6 @@ const useScrollToTop = () => {
   }, [pathname]);
 };
 
-/* --- Legal & Support Layout Wrappers (Privacy, Terms, Contact unchanged) --- */
 const LegalLayout = ({ title, children }) => (
   <div className="flex-1 flex flex-col items-center py-20 px-6 text-white bg-[#02010a] min-h-screen">
     <div className="max-w-3xl w-full">
@@ -33,8 +27,8 @@ const LegalLayout = ({ title, children }) => (
       <div className="space-y-6 text-gray-400 leading-relaxed text-lg border-l border-white/10 pl-8">
         {children}
       </div>
-      <button 
-        onClick={() => window.history.back()} 
+      <button
+        onClick={() => window.history.back()}
         className="mt-12 text-purple-400 hover:text-purple-300 transition-colors font-bold uppercase tracking-widest text-[10px]"
       >
         &larr; Return to Terminal
@@ -49,7 +43,7 @@ const Privacy = () => (
     <h2 className="text-white text-xl font-bold">1. Neural Data Integrity</h2>
     <p>MetriaAI accesses Google Workspace data via secure OAuth. We utilize read-only permissions to ensure your source data remains untouched.</p>
     <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/20 text-gray-300 my-8">
-      <strong className="text-white">Google API Compliance:</strong><br/>
+      <strong className="text-white">Google API Compliance:</strong><br />
       MetriaAI adheres to the Google API Services User Data Policy, including Limited Use requirements. We do not sell user data to third-party model trainers.
     </div>
     <h2 className="text-white text-xl font-bold mt-8">2. Data Erasure</h2>
@@ -78,53 +72,43 @@ const Contact = () => (
   </LegalLayout>
 );
 
-/**
- * AppWrapper - Handles authenticated routing and Paddle SDK initialization
- */
 function AppWrapper() {
   const navigate = useNavigate();
   const { profile, refreshAll, setProfile } = useData();
-  
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Initialize scroll reset
   useScrollToTop();
 
-  // Handle Paddle events globally and ensure modal closes smoothly
   useEffect(() => {
     if (window.Paddle) {
       window.Paddle.Update({
-        eventCallback: function(data) {
+        eventCallback: function (data) {
           if (data.name === "checkout.completed") {
-            // Close the checkout modal automatically upon completion
             if (window.Paddle.Checkout) {
               window.Paddle.Checkout.close();
             }
-
-            // Dispatch global event after modal dismissal
             setTimeout(() => {
               window.dispatchEvent(new CustomEvent("paddle_payment_success", { detail: data }));
             }, 300);
           }
-        }
+        },
       });
     }
   }, []);
 
-  const handleLoginSuccess = (userId, token) => { 
+  const handleLoginSuccess = (userId, token) => {
     localStorage.setItem("adt_token", token);
     setIsTransitioning(true);
-    refreshAll(); 
-    
+    refreshAll();
     setTimeout(() => {
-      navigate(`/dashboard/overview`);
+      navigate("/dashboard/overview");
       setIsTransitioning(false);
     }, 1500);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("adt_profile");
-    localStorage.removeItem("adt_token"); 
+    localStorage.removeItem("adt_token");
     setProfile(null);
     navigate("/");
   };
@@ -134,8 +118,8 @@ function AppWrapper() {
       {isTransitioning && (
         <div className="fixed inset-0 z-[9999] bg-[#02010a] flex flex-col items-center justify-center">
           <div className="relative">
-             <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
-             <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
+            <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
+            <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
           </div>
           <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-white">Success</h2>
           <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">OPENING DASHBOARD...</p>
@@ -148,43 +132,33 @@ function AppWrapper() {
           element={profile && !isTransitioning ? (
             <Navigate to="/dashboard/overview" replace />
           ) : (
-            <Landing onGetStarted={() => navigate("/login")} /> 
+            <Landing onGetStarted={() => navigate("/login")} />
           )}
         />
-
         <Route
           path="/login"
           element={profile && !isTransitioning ? (
             <Navigate to="/dashboard/overview" replace />
           ) : (
-            <Login onLoginSuccess={handleLoginSuccess} /> 
+            <Login onLoginSuccess={handleLoginSuccess} />
           )}
         />
-
         <Route
           path="/dashboard/*"
-          element={profile ? (
-            <Dashboard onLogout={handleLogout} /> 
-          ) : (
-            <Navigate to="/" replace />
-          )}
+          element={profile ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/" replace />}
         >
           <Route path="overview" element={<Dashboard.Overview />} />
           <Route path="analytics" element={<Dashboard.Analytics onLogout={handleLogout} />} />
-          <Route 
-            path="integrations" 
-            element={<Dashboard.Integrations onLogout={handleLogout} />} 
-          /> 
+          <Route path="integrations" element={<Dashboard.Integrations onLogout={handleLogout} />} />
           <Route path="profile" element={<Dashboard.Profile />} />
-          <Route path="trends" element={<Dashboard.Trends />} />
+          {/* Preserve old Trends bookmarks without rendering the retired page. */}
+          <Route path="trends" element={<Navigate to="/dashboard/analytics" replace />} />
           <Route index element={<Navigate replace to="overview" />} />
         </Route>
-
         <Route path="/blog" element={<Blog />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/contact" element={<Contact />} />
-
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
@@ -193,7 +167,7 @@ function AppWrapper() {
 
 export default function App() {
   return (
-    <div className="min-h-screen w-full bg-[#02010a] m-0 p-0 flex flex-col relative"> 
+    <div className="min-h-screen w-full bg-[#02010a] m-0 p-0 flex flex-col relative">
       <DataProvider>
         <Router>
           <AppWrapper />
