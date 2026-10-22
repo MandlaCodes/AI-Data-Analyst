@@ -1,13 +1,13 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { 
-  FiPieChart, FiTrendingUp, FiDatabase, 
-  FiUser, FiLogOut, FiHome 
+import {
+  FiPieChart, FiDatabase,
+  FiUser, FiLogOut, FiHome
 } from "react-icons/fi";
 
 // closeMobileMenu prop added to handle responsive closing logic
 export default function Sidebar({ current, onLogout, closeMobileMenu }) {
-  
+
   // Helper to trigger close only if the prop exists (mobile mode)
   const handleAutoClose = () => {
     if (closeMobileMenu) closeMobileMenu();
@@ -22,39 +22,31 @@ export default function Sidebar({ current, onLogout, closeMobileMenu }) {
 
         {/* === MENU TITLE === */}
         <h3 className="mt-8 text-gray-400 text-xs uppercase font-semibold">Menu</h3>
-        
+
         {/* MENU LINKS */}
         <nav className="flex flex-col gap-3 mt-3">
 
-          <SidebarLink 
-            icon={<FiHome />} 
-            label="Overview" 
+          <SidebarLink
+            icon={<FiHome />}
+            label="Overview"
             to="/dashboard/overview"
-            active={current === "overview"} 
+            active={current === "overview"}
             onClick={handleAutoClose}
           />
 
-          <SidebarLink 
-            icon={<FiPieChart />} 
-            label="Analytics" 
-            to="/dashboard/analytics" 
-            active={current === "analytics"} 
+          <SidebarLink
+            icon={<FiPieChart />}
+            label="Analytics"
+            to="/dashboard/analytics"
+            active={current === "analytics"}
             onClick={handleAutoClose}
           />
 
-          <SidebarLink 
-            icon={<FiTrendingUp />} 
-            label="Trends" 
-            to="/dashboard/trends" 
-            active={current === "trends"} 
-            onClick={handleAutoClose}
-          />
-
-          <SidebarLink 
-            icon={<FiDatabase />} 
-            label="Integrations" 
-            to="/dashboard/integrations" 
-            active={current === "integrations"} 
+          <SidebarLink
+            icon={<FiDatabase />}
+            label="Integrations"
+            to="/dashboard/integrations"
+            active={current === "integrations"}
             onClick={handleAutoClose}
           />
         </nav>
@@ -63,11 +55,11 @@ export default function Sidebar({ current, onLogout, closeMobileMenu }) {
         <h3 className="mt-10 text-gray-400 text-xs uppercase font-semibold">General</h3>
 
         <nav className="flex flex-col gap-3 mt-3">
-          <SidebarLink 
-            icon={<FiUser />} 
-            label="Profile" 
-            to="/dashboard/profile" 
-            active={current === "profile"} 
+          <SidebarLink
+            icon={<FiUser />}
+            label="Profile"
+            to="/dashboard/profile"
+            active={current === "profile"}
             onClick={handleAutoClose}
           />
         </nav>
@@ -95,8 +87,8 @@ function SidebarLink({ icon, label, to, active, onClick }) {
       to={to}
       onClick={onClick}
       className={`flex items-center gap-3 p-2 rounded-lg transition-all
-        ${active 
-          ? "bg-purple-700 text-white font-semibold" 
+        ${active
+          ? "bg-purple-700 text-white font-semibold"
           : "text-gray-300 hover:bg-purple-900 hover:text-white"
         }
       `}

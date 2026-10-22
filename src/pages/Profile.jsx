@@ -1,327 +1,248 @@
-import React, { useState, useEffect } from 'react';
-import { User, Building2, Briefcase, Mail, ShieldCheck, LogOut, Target, Cpu, CreditCard, Zap, XCircle, Loader2, PlayCircle, CheckCircle, Edit3, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useData } from '../contexts/DataContext'; 
+import React, { useEffect, useState } from "react";
+import {
+  UserRound, Mail, Building2, BriefcaseBusiness, CreditCard,
+  Check, Pencil, Loader2, ArrowUpRight, ShieldCheck, CalendarDays,
+  AlertCircle, X, Sparkles
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useData } from "../contexts/DataContext";
 
 const API_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 
-const Profile = () => {
-  const { profile, refreshAll } = useData(); 
-  
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [isStartingTrial, setIsStartingTrial] = useState(false);
-  const [isLandingAfterPayment, setIsLandingAfterPayment] = useState(false);
+const displayValue = (value) => (typeof value === "string" && value.trim() ? value : "Not provided");
+
+function DetailField({ icon: Icon, label, value, field, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('success') === 'true' || params.get('session_id')) {
-      setIsLandingAfterPayment(true);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      const sync = async () => {
-        await refreshAll();
-        setTimeout(() => {
-          setIsLandingAfterPayment(false);
-        }, 3000);
-      };
-      sync();
-    }
-  }, [refreshAll]);
+    if (!editing) setDraft(value || "");
+  }, [value, editing]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('adt_token');
-    localStorage.removeItem('adt_profile');
-    window.location.href = '/login'; 
-  };
-
-  const handleUpdateProfile = async (field, value) => {
-    try {
-      const token = localStorage.getItem('adt_token');
-      // Create update payload based on existing profile + the new change
-      const payload = {
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        organization: profile.organization,
-        industry: profile.industry,
-        [field]: value
-      };
-
-      const response = await fetch(`${API_URL}/auth/profile/update`, {
-        method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        await refreshAll();
-      }
-    } catch (err) {
-      console.error("Update failed:", err);
-    }
-  };
-
-  const handleStartTrial = async () => {
-    setIsStartingTrial(true);
-    try {
-      const token = localStorage.getItem('adt_token');
-      const response = await fetch(`${API_URL}/billing/start-trial`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to initialize checkout.");
-    } finally {
-      setIsStartingTrial(false);
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!window.confirm("Are you sure? You will lose access to premium features immediately.")) {
+  const save = async () => {
+    if (!field || saving) return;
+    if (draft.trim() === (value || "").trim()) {
+      setEditing(false);
       return;
     }
-    setIsCancelling(true);
+    setSaving(true);
+    setError("");
     try {
-      const token = localStorage.getItem('adt_token');
-      const response = await fetch(`${API_URL}/payments/cancel`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.ok) {
-        alert("Subscription cancelled successfully.");
-        await refreshAll(); 
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.detail || "Failed to cancel"}`);
-      }
+      await onSave(field, draft.trim());
+      setEditing(false);
     } catch (err) {
-      console.error(err);
-      alert("Network error.");
+      setError(err.message || "Couldn't save this change.");
     } finally {
-      setIsCancelling(false);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 sm:p-6 min-w-0">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 text-zinc-400">
+          <Icon size={16} className="text-purple-400" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.19em]">{label}</span>
+        </div>
+        {field && !editing && (
+          <button type="button" onClick={() => { setError(""); setEditing(true); }}
+            aria-label={`Edit ${label}`} className="rounded-lg p-2 text-zinc-400 hover:text-purple-300 hover:bg-white/5 transition-colors">
+            <Pencil size={15} />
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div className="flex gap-2 items-center">
+          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } if (e.key === "Escape") setEditing(false); }}
+            aria-label={label}
+            className="min-w-0 flex-1 bg-black/60 border border-purple-500/60 rounded-xl px-3 py-2 text-white outline-none focus:ring-2 focus:ring-purple-500/30" />
+          <button type="button" onClick={save} disabled={saving} aria-label={`Save ${label}`}
+            className="p-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl disabled:opacity-50">
+            {saving ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} />}
+          </button>
+          <button type="button" onClick={() => setEditing(false)} disabled={saving} aria-label="Cancel editing"
+            className="p-2.5 bg-white/10 hover:bg-white/15 rounded-xl disabled:opacity-50"><X size={17} /></button>
+        </div>
+      ) : (
+        <p className="text-white font-semibold text-base sm:text-lg break-words">{displayValue(value)}</p>
+      )}
+      {error && <p role="alert" className="text-rose-400 text-xs mt-2">{error}</p>}
+    </div>
+  );
+}
+
+export default function Profile() {
+  const { profile, refreshAll } = useData();
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [billingError, setBillingError] = useState("");
+  const [paymentPending, setPaymentPending] = useState(false);
+
+  // A checkout completion is not proof that a webhook has granted access.
+  // Refresh backend account state instead of immediately displaying Pro.
+  useEffect(() => {
+    const onPayment = () => {
+      setPaymentPending(true);
+      Promise.resolve(refreshAll()).catch(() => {});
+    };
+    window.addEventListener("paddle_payment_success", onPayment);
+    return () => window.removeEventListener("paddle_payment_success", onPayment);
+  }, [refreshAll]);
+
+  useEffect(() => {
+    if (profile?.is_pro && paymentPending) setPaymentPending(false);
+  }, [profile?.is_pro, paymentPending]);
+
+  const handleUpdateProfile = async (field, value) => {
+    const token = localStorage.getItem("adt_token");
+    if (!token) throw new Error("Please sign in again to update your account.");
+    const response = await fetch(`${API_URL}/auth/profile/update`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        first_name: profile?.first_name || "",
+        last_name: profile?.last_name || "",
+        organization: profile?.organization || "",
+        industry: profile?.industry || "",
+        [field]: value
+      })
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(typeof body.detail === "string" ? body.detail : "Couldn't update your profile.");
+    }
+    await refreshAll();
+  };
+
+  const openCheckout = async () => {
+    if (checkingOut) return;
+    setBillingError("");
+    setCheckingOut(true);
+    try {
+      const token = localStorage.getItem("adt_token");
+      if (!token) throw new Error("Please sign in to upgrade.");
+      const response = await fetch(`${API_URL}/api/billing/checkout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data.detail === "string" ? data.detail : "Unable to start checkout.");
+      }
+      if (!data.transaction_id) throw new Error("Paddle did not return a checkout transaction.");
+      if (!window.Paddle?.Checkout?.open) throw new Error("Payment checkout is still loading. Please try again.");
+      window.Paddle.Checkout.open({ transactionId: data.transaction_id });
+    } catch (err) {
+      setBillingError(err.message || "Unable to start checkout.");
+    } finally {
+      setCheckingOut(false);
     }
   };
 
   if (!profile) return (
-    <div className="h-screen w-full flex items-center justify-center bg-black">
-      <div className="relative">
-        <div className="w-24 h-24 border-2 border-purple-500/20 rounded-full animate-ping"></div>
-        <Cpu className="absolute inset-0 m-auto text-purple-500 animate-pulse" size={32} />
-      </div>
+    <div className="min-h-[60vh] flex items-center justify-center bg-black text-purple-400">
+      <Loader2 className="animate-spin" size={30} aria-label="Loading profile" />
     </div>
   );
 
+  const isPro = Boolean(profile.is_pro);
+  const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your account";
+  const billingDate = profile.next_billing_date || profile.next_payment_date || null;
+  const managementUrl = profile.subscription_management_url || profile.management_url || null;
+  const safeManagementUrl = typeof managementUrl === "string" && /^https:\/\//i.test(managementUrl) ? managementUrl : null;
+
   return (
-    <div className="min-h-screen w-full bg-black text-white overflow-x-hidden flex flex-col font-sans">
-      <AnimatePresence>
-        {isLandingAfterPayment && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center text-center p-6"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="relative"
-            >
-              <div className="absolute inset-0 bg-purple-500/20 blur-[100px] rounded-full animate-pulse" />
-              <CheckCircle size={80} className="text-emerald-400 mx-auto mb-6" />
-              <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter mb-2">Protocol Verified</h2>
-              <p className="text-purple-400 font-bold uppercase tracking-[0.3em] text-xs">Neural Engine Subscription Activated</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="fixed inset-0 z-0 opacity-20 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-900/40 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-900/20 rounded-full blur-[120px]"></div>
+    <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden relative">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-48 left-1/4 h-96 w-96 rounded-full bg-purple-700/10 blur-[120px]" />
       </div>
-
-      <div className="relative z-10 flex flex-col w-full max-w-7xl mx-auto px-6 md:px-12">
-        <header className="w-full py-12 md:py-20 flex flex-col lg:flex-row justify-between items-center gap-10 border-b border-white/10">
-          <div className="flex flex-col sm:flex-row items-center gap-8 w-full min-w-0">
-            <div className="relative flex-shrink-0">
-              <div className="w-28 h-28 md:w-40 md:h-40 rounded-[3rem] bg-gradient-to-br from-purple-600 to-blue-600 p-[1px] rotate-3">
-                <div className="w-full h-full bg-black rounded-[3rem] flex items-center justify-center -rotate-3">
-                  <User size={64} className="text-white opacity-90" />
-                </div>
-              </div>
-              <div className="absolute -bottom-2 -right-2 bg-emerald-500 p-3 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.4)] border-4 border-black">
-                <ShieldCheck size={24} className="text-white" />
-              </div>
-            </div>
-
-            <div className="min-w-0 flex-1 text-center sm:text-left">
-              <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 mb-4">
-                <span className="bg-white/10 text-white text-[10px] font-black uppercase tracking-[0.4em] px-4 py-1.5 rounded-full border border-white/10">Verified Executive</span>
-                <span className="text-white/30 font-mono text-[10px] tracking-widest uppercase">ID // {profile?.user_id ? String(profile.user_id).substring(0, 12) : '----'}</span>
-              </div>
-              <h1 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.85] break-words">
-                <span className="text-white">{profile?.first_name} </span>
-                <span className="text-purple-500">{profile?.last_name}</span>
-              </h1>
-            </div>
-          </div>
+      <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-8 lg:px-12 py-10 sm:py-14 space-y-8">
+        <header className="space-y-2">
+          <p className="text-purple-400 uppercase text-[10px] font-bold tracking-[0.32em]">Account settings</p>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight">My Profile</h1>
+          <p className="text-sm text-zinc-400">Manage your account details and subscription.</p>
         </header>
 
-        <main className="py-12 space-y-12">
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ProfileItem 
-              icon={<Mail size={24} className="text-purple-500" />} 
-              label="Email Address" 
-              value={profile?.email} 
-              readonly
-            />
-            <ProfileItem 
-              icon={<Building2 size={24} className="text-blue-500" />} 
-              label="Organization" 
-              value={profile?.organization} 
-              onSave={(val) => handleUpdateProfile('organization', val)}
-            />
-            <ProfileItem 
-              icon={<Briefcase size={24} className="text-emerald-500" />} 
-              label="Industry" 
-              value={profile?.industry} 
-              onSave={(val) => handleUpdateProfile('industry', val)}
-            />
-          </section>
-
-          <section className="relative overflow-hidden bg-gradient-to-r from-zinc-900 to-black border border-white/10 rounded-[3.5rem] p-10 md:p-14 shadow-2xl">
-            <div className="absolute top-0 right-0 p-8 opacity-10">
-              <Zap size={120} className="text-purple-500" />
-            </div>
-            
-            <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-10">
-              <div className="space-y-4 text-center lg:text-left">
-                <div className="flex items-center justify-center lg:justify-start gap-3">
-                  <CreditCard className="text-purple-500" size={24} />
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/50">Billing_Protocol_V1</h3>
-                </div>
-                <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter">
-                  Subscription <span className={profile?.is_trial_active ? "text-purple-500" : "text-zinc-500"}>
-                    {profile?.is_trial_active ? "Active" : "Inactive"}
-                  </span>
-                </h2>
-                <p className="text-zinc-400 max-w-md text-sm md:text-base">
-                  {profile?.is_trial_active 
-                    ? "Data analyst is currently activated. Premium features are currently unlocked."
-                    : "Activate Data analyst."}
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                {profile?.is_trial_active ? (
-                  <button 
-                    onClick={handleCancelSubscription}
-                    disabled={isCancelling}
-                    className="group flex items-center gap-4 bg-red-500/10 border border-red-500/30 text-red-500 px-8 py-5 rounded-2xl hover:bg-red-500 hover:text-white transition-all transform active:scale-95 shadow-xl justify-center disabled:opacity-50"
-                  >
-                    {isCancelling ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />}
-                    <span className="text-[11px] font-black uppercase tracking-[0.3em]">
-                      {isCancelling ? "Processing..." : "Cancel Plan"}
-                    </span>
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleStartTrial}
-                    disabled={isStartingTrial}
-                    className="group flex items-center gap-4 bg-purple-600 text-white px-10 py-5 rounded-2xl hover:bg-white hover:text-black transition-all transform active:scale-95 shadow-[0_0_30px_rgba(147,51,234,0.3)] justify-center disabled:opacity-50"
-                  >
-                    {isStartingTrial ? <Loader2 size={18} className="animate-spin" /> : <PlayCircle size={18} />}
-                    <span className="text-[11px] font-black uppercase tracking-[0.3em]">
-                      {isStartingTrial ? "Initializing..." : "Activate Data Analyst"}
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ProfileItem icon={<Target size={24} className="text-amber-500" />} label="Node Type" value="Remote Operational Node" readonly />
-            <ProfileItem icon={<Cpu size={24} className="text-zinc-400" />} label="System Architecture" value="Metria Universal 2026" readonly />
-          </section>
-
-          <div className="pt-12 flex flex-col sm:flex-row items-center justify-center gap-6 border-t border-white/5">
-            <button 
-              onClick={handleLogout}
-              className="group flex items-center gap-4 bg-red-500/10 hover:bg-red-500 border border-red-500/20 px-12 py-6 rounded-full transition-all w-full sm:w-auto justify-center"
-            >
-              <LogOut size={20} className="text-red-500 group-hover:text-white" />
-              <span className="text-[11px] font-black uppercase tracking-[0.4em] text-red-500 group-hover:text-white">Sign Out of Session</span>
-            </button>
+        <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-5 sm:gap-6 rounded-[28px] border border-white/10 bg-gradient-to-r from-[#14101d] to-[#08070b] p-6 sm:p-8">
+          <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-purple-500/40 bg-purple-500/10 flex items-center justify-center">
+            <UserRound size={34} className="text-purple-300" />
           </div>
-        </main>
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight break-words">{fullName}</h2>
+            <p className="text-zinc-400 text-sm mt-1 break-all">{profile.email || ""}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1 text-[10px] font-bold text-purple-300 uppercase tracking-widest">
+                <ShieldCheck size={12} /> {isPro ? "Pro member" : "Free account"}
+              </span>
+              {profile.organization && <span className="text-zinc-500 text-xs">{profile.organization}</span>}
+            </div>
+          </div>
+        </motion.section>
+
+        <section className="rounded-[28px] border border-purple-500/25 bg-gradient-to-br from-[#170e23] via-[#100c17] to-[#08070b] p-6 sm:p-8 lg:p-10 relative overflow-hidden">
+          <Sparkles className="absolute -right-6 -top-6 text-purple-500/10" size={180} aria-hidden="true" />
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-7">
+            <div className="max-w-xl space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-purple-300 text-[10px] font-extrabold uppercase tracking-[0.25em]">MetriaAI subscription</span>
+                <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${isPro ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-zinc-300"}`}>
+                  {isPro ? "Pro · Active" : "Free plan"}
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{isPro ? "Your Pro plan is active" : "Unlock MetriaAI Pro"}</h2>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                {isPro ? "Continue exploring your business data with unlimited Ask Metria questions." : "Get unlimited Ask Metria questions across Chat and Talk, and keep exploring your business data."}
+              </p>
+              {isPro && billingDate && (
+                <p className="flex items-center gap-2 text-xs text-zinc-300"><CalendarDays size={14} /> Next billing: {new Date(billingDate).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</p>
+              )}
+              {!isPro && <p className="text-2xl font-bold">$89 <span className="text-sm font-medium text-zinc-400">/ month</span></p>}
+            </div>
+            <div className="w-full lg:w-auto flex flex-col gap-3 lg:min-w-[215px]">
+              {!isPro ? (
+                <button type="button" onClick={openCheckout} disabled={checkingOut}
+                  className="inline-flex justify-center items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-6 py-4 text-sm font-bold transition-colors disabled:opacity-60 shadow-[0_10px_30px_rgba(147,51,234,0.2)]">
+                  {checkingOut ? <Loader2 size={18} className="animate-spin" /> : <ArrowUpRight size={18} />}
+                  {checkingOut ? "Opening checkout..." : "Upgrade to Pro"}
+                </button>
+              ) : safeManagementUrl ? (
+                <a href={safeManagementUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 px-6 py-4 text-sm font-bold transition-colors">
+                  <CreditCard size={18} /> Manage subscription <ArrowUpRight size={16} />
+                </a>
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-zinc-300 text-xs leading-relaxed">
+                  For billing changes, use your Paddle subscription email. Account billing management is not yet connected here.
+                </div>
+              )}
+              {!isPro && <p className="text-center text-[11px] text-zinc-500">Secure checkout powered by Paddle</p>}
+            </div>
+          </div>
+          {billingError && <p role="alert" className="relative z-10 flex items-center gap-2 text-rose-300 text-sm mt-5"><AlertCircle size={16} />{billingError}</p>}
+          {paymentPending && !isPro && (
+            <div className="relative z-10 mt-5 rounded-xl border border-purple-500/20 bg-purple-500/10 p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+              <p className="text-sm text-purple-200">Payment received. Waiting for your subscription to be confirmed.</p>
+              <button type="button" onClick={() => Promise.resolve(refreshAll()).catch(() => {})} className="text-sm font-bold text-white underline underline-offset-4">Refresh status</button>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold">Account details</h2>
+            <p className="text-sm text-zinc-500 mt-1">Keep your business information up to date.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailField icon={Mail} label="Email address" value={profile.email} />
+            <DetailField icon={UserRound} label="Full name" value={fullName} />
+            <DetailField icon={Building2} label="Organization" value={profile.organization} field="organization" onSave={handleUpdateProfile} />
+            <DetailField icon={BriefcaseBusiness} label="Industry" value={profile.industry} field="industry" onSave={handleUpdateProfile} />
+          </div>
+        </section>
+        <p className="text-center text-[10px] uppercase tracking-[0.25em] text-zinc-600 pt-3">MetriaAI · Account settings</p>
       </div>
     </div>
   );
-};
-
-const ProfileItem = ({ icon, label, value, onSave, readonly = false }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentValue, setCurrentValue] = useState(value || "");
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    if (currentValue !== value && onSave) {
-      onSave(currentValue);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleBlur();
-  };
-
-  return (
-    <div className="bg-white/[0.02] border border-white/5 p-10 rounded-[3.5rem] hover:bg-white/[0.04] hover:border-white/10 transition-all group min-w-0 flex flex-col relative">
-      <div className="mb-10 p-4 w-fit rounded-2xl bg-white/5 border border-white/5 group-hover:scale-110 transition-transform">
-        {icon}
-      </div>
-      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-3">{label}</p>
-      
-      {!readonly && !isEditing && (
-        <button 
-          onClick={() => setIsEditing(true)}
-          className="absolute top-10 right-10 p-2 opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-purple-500"
-        >
-          <Edit3 size={16} />
-        </button>
-      )}
-
-      {isEditing && !readonly ? (
-        <div className="flex items-center gap-2">
-          <input 
-            autoFocus
-            className="bg-purple-500/10 border-b-2 border-purple-500 text-2xl font-bold tracking-tight text-white w-full outline-none py-1"
-            value={currentValue}
-            onChange={(e) => setCurrentValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-          />
-          <Check size={20} className="text-emerald-500" />
-        </div>
-      ) : (
-        <p 
-          className={`text-2xl font-bold tracking-tight text-white truncate group-hover:whitespace-normal break-all ${!readonly ? 'cursor-pointer hover:text-purple-400' : ''}`}
-          onClick={() => !readonly && setIsEditing(true)}
-        >
-          {value || "---"}
-        </p>
-      )}
-    </div>
-  );
-};
-
-export default Profile;
+}
