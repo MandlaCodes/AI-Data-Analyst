@@ -87,8 +87,13 @@ export default function Profile() {
       setPaymentPending(true);
       Promise.resolve(refreshAll()).catch(() => {});
     };
+    const onActivated = () => { setPaymentPending(false); Promise.resolve(refreshAll()).catch(() => {}); };
     window.addEventListener("paddle_payment_success", onPayment);
-    return () => window.removeEventListener("paddle_payment_success", onPayment);
+    window.addEventListener("metria_subscription_activated", onActivated);
+    return () => {
+      window.removeEventListener("paddle_payment_success", onPayment);
+      window.removeEventListener("metria_subscription_activated", onActivated);
+    };
   }, [refreshAll]);
 
   useEffect(() => {
@@ -224,7 +229,7 @@ export default function Profile() {
           {paymentPending && !isPro && (
             <div className="relative z-10 mt-5 rounded-xl border border-purple-500/20 bg-purple-500/10 p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
               <p className="text-sm text-purple-200">Payment received. Waiting for your subscription to be confirmed.</p>
-              <button type="button" onClick={() => Promise.resolve(refreshAll()).catch(() => {})} className="text-sm font-bold text-white underline underline-offset-4">Refresh status</button>
+              <span className="text-xs text-purple-300">Updating automatically…</span>
             </div>
           )}
         </section>

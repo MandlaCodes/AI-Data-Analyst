@@ -161,6 +161,7 @@ export const MetriaFollowUp = ({
     ] = useState(false);
 
     const [subscriptionNotice, setSubscriptionNotice] = useState("");
+    const [proActive, setProActive] = useState(false);
     const [checkoutPending, setCheckoutPending] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [upgradeModalEntered, setUpgradeModalEntered] = useState(false);
@@ -263,6 +264,7 @@ export const MetriaFollowUp = ({
                     });
                     if (cancelled) return;
                     if (response.data?.is_pro) {
+                        setProActive(true);
                         setShowUpgradeModal(false);
                         setBlockedQuestion("");
                         setSubscriptionNotice("Pro is active. You can continue using Metria.");
@@ -278,9 +280,12 @@ export const MetriaFollowUp = ({
                 setSubscriptionNotice("Subscription activation is still processing. Please try again shortly.");
             }
         };
+        const onActivated = () => { setProActive(true); setSubscriptionNotice(""); setShowUpgradeModal(false); };
+        window.addEventListener("metria_subscription_activated", onActivated);
         window.addEventListener("paddle_payment_success", onPaymentCompleted);
         return () => {
             cancelled = true;
+            window.removeEventListener("metria_subscription_activated", onActivated);
             window.removeEventListener("paddle_payment_success", onPaymentCompleted);
         };
     }, [authToken]);
@@ -3492,7 +3497,7 @@ const playMetriaIntroduction = async () => {
                 <div className="mb-4 rounded-2xl border border-purple-500/30 bg-[#10091c] px-5 py-4 text-sm text-purple-100 flex flex-wrap items-center justify-between gap-3">
                     <span>{subscriptionNotice}</span>
                     <div className="flex gap-2">
-                        <button type="button" onClick={openSubscriptionCheckout} disabled={checkoutPending} className="rounded-xl bg-purple-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Upgrade to Pro</button>
+                        {!proActive && !/pro is active/i.test(subscriptionNotice) && <button type="button" onClick={openSubscriptionCheckout} disabled={checkoutPending} className="rounded-xl bg-purple-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Upgrade to Pro</button>}
                         <button type="button" onClick={() => setSubscriptionNotice("")} aria-label="Dismiss notice" className="rounded-xl border border-white/10 px-3 py-2 text-slate-300"><FiX /></button>
                     </div>
                 </div>

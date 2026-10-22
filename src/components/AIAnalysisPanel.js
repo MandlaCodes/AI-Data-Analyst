@@ -363,7 +363,7 @@ const AIAnalysisPanel = ({
                 try {
                     const access = await getAnalysisAccess();
                     if (access.is_pro) {
-                        setAnalysisError("Your subscription is active. You can continue using Metria.");
+                        setAnalysisError("");
                         return;
                     }
                 } catch (_) { /* Preserve original checkout error below. */ }
@@ -477,7 +477,7 @@ const AIAnalysisPanel = ({
                 }
                 if (cancelled) return;
                 if (verified) {
-                    setAnalysisError("Subscription activated. You can now generate another analysis.");
+                    setAnalysisError("");
                     window.dispatchEvent(new CustomEvent("metria_subscription_activated"));
                 } else {
                     setAnalysisError("Payment completed, but subscription activation is still processing. Please retry shortly.");
@@ -490,6 +490,7 @@ const AIAnalysisPanel = ({
             }
         };
         const refreshAccess = () => {
+            setAnalysisError("");
             getAnalysisAccess().catch(() => {});
         };
         window.addEventListener("paddle_payment_success", onPaymentCompleted);
@@ -577,7 +578,7 @@ const AIAnalysisPanel = ({
             {(analysisError || verifyingPayment) && (
                 <div role="status" className="relative z-10 mb-8 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-6 py-4 text-sm text-white">
                     {verifyingPayment ? "Verifying your subscription with Paddle…" : analysisError}
-                    {!verifyingPayment && accessInfo?.can_analyze === false && (
+                    {!verifyingPayment && !accessInfo?.is_pro && accessInfo?.can_analyze === false && (
                         <button type="button" onClick={openPaddleCheckout}
                             className="ml-4 rounded-lg bg-indigo-400 px-4 py-2 font-bold text-black hover:bg-white">
                             Upgrade

@@ -1,3 +1,12 @@
+/**
+
+ * components/Visualizer.js - PRODUCTION EXECUTIVE VERSION
+
+ * Flow: AI Insights -> Interactive Metria Analyst -> Dataset Identity -> Live Table -> Analytics
+
+ */
+
+
 
 import React, { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";

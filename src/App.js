@@ -1,8 +1,16 @@
+
 /**
  * App.js - Metria Neural Engine Core Routing
  */
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { FiCheckCircle } from "react-icons/fi";
 import { DataProvider, useData } from "./contexts/DataContext";
 
@@ -11,8 +19,12 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard";
 import Blog from "./components/Blog";
 
+// Global subscription activation manager
+import SubscriptionSuccessManager from "./components/SubscriptionSuccessManager";
+
 const useScrollToTop = () => {
   const { pathname } = useLocation();
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
@@ -24,9 +36,11 @@ const LegalLayout = ({ title, children }) => (
       <h1 className="text-4xl md:text-5xl font-black mb-10 bg-gradient-to-r from-white to-purple-500 bg-clip-text text-transparent italic tracking-tighter">
         {title}
       </h1>
+
       <div className="space-y-6 text-gray-400 leading-relaxed text-lg border-l border-white/10 pl-8">
         {children}
       </div>
+
       <button
         onClick={() => window.history.back()}
         className="mt-12 text-purple-400 hover:text-purple-300 transition-colors font-bold uppercase tracking-widest text-[10px]"
@@ -39,67 +53,152 @@ const LegalLayout = ({ title, children }) => (
 
 const Privacy = () => (
   <LegalLayout title="Privacy Policy">
-    <p className="mono text-xs text-purple-500 mb-4 uppercase tracking-widest">Effective: Jan 2026</p>
-    <h2 className="text-white text-xl font-bold">1. Neural Data Integrity</h2>
-    <p>MetriaAI accesses Google Workspace data via secure OAuth. We utilize read-only permissions to ensure your source data remains untouched.</p>
+    <p className="mono text-xs text-purple-500 mb-4 uppercase tracking-widest">
+      Effective: Jan 2026
+    </p>
+
+    <h2 className="text-white text-xl font-bold">
+      1. Neural Data Integrity
+    </h2>
+
+    <p>
+      MetriaAI accesses Google Workspace data via secure OAuth.
+      We utilize read-only permissions to ensure your source
+      data remains untouched.
+    </p>
+
     <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/20 text-gray-300 my-8">
-      <strong className="text-white">Google API Compliance:</strong><br />
-      MetriaAI adheres to the Google API Services User Data Policy, including Limited Use requirements. We do not sell user data to third-party model trainers.
+      <strong className="text-white">
+        Google API Compliance:
+      </strong>
+
+      <p className="mt-2">
+        MetriaAI adheres to the Google API Services User
+        Data Policy, including Limited Use requirements.
+        We do not sell user data to third-party model trainers.
+      </p>
     </div>
-    <h2 className="text-white text-xl font-bold mt-8">2. Data Erasure</h2>
-    <p>Users maintain the "Right to be Forgotten." Disconnecting your integration immediately flushes session-based caches from our edge nodes.</p>
+
+    <h2 className="text-white text-xl font-bold mt-8">
+      2. Data Erasure
+    </h2>
+
+    <p>
+      Users maintain the "Right to be Forgotten."
+      Disconnecting your integration immediately flushes
+      session-based caches from our edge nodes.
+    </p>
   </LegalLayout>
 );
 
 const Terms = () => (
   <LegalLayout title="Terms of Service">
-    <h2 className="text-white text-xl font-bold">1. AI Synthesis Disclaimer</h2>
-    <p>MetriaAI provides autonomous analysis. While our confidence scores are high, all AI-generated strategy should be reviewed by a human operator before capital allocation.</p>
-    <h2 className="text-white text-xl font-bold mt-8">2. Usage Limits</h2>
-    <p>The "Neural Engine" is designed for executive use. High-frequency automated scraping of the Metria terminal is strictly prohibited.</p>
+    <h2 className="text-white text-xl font-bold">
+      1. AI Synthesis Disclaimer
+    </h2>
+
+    <p>
+      MetriaAI provides autonomous analysis.
+      While our confidence scores are high, all AI-generated
+      strategy should be reviewed by a human operator
+      before capital allocation.
+    </p>
+
+    <h2 className="text-white text-xl font-bold mt-8">
+      2. Usage Limits
+    </h2>
+
+    <p>
+      The "Neural Engine" is designed for executive use.
+      High-frequency automated scraping of the Metria
+      terminal is strictly prohibited.
+    </p>
   </LegalLayout>
 );
 
 const Contact = () => (
   <LegalLayout title="Neural Support">
-    <p>For technical inquiries regarding API hooks, custom integrations, or billing, contact our engineering desk.</p>
+    <p>
+      For technical inquiries regarding API hooks,
+      custom integrations, or billing, contact
+      our engineering desk.
+    </p>
+
     <div className="mt-10 p-8 rounded-[32px] bg-white/5 border border-white/5">
-      <h3 className="text-white font-bold mb-2 uppercase tracking-widest text-[10px] opacity-50">Direct Uplink</h3>
-      <p className="text-purple-400 font-mono text-xl mb-6 select-all">mandlandhlovu264@gmail.com</p>
-      <h3 className="text-white font-bold mb-2 uppercase tracking-widest text-[10px] opacity-50">Global Response Time</h3>
-      <p className="text-gray-400 text-sm">Typical latency for support queries is 24 hours.</p>
+      <h3 className="text-white font-bold mb-2 uppercase tracking-widest text-[10px] opacity-50">
+        Direct Uplink
+      </h3>
+
+      <p className="text-purple-400 font-mono text-xl mb-6 select-all">
+        mandlandhlovu264@gmail.com
+      </p>
+
+      <h3 className="text-white font-bold mb-2 uppercase tracking-widest text-[10px] opacity-50">
+        Global Response Time
+      </h3>
+
+      <p className="text-gray-400 text-sm">
+        Typical latency for support queries is 24 hours.
+      </p>
     </div>
   </LegalLayout>
 );
 
 function AppWrapper() {
   const navigate = useNavigate();
-  const { profile, refreshAll, setProfile } = useData();
-  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const {
+    profile,
+    refreshAll,
+    setProfile,
+  } = useData();
+
+  const [
+    isTransitioning,
+    setIsTransitioning,
+  ] = useState(false);
 
   useScrollToTop();
 
+  // ============================================================
+  // GLOBAL PADDLE CHECKOUT EVENT
+  // ============================================================
+
   useEffect(() => {
-    if (window.Paddle) {
-      window.Paddle.Update({
-        eventCallback: function (data) {
-          if (data.name === "checkout.completed") {
-            if (window.Paddle.Checkout) {
-              window.Paddle.Checkout.close();
-            }
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent("paddle_payment_success", { detail: data }));
-            }, 300);
-          }
-        },
-      });
+    if (!window.Paddle?.Update) {
+      return;
     }
+
+    window.Paddle.Update({
+      eventCallback: function (data) {
+        if (data.name === "checkout.completed") {
+          if (window.Paddle.Checkout) {
+            window.Paddle.Checkout.close();
+          }
+
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("paddle_payment_success", {
+                detail: data,
+              })
+            );
+          }, 300);
+        }
+      },
+    });
   }, []);
+
+  // ============================================================
+  // AUTHENTICATION
+  // ============================================================
 
   const handleLoginSuccess = (userId, token) => {
     localStorage.setItem("adt_token", token);
+
     setIsTransitioning(true);
+
     refreshAll();
+
     setTimeout(() => {
       navigate("/dashboard/overview");
       setIsTransitioning(false);
@@ -109,57 +208,170 @@ function AppWrapper() {
   const handleLogout = () => {
     localStorage.removeItem("adt_profile");
     localStorage.removeItem("adt_token");
+
     setProfile(null);
+
     navigate("/");
   };
 
   return (
     <>
+      {/* Global verified Pro activation overlay */}
+      <SubscriptionSuccessManager />
+
+      {/* Login transition */}
       {isTransitioning && (
         <div className="fixed inset-0 z-[9999] bg-[#02010a] flex flex-col items-center justify-center">
           <div className="relative">
             <div className="absolute inset-0 blur-2xl bg-purple-500/50 animate-pulse" />
-            <FiCheckCircle size={100} className="text-purple-400 relative z-10" />
+
+            <FiCheckCircle
+              size={100}
+              className="text-purple-400 relative z-10"
+            />
           </div>
-          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-white">Success</h2>
-          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">OPENING DASHBOARD...</p>
+
+          <h2 className="text-5xl font-black mt-8 tracking-tighter uppercase italic text-white">
+            Success
+          </h2>
+
+          <p className="text-purple-500/60 font-mono text-xs mt-4 tracking-[0.5em] animate-pulse">
+            OPENING DASHBOARD...
+          </p>
         </div>
       )}
 
       <Routes>
         <Route
           path="/"
-          element={profile && !isTransitioning ? (
-            <Navigate to="/dashboard/overview" replace />
-          ) : (
-            <Landing onGetStarted={() => navigate("/login")} />
-          )}
+          element={
+            profile && !isTransitioning ? (
+              <Navigate
+                to="/dashboard/overview"
+                replace
+              />
+            ) : (
+              <Landing
+                onGetStarted={() =>
+                  navigate("/login")
+                }
+              />
+            )
+          }
         />
+
         <Route
           path="/login"
-          element={profile && !isTransitioning ? (
-            <Navigate to="/dashboard/overview" replace />
-          ) : (
-            <Login onLoginSuccess={handleLoginSuccess} />
-          )}
+          element={
+            profile && !isTransitioning ? (
+              <Navigate
+                to="/dashboard/overview"
+                replace
+              />
+            ) : (
+              <Login
+                onLoginSuccess={
+                  handleLoginSuccess
+                }
+              />
+            )
+          }
         />
+
         <Route
           path="/dashboard/*"
-          element={profile ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/" replace />}
+          element={
+            profile ? (
+              <Dashboard
+                onLogout={handleLogout}
+              />
+            ) : (
+              <Navigate
+                to="/"
+                replace
+              />
+            )
+          }
         >
-          <Route path="overview" element={<Dashboard.Overview />} />
-          <Route path="analytics" element={<Dashboard.Analytics onLogout={handleLogout} />} />
-          <Route path="integrations" element={<Dashboard.Integrations onLogout={handleLogout} />} />
-          <Route path="profile" element={<Dashboard.Profile />} />
-          {/* Preserve old Trends bookmarks without rendering the retired page. */}
-          <Route path="trends" element={<Navigate to="/dashboard/analytics" replace />} />
-          <Route index element={<Navigate replace to="overview" />} />
+          <Route
+            path="overview"
+            element={<Dashboard.Overview />}
+          />
+
+          <Route
+            path="analytics"
+            element={
+              <Dashboard.Analytics
+                onLogout={handleLogout}
+              />
+            }
+          />
+
+          <Route
+            path="integrations"
+            element={
+              <Dashboard.Integrations
+                onLogout={handleLogout}
+              />
+            }
+          />
+
+          <Route
+            path="profile"
+            element={<Dashboard.Profile />}
+          />
+
+          {/* Preserve retired Trends bookmarks */}
+          <Route
+            path="trends"
+            element={
+              <Navigate
+                to="/dashboard/analytics"
+                replace
+              />
+            }
+          />
+
+          <Route
+            index
+            element={
+              <Navigate
+                replace
+                to="overview"
+              />
+            }
+          />
         </Route>
-        <Route path="/blog" element={<Blog />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+        <Route
+          path="/blog"
+          element={<Blog />}
+        />
+
+        <Route
+          path="/privacy"
+          element={<Privacy />}
+        />
+
+        <Route
+          path="/terms"
+          element={<Terms />}
+        />
+
+        <Route
+          path="/contact"
+          element={<Contact />}
+        />
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
+        />
       </Routes>
     </>
   );
