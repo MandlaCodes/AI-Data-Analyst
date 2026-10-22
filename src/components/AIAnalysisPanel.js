@@ -839,7 +839,7 @@ const AIAnalysisPanel = ({
                             {!accessInfo?.is_pro && accessInfo?.free_analysis_available && (
                                 <div className="mt-5 inline-flex items-center gap-2 text-xs text-[#b4a5c7]">
                                     <FiCheckCircle size={13} className="text-emerald-400" />
-                                    First analysis included
+                                    FIRST ANALYSIS SESSION FREE!
                                 </div>
                             )}
                             {accessInfo?.is_pro && (
