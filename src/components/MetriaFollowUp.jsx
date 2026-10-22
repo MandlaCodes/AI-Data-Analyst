@@ -248,6 +248,43 @@ export const MetriaFollowUp = ({
         return status === 402 || code === "FREE_QUESTION_USED" || code === "SUBSCRIPTION_REQUIRED";
     };
 
+    // Reconcile Profile/Analytics checkout completion with the server-side
+    // entitlement. Only a verified webhook can activate Pro access.
+    useEffect(() => {
+        let cancelled = false;
+        const onPaymentCompleted = async () => {
+            const token = authToken || localStorage.getItem("adt_token");
+            if (!token) return;
+            setSubscriptionNotice("Verifying your subscription…");
+            for (let attempt = 0; attempt < 12 && !cancelled; attempt++) {
+                try {
+                    const response = await axios.get(`${API_BASE_URL}/ai/analysis-access`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (cancelled) return;
+                    if (response.data?.is_pro) {
+                        setShowUpgradeModal(false);
+                        setBlockedQuestion("");
+                        setSubscriptionNotice("Pro is active. You can continue using Metria.");
+                        window.dispatchEvent(new CustomEvent("metria_subscription_activated"));
+                        return;
+                    }
+                } catch (_) {
+                    // Webhook delivery or entitlement refresh may still be pending.
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            if (!cancelled) {
+                setSubscriptionNotice("Subscription activation is still processing. Please try again shortly.");
+            }
+        };
+        window.addEventListener("paddle_payment_success", onPaymentCompleted);
+        return () => {
+            cancelled = true;
+            window.removeEventListener("paddle_payment_success", onPaymentCompleted);
+        };
+    }, [authToken]);
+
     // ============================================================
     // REFS
     // ============================================================

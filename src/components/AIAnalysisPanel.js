@@ -446,47 +446,60 @@ const AIAnalysisPanel = ({
         }
     };
 
-    // Paddle checkout completion is not proof of an active subscription.
-    // Poll the authenticated backend until the verified webhook has updated it.
+    // App.js owns the Paddle callback. Listen for its global event instead
+    // of overwriting Paddle.Update from inside this panel.
     useEffect(() => {
-        if (!window.Paddle?.Update) return;
-        const onCheckoutEvent = async event => {
-            if (event.name !== "checkout.completed" || paymentPollRef.current) return;
-            window.Paddle.Checkout?.close();
+        let cancelled = false;
+        const onPaymentCompleted = async () => {
+            if (paymentPollRef.current) return;
             paymentPollRef.current = true;
             setVerifyingPayment(true);
             setAnalysisError("");
             try {
                 let verified = false;
-                for (let attempt = 0; attempt < 12; attempt++) {
+                for (let attempt = 0; attempt < 12 && !cancelled; attempt++) {
                     const token = localStorage.getItem("adt_token");
-                    const result = await axios.get(`${API_BASE_URL}/ai/analysis-access`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    setAccessInfo(result.data);
-                    if (result.data.is_pro) {
-                        verified = true;
-                        break;
+                    if (!token) break;
+                    try {
+                        const result = await axios.get(`${API_BASE_URL}/ai/analysis-access`, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        if (cancelled) return;
+                        setAccessInfo(result.data);
+                        if (result.data?.is_pro) {
+                            verified = true;
+                            break;
+                        }
+                    } catch (_) {
+                        // Retry while the Paddle webhook is being processed.
                     }
                     await new Promise(resolve => setTimeout(resolve, 2000));
                 }
+                if (cancelled) return;
                 if (verified) {
-                    const profile = JSON.parse(localStorage.getItem("adt_profile") || "{}");
-                    localStorage.setItem("adt_profile", JSON.stringify({
-                        ...profile, isPro: true, is_pro: true
-                    }));
                     setAnalysisError("Subscription activated. You can now generate another analysis.");
+                    window.dispatchEvent(new CustomEvent("metria_subscription_activated"));
                 } else {
-                    setAnalysisError("Payment received. Subscription activation is still processing. Please retry shortly.");
+                    setAnalysisError("Payment completed, but subscription activation is still processing. Please retry shortly.");
                 }
-            } catch (error) {
-                setAnalysisError("We couldn't verify your subscription yet. Please retry shortly.");
             } finally {
-                setVerifyingPayment(false);
-                paymentPollRef.current = false;
+                if (!cancelled) {
+                    setVerifyingPayment(false);
+                    paymentPollRef.current = false;
+                }
             }
         };
-        window.Paddle.Update({ eventCallback: onCheckoutEvent });
+        const refreshAccess = () => {
+            getAnalysisAccess().catch(() => {});
+        };
+        window.addEventListener("paddle_payment_success", onPaymentCompleted);
+        window.addEventListener("metria_subscription_activated", refreshAccess);
+        return () => {
+            cancelled = true;
+            window.removeEventListener("paddle_payment_success", onPaymentCompleted);
+            window.removeEventListener("metria_subscription_activated", refreshAccess);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
