@@ -586,10 +586,21 @@ const AIAnalysisPanel = ({
                     )}
                 </div>
             )}
-            {!aiInsights && accessInfo?.free_analysis_available && (
-                <p className="relative z-10 mb-6 text-center text-sm text-indigo-300">
-                    Your first AI analysis is free.
-                </p>
+            {!aiInsights && !accessInfo?.is_pro && accessInfo?.free_analysis_available && (
+                <div className="relative z-10 mb-8 flex flex-col items-center gap-2 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-purple-400/20 bg-purple-500/[0.07] px-4 py-2">
+                        <FiZap className="text-purple-300" size={12} />
+                        <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-purple-300">
+                            Complimentary Intelligence Access
+                        </span>
+                    </div>
+                    <p className="text-[13px] font-medium tracking-tight text-white/85">
+                        Your first strategic analysis is on us.
+                    </p>
+                    <p className="text-[11px] text-white/40">
+                        Discover what your data reveals.
+                    </p>
+                </div>
             )}
             <AnimatePresence mode="wait">
                 {loading ? (
