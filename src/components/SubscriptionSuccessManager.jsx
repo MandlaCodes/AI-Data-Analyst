@@ -71,7 +71,7 @@ export default function SubscriptionSuccessManager() {
         <h2 id="metria-pro-title" className="text-3xl font-black tracking-tight">Congratulations!</h2>
         <p className="mt-3 text-xl font-bold">MetriaAI Pro is now active.</p>
         <p className="mt-4 text-sm leading-6 text-zinc-400">Your payment has been verified. Unlimited Ask Metria questions are now available in Chat and Talk.</p>
-        <button type="button" onClick={() => setOpen(false)} className="mt-9 w-full rounded-2xl bg-purple-600 px-6 py-4 text-sm font-bold transition-colors hover:bg-purple-500">Start exploring Pro</button>
+        <button type="button" onClick={() => setOpen(false)} className="mt-9 w-full rounded-2xl bg-purple-600 px-6 py-4 text-sm font-bold transition-colors hover:bg-purple-500">Carry on using Metria</button>
       </div>
     </div>, document.body
   );
