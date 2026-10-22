@@ -152,7 +152,7 @@ function DetailField({ icon: Icon, label, value, field, onSave }) {
 
 export default function Profile() {
 
-  const { profile, refreshAll } = useData();
+  const { profile, refreshAll, billingStatus, billingStatusError } = useData();
 
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -299,6 +299,8 @@ export default function Profile() {
     if (openingPortal) return;
     setBillingError("");
     setOpeningPortal(true);
+    // Open synchronously to avoid popup blockers; keep MetriaAI open in this tab.
+    const portalTab = window.open("", "_blank");
     try {
       const token = localStorage.getItem("adt_token");
       if (!token) throw new Error("Please sign in again.");
@@ -309,9 +311,16 @@ export default function Profile() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Unable to open billing portal.");
       if (typeof data.url !== "string" || !data.url.startsWith("https://")) throw new Error("Invalid billing portal link.");
-      window.location.assign(data.url);
+      if (portalTab && !portalTab.closed) {
+        portalTab.location.replace(data.url);
+      } else {
+        // Popup blocked: navigate this tab instead, and reset state first.
+        window.location.assign(data.url);
+      }
     } catch (err) {
+      if (portalTab && !portalTab.closed) portalTab.close();
       setBillingError(err.message || "Unable to open billing portal.");
+    } finally {
       setOpeningPortal(false);
     }
   };
@@ -333,6 +342,13 @@ export default function Profile() {
   const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your account";
 
   const billingDate = profile.next_billing_date || profile.next_payment_date || null;
+  const activeCount = billingStatus?.active_count || 0;
+  const scheduledCount = billingStatus?.scheduled_cancel_count || 0;
+  const allScheduled = Boolean(billingStatus?.all_active_scheduled_to_cancel);
+  const accessUntil = billingStatus?.access_until;
+  const formattedEndDate = accessUntil ? new Date(accessUntil).toLocaleDateString(undefined, {
+    year: "numeric", month: "long", day: "numeric"
+  }) : null;
 
   
 
@@ -412,26 +428,33 @@ export default function Profile() {
 
                 <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${isPro ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-zinc-300"}`}>
 
-                  {isPro ? "Pro · Active" : "Free plan"}
+                  {isPro ? (allScheduled ? "Cancellation scheduled" : "Pro · Active") : "Free plan"}
 
                 </span>
 
               </div>
 
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{isPro ? "Your Pro plan is active" : "Unlock MetriaAI Pro"}</h2>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">{isPro ? (allScheduled ? "Your Pro access remains active" : "Your Pro plan is active") : "Unlock MetriaAI Pro"}</h2>
 
               <p className="text-zinc-400 text-sm leading-relaxed">
 
-                {isPro ? "Continue exploring your business data with unlimited Ask Metria questions." : "Get unlimited Ask Metria questions across Chat and Talk, and keep exploring your business data."}
+                {isPro ? (allScheduled ? `Your plan will not renew. You can keep using Pro until ${formattedEndDate || "your current paid period ends"}.` : "Continue exploring your business data with unlimited Ask Metria questions.") : "Get unlimited Ask Metria questions across Chat and Talk, and keep exploring your business data."}
 
               </p>
 
-              {isPro && billingDate && (
+              {isPro && !allScheduled && billingDate && (
 
                 <p className="flex items-center gap-2 text-xs text-zinc-300"><CalendarDays size={14} /> Next billing: {new Date(billingDate).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</p>
 
               )}
 
+              {isPro && allScheduled && formattedEndDate && (
+                <p className="flex items-center gap-2 text-xs text-amber-200"><CalendarDays size={14} /> Access until {formattedEndDate} · Auto-renewal off</p>
+              )}
+              {isPro && scheduledCount > 0 && !allScheduled && (
+                <p className="flex items-center gap-2 text-xs text-amber-200"><CalendarDays size={14} /> {scheduledCount} of {activeCount} active subscriptions scheduled to cancel. Your other subscriptions still renew.</p>
+              )}
+              {isPro && billingStatusError && <p className="text-xs text-zinc-400">{billingStatusError}</p>}
               {!isPro && <p className="text-2xl font-bold">$89 <span className="text-sm font-medium text-zinc-400">/ month</span></p>}
 
             </div>
