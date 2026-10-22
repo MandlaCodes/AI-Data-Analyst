@@ -530,8 +530,8 @@ const AIAnalysisPanel = ({
         >
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
-            {/* Header Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-8 relative z-10">
+            {/* Header Area: shown for active analysis or existing results only */}
+            {(loading || aiInsights) && <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-8 relative z-10">
                 <div className="flex items-center gap-6">
                     <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner">
                         <FiCpu className="text-indigo-400 w-8 h-8" />
@@ -593,7 +593,7 @@ const AIAnalysisPanel = ({
                         </button>
                     </div>
                 )}
-            </div>
+            </div>}
 
             {(analysisError || verifyingPayment) && (
                 <div role="status" className="relative z-10 mb-8 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-6 py-4 text-sm text-white">
@@ -786,44 +786,45 @@ const AIAnalysisPanel = ({
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35 }}
-                        className="relative z-10 overflow-hidden rounded-[28px] border border-purple-400/20 bg-gradient-to-br from-[#171022] via-[#0e0b16] to-[#08070d] px-6 py-8 md:px-10 md:py-9 shadow-[0_18px_65px_rgba(0,0,0,0.3)]"
+                        aria-label="Generate your strategic brief"
+                        className="relative z-10 mx-auto w-full max-w-[560px] overflow-hidden rounded-[28px] border border-purple-400/25 bg-[#0c0715] px-6 py-8 text-center shadow-[0_20px_70px_rgba(0,0,0,0.38)] md:px-10 md:py-10"
                     >
-                        <div className="absolute -right-12 -top-24 h-64 w-64 rounded-full bg-purple-600/10 blur-3xl pointer-events-none" />
-                        <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                            <div className="max-w-xl">
-                                {!accessInfo?.is_pro && accessInfo?.free_analysis_available && (
-                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-purple-400/20 bg-purple-500/10 px-3 py-1.5">
-                                        <FiZap className="text-purple-300" size={12} />
-                                        <span className="text-[10px] font-semibold tracking-[0.13em] uppercase text-purple-200">
-                                            First analysis included
-                                        </span>
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-purple-400/20 bg-purple-500/10">
-                                        <FiCpu className="text-purple-300" size={19} />
-                                    </div>
-                                    <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-purple-300/80">
-                                        Intelligence workspace
-                                    </span>
-                                </div>
-                                <h3 className="text-xl md:text-2xl font-bold tracking-tight text-white">
-                                    Turn your data into decisions.
-                                </h3>
-                                <p className="mt-2 text-sm leading-relaxed text-white/50">
-                                    Generate an executive brief with key findings, risks and recommended next steps.
-                                </p>
+                        <div className="pointer-events-none absolute inset-x-10 top-0 h-32 rounded-full bg-purple-600/10 blur-3xl" />
+                        <div className="relative flex flex-col items-center">
+                            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-400/20 bg-[#211032] shadow-[0_0_35px_rgba(168,85,247,0.12)]">
+                                <FiZap size={25} className="text-purple-200" />
                             </div>
+                            <span className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-purple-300">
+                                Metria Intelligence Engine
+                            </span>
+                            <h3 className="text-[23px] font-bold tracking-tight text-white md:text-[27px]">
+                                Ready to uncover what matters?
+                            </h3>
+                            <p className="mt-3 max-w-[390px] text-[13px] leading-relaxed text-[#a8a0b4]">
+                                Turn your dataset into actionable insights and a strategic brief.
+                            </p>
                             <button
                                 type="button"
                                 onClick={runAnalysis}
                                 disabled={loading || verifyingPayment || datasets.length === 0}
-                                className="group inline-flex w-full md:w-auto shrink-0 items-center justify-center gap-3 rounded-2xl border border-purple-300/30 bg-gradient-to-r from-violet-600 to-fuchsia-600 px-7 py-4 text-sm font-bold text-white shadow-[0_10px_35px_rgba(147,51,234,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-[0_14px_40px_rgba(147,51,234,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="group mt-7 inline-flex w-full max-w-[320px] items-center justify-center gap-3 rounded-xl border border-purple-300/25 bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-4 text-[13px] font-bold text-white shadow-[0_10px_35px_rgba(147,51,234,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-[0_14px_40px_rgba(147,51,234,0.4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <FiZap size={16} />
-                                Generate strategic brief
+                                Generate Strategic Brief
                                 <FiArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
                             </button>
+                            {!accessInfo?.is_pro && accessInfo?.free_analysis_available && (
+                                <div className="mt-5 inline-flex items-center gap-2 text-xs text-[#b4a5c7]">
+                                    <FiCheckCircle size={13} className="text-emerald-400" />
+                                    FIRST ANALYSIS FREE!
+                                </div>
+                            )}
+                            {accessInfo?.is_pro && (
+                                <div className="mt-5 inline-flex items-center gap-2 text-xs text-[#b4a5c7]">
+                                    <FiCheckCircle size={13} className="text-emerald-400" />
+                                    MetriaAI Pro active
+                                </div>
+                            )}
                         </div>
                     </motion.section>
                 )}
