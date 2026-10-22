@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, X, Sparkles } from "lucide-react";
-import { useData } from "../../contexts/DataContext";
+import { useData } from "../contexts/DataContext";
 
 const API_URL = "https://ai-data-analyst-backend-1nuw.onrender.com";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
