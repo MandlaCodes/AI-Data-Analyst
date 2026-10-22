@@ -213,6 +213,29 @@ const AIAnalysisPanel = ({
         }
     }, [activeDataset, activeDatasetIndex, aiInsights, loading]);
 
+    // Focus the ready-state CTA and temporarily prevent unnecessary page scrolling.
+    // Keep smaller screens scrollable so the action is never clipped.
+    useEffect(() => {
+        if (loading || aiInsights || !activeDataset) return;
+        if (!window.matchMedia('(min-width: 1024px)').matches) return;
+
+        const timer = window.setTimeout(() => {
+            actionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 120);
+        const lockTimer = window.setTimeout(() => {
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+        }, 550);
+        const previousHtmlOverflow = document.documentElement.style.overflow;
+        const previousBodyOverflow = document.body.style.overflow;
+        return () => {
+            window.clearTimeout(timer);
+            window.clearTimeout(lockTimer);
+            document.documentElement.style.overflow = previousHtmlOverflow;
+            document.body.style.overflow = previousBodyOverflow;
+        };
+    }, [loading, aiInsights, activeDataset]);
+
     // Loading phase step descriptions
     const phases = useMemo(() => {
         if (isCrossAnalysis) {
@@ -526,7 +549,7 @@ const AIAnalysisPanel = ({
     return (
         <div
             ref={panelRef}
-            className="relative overflow-hidden px-5 py-7 md:px-10 md:py-10 transition-all duration-700"
+            className={`relative overflow-hidden transition-all duration-700 ${!loading && !aiInsights ? "px-3 py-3 md:px-5 md:py-4" : "px-5 py-7 md:px-10 md:py-10"}`}
         >
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[140px] rounded-full pointer-events-none" />
 
@@ -787,7 +810,7 @@ const AIAnalysisPanel = ({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35 }}
                         aria-label="Generate your strategic brief"
-                        className="relative z-10 mx-auto w-full max-w-[560px] overflow-hidden rounded-[28px] border border-purple-400/25 bg-[#0c0715] px-6 py-8 text-center shadow-[0_20px_70px_rgba(0,0,0,0.38)] md:px-10 md:py-10"
+                        className="relative z-10 mx-auto w-full max-w-[1120px] overflow-hidden rounded-[28px] border border-purple-400/25 bg-[#0c0715] px-6 py-7 text-center shadow-[0_20px_70px_rgba(0,0,0,0.38)] md:px-12 md:py-9"
                     >
                         <div className="pointer-events-none absolute inset-x-10 top-0 h-32 rounded-full bg-purple-600/10 blur-3xl" />
                         <div className="relative flex flex-col items-center">
@@ -800,14 +823,14 @@ const AIAnalysisPanel = ({
                             <h3 className="text-[23px] font-bold tracking-tight text-white md:text-[27px]">
                                 Ready to uncover what matters?
                             </h3>
-                            <p className="mt-3 max-w-[390px] text-[13px] leading-relaxed text-[#a8a0b4]">
+                            <p className="mt-3 max-w-[640px] text-[13px] leading-relaxed text-[#a8a0b4]">
                                 Turn your dataset into actionable insights and a strategic brief.
                             </p>
                             <button
                                 type="button"
                                 onClick={runAnalysis}
                                 disabled={loading || verifyingPayment || datasets.length === 0}
-                                className="group mt-7 inline-flex w-full max-w-[320px] items-center justify-center gap-3 rounded-xl border border-purple-300/25 bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-4 text-[13px] font-bold text-white shadow-[0_10px_35px_rgba(147,51,234,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-[0_14px_40px_rgba(147,51,234,0.4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="group mt-6 inline-flex w-full max-w-[420px] items-center justify-center gap-3 rounded-xl border border-purple-300/25 bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-4 text-[13px] font-bold text-white shadow-[0_10px_35px_rgba(147,51,234,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-[0_14px_40px_rgba(147,51,234,0.4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <FiZap size={16} />
                                 Generate Strategic Brief
@@ -816,7 +839,7 @@ const AIAnalysisPanel = ({
                             {!accessInfo?.is_pro && accessInfo?.free_analysis_available && (
                                 <div className="mt-5 inline-flex items-center gap-2 text-xs text-[#b4a5c7]">
                                     <FiCheckCircle size={13} className="text-emerald-400" />
-                                    FIRST ANALYSIS FREE!
+                                    First analysis included
                                 </div>
                             )}
                             {accessInfo?.is_pro && (
